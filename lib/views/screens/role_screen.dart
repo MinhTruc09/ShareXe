@@ -24,18 +24,20 @@ class RoleScreen extends StatelessWidget {
             ),
             const SizedBox(height: 100),
             CustomButton(
-              text: "Dùng cho tài xế",
-              backgroundColor: Color(0xFF002D72),
-              textColor: Colors.white,
-              onPressed: () {},
-            ),
-            const SizedBox(height: 28),
-            CustomButton(
-              text: "Dùng cho khách hàng",
-              backgroundColor: Color(0xFFFFEB3B),
+              text: 'Dùng cho khách hàng',
+              backgroundColor: const Color(0xFFFFD600),
               textColor: Colors.black,
               onPressed: () {
                 Navigator.pushNamed(context, AppRoute.splashPassenger);
+              },
+            ),
+            const SizedBox(height: 20),
+            CustomButton(
+              text: 'Dùng cho tài xế',
+              backgroundColor: const Color(0xFF003087),
+              textColor:  Colors.white,
+              onPressed: () {
+                Navigator.pushNamed(context, AppRoute.splashDriver);
               },
             ),
           ],

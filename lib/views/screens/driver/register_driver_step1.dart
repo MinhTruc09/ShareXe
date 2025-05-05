@@ -1,67 +1,60 @@
 import 'package:flutter/material.dart';
-import 'package:sharexe/controllers/login_controller.dart';
-import 'package:sharexe/services/auth_service.dart';
+import 'package:sharexe/models/registration_data.dart';
 import 'package:sharexe/views/widgets/sharexe_background1.dart';
-import 'package:sharexe/views/widgets/login_form_container.dart';
+import 'package:sharexe/views/widgets/register_form_step1.dart';
 import 'package:sharexe/app_route.dart';
+import 'package:sharexe/views/widgets/sharexe_background2.dart';
 
-class LoginPassenger extends StatefulWidget {
-  const LoginPassenger({super.key});
+class RegisterDriverStep1 extends StatefulWidget {
+  final Function(RegistrationData) onNext;
+
+  const RegisterDriverStep1({super.key, required this.onNext});
 
   @override
-  State<LoginPassenger> createState() => _LoginPassengerState();
+  State<RegisterDriverStep1> createState() => _RegisterDriverStep1State();
 }
 
-class _LoginPassengerState extends State<LoginPassenger> {
+class _RegisterDriverStep1State extends State<RegisterDriverStep1> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  final _fullNameController = TextEditingController();
+  final _phoneController = TextEditingController();
   String _errorMessage = '';
-  late LoginController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = LoginController(AuthService());
-  }
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    _fullNameController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
-  void _setError(String message) {
-    setState(() {
-      _errorMessage = message;
-    });
-  }
-
-  Future<void> _login() async {
+  void _submit() {
     if (_formKey.currentState!.validate()) {
-      await _controller.login(
-        context,
-        _emailController.text.trim(),
-        _passwordController.text.trim(),
-        _setError,
+      final data = RegistrationData(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+        fullName: _fullNameController.text.trim(),
+        phone: _phoneController.text.trim(),
       );
-      setState(() {
-        _errorMessage = _controller.isLoading ? 'Loading...' : _errorMessage;
-      });
+      widget.onNext(data);
     }
   }
 
-  void _navigateToRegister() {
-    Navigator.pushNamed(context, AppRoute.registerPassengerStep1);
+  void _navigateToLogin() {
+    Navigator.pushNamed(context, AppRoute.loginDriver);
   }
 
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
-
-    return SharexeBackground1(
+    
+    return SharexeBackground2(
       child: SafeArea(
         child: SingleChildScrollView(
           padding: EdgeInsets.symmetric(
@@ -75,28 +68,26 @@ class _LoginPassengerState extends State<LoginPassenger> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Image.asset(
-                    'assets/images/passlogo1.png',
-                    width: screenWidth * 0.7,
-                    fit: BoxFit.contain,
-                  ),
-                  SizedBox(height: screenHeight * 0.01),
                   Text(
-                    'Xin chào bạn, vui lòng đăng nhập',
+                    'Đăng ký tài khoản tài xế',
                     style: TextStyle(
-                      fontSize: screenWidth * 0.045,
+                      fontSize: screenWidth * 0.06,
                       fontWeight: FontWeight.bold,
+                      color: Colors.white,
                     ),
+                    textAlign: TextAlign.center,
                   ),
                   SizedBox(height: screenHeight * 0.04),
-                  LoginFormContainer(
+                  RegisterFormStep1(
                     formKey: _formKey,
                     emailController: _emailController,
+                    fullNameController: _fullNameController,
                     passwordController: _passwordController,
+                    confirmPasswordController: _confirmPasswordController,
+                    phoneController: _phoneController,
                     errorMessage: _errorMessage,
-                    isLoading: _controller.isLoading,
-                    onLogin: _login,
-                    onRegister: _navigateToRegister,
+                    onContinue: _submit,
+                    onLogin: _navigateToLogin,
                   ),
                 ],
               ),
@@ -106,4 +97,4 @@ class _LoginPassengerState extends State<LoginPassenger> {
       ),
     );
   }
-}
+} 
