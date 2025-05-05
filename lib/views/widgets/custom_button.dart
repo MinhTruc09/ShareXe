@@ -5,6 +5,8 @@ class CustomButton extends StatelessWidget {
   final Color backgroundColor;
   final Color textColor;
   final VoidCallback onPressed;
+  final double? width; // Thêm width tùy chọn
+  final EdgeInsetsGeometry? padding; // Thêm padding tùy chọn
 
   const CustomButton({
     super.key,
@@ -12,12 +14,14 @@ class CustomButton extends StatelessWidget {
     required this.backgroundColor,
     required this.textColor,
     required this.onPressed,
+    this.width,
+    this.padding,
   });
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: double.infinity,
+      width: width ?? double.infinity, // Sử dụng width nếu có, nếu không thì full width
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
@@ -28,7 +32,7 @@ class CustomButton extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),
           ),
-          padding: const EdgeInsets.symmetric(vertical: 22),
+          padding: padding ?? const EdgeInsets.symmetric(vertical: 22), // Sử dụng padding nếu có
         ),
         child: Text(
           text,
@@ -48,4 +52,4 @@ class CustomButton extends StatelessWidget {
       ),
     );
   }
-} 
+}

@@ -1,29 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:sharexe/app_route.dart';
 import 'package:sharexe/controllers/login_controller.dart';
 import 'package:sharexe/services/auth_service.dart';
+import 'package:sharexe/views/widgets/login_form_container1.dart';
 import 'package:sharexe/views/widgets/sharexe_background1.dart';
 import 'package:sharexe/views/widgets/login_form_container.dart';
-import 'package:sharexe/app_route.dart';
+import 'package:sharexe/views/widgets/sharexe_background2.dart';
 
-class LoginPassenger extends StatefulWidget {
-  const LoginPassenger({super.key});
+class LoginDriver extends StatefulWidget {
+  const LoginDriver({super.key});
 
   @override
-  State<LoginPassenger> createState() => _LoginPassengerState();
+  State<LoginDriver> createState() => _LoginDriverState();
 }
 
-class _LoginPassengerState extends State<LoginPassenger> {
+class _LoginDriverState extends State<LoginDriver> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _controller = LoginController(AuthService());
+  
   String _errorMessage = '';
-  late LoginController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = LoginController(AuthService());
-  }
 
   @override
   void dispose() {
@@ -38,22 +35,31 @@ class _LoginPassengerState extends State<LoginPassenger> {
     });
   }
 
-  Future<void> _login() async {
+  void _login() {
     if (_formKey.currentState!.validate()) {
-      await _controller.login(
-        context,
-        _emailController.text.trim(),
-        _passwordController.text.trim(),
-        _setError,
-      );
       setState(() {
-        _errorMessage = _controller.isLoading ? 'Loading...' : _errorMessage;
+        _errorMessage = '';
       });
+
+      try {
+        _controller.login(
+          context,
+          _emailController.text.trim(),
+          _passwordController.text,
+          _setError,
+          role: 'DRIVER',
+        );
+      } catch (e) {
+        _setError('Lỗi kết nối: $e');
+      }
     }
   }
 
   void _navigateToRegister() {
-    Navigator.pushNamed(context, AppRoute.registerPassengerStep1);
+    Navigator.pushReplacementNamed(
+      context,
+      AppRoute.registerDriverStep1,
+    );
   }
 
   @override
@@ -61,7 +67,7 @@ class _LoginPassengerState extends State<LoginPassenger> {
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
 
-    return SharexeBackground1(
+    return SharexeBackground2(
       child: SafeArea(
         child: SingleChildScrollView(
           padding: EdgeInsets.symmetric(
@@ -76,20 +82,20 @@ class _LoginPassengerState extends State<LoginPassenger> {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Image.asset(
-                    'assets/images/passlogo1.png',
-                    width: screenWidth * 0.7,
+                    'assets/images/drilogo1.png',
+                    width: screenWidth * 0.5,
                     fit: BoxFit.contain,
                   ),
                   SizedBox(height: screenHeight * 0.01),
                   Text(
-                    'Xin chào bạn, vui lòng đăng nhập',
+                    'Xin chào tài xế, vui lòng đăng nhập',
                     style: TextStyle(
                       fontSize: screenWidth * 0.045,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   SizedBox(height: screenHeight * 0.04),
-                  LoginFormContainer(
+                  LoginFormContainer1(
                     formKey: _formKey,
                     emailController: _emailController,
                     passwordController: _passwordController,
@@ -106,4 +112,4 @@ class _LoginPassengerState extends State<LoginPassenger> {
       ),
     );
   }
-}
+} 
