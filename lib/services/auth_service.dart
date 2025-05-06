@@ -4,10 +4,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
 import '../models/passenger.dart';
 import '../models/driver.dart';
+import 'auth_manager.dart';
 
 class AuthService {
   // API endpoints
-  final String baseUrl = '7f98-2402-800-638e-7c36-10d6-3dae-78cb-8980.ngrok-free.app/api';
+  final String baseUrl = 'https://e888-2402-800-6318-7ea8-e9f3-483b-bf46-df23.ngrok-free.app/api';
+  final AuthManager _authManager = AuthManager();
 
   Future<Passenger> login(String email, String password, String role) async {
     try {
@@ -23,12 +25,21 @@ class AuthService {
 
       if (response.statusCode == 200) {
         final jsonResponse = jsonDecode(response.body);
-        await saveCredentials(
-          jsonResponse['data']['token'], 
-          email, 
-          role
-        );
-        return Passenger.fromJson(jsonResponse);
+        final parsed = Passenger.fromJson(jsonResponse);
+        
+        // Extract token data
+        if (parsed.success && parsed.data != null) {
+          final token = parsed.data!.token;
+          final userEmail = parsed.data!.email;
+          final userRole = parsed.data!.role;
+          
+          if (token != null && userEmail != null && userRole != null) {
+            // Save auth data using AuthManager
+            await _authManager.saveAuthData(token, userEmail, userRole);
+          }
+        }
+        
+        return parsed;
       } else {
         return Passenger(
           success: false,
@@ -195,8 +206,7 @@ class AuthService {
 
   // Lấy thông tin driver từ server
   Future<Driver?> getDriverProfile() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+    final token = await _authManager.getToken();
     
     if (token == null) return null;
     
@@ -222,8 +232,7 @@ class AuthService {
 
   // Cập nhật trạng thái của tài xế (hoạt động/ngừng hoạt động)
   Future<bool> updateDriverStatus(bool isActive) async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+    final token = await _authManager.getToken();
     
     if (token == null) return false;
     
@@ -247,8 +256,7 @@ class AuthService {
   
   // Cập nhật vị trí của tài xế
   Future<bool> updateDriverLocation(double lat, double lng) async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+    final token = await _authManager.getToken();
     
     if (token == null) return false;
     
@@ -271,31 +279,24 @@ class AuthService {
     }
   }
 
-  Future<void> saveCredentials(String token, String email, String role) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('token', token);
-    await prefs.setString('email', email);
-    await prefs.setString('role', role);
+  // Check if user is currently logged in
+  Future<bool> isLoggedIn() async {
+    return await _authManager.validateSession();
   }
-
-  Future<void> clearCredentials() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('token');
-    await prefs.remove('email');
-    await prefs.remove('role');
+  
+  // Get current user's role
+  Future<String?> getCurrentUserRole() async {
+    return await _authManager.getUserRole();
   }
-
-  // Đăng xuất người dùng
-  Future<bool> logout() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('token');
-      await prefs.remove('email');
-      await prefs.remove('role');
-      return true;
-    } catch (e) {
-      throw Exception('Failed to logout: $e');
-    }
+  
+  // Get JWT token for API requests
+  Future<String?> getAuthToken() async {
+    return await _authManager.getToken();
+  }
+  
+  // Sign out user
+  Future<void> logout() async {
+    await _authManager.logout();
   }
 
   // Lấy thông tin người dùng chung

@@ -12,6 +12,7 @@ import 'views/screens/driver/home_dscreen.dart';
 import 'views/screens/driver/register_driver_step1.dart';
 import 'views/screens/driver/register_driver_step2.dart';
 import 'models/registration_data.dart';
+import 'views/screens/ride_details.dart';
 
 class AppRoute {
   static const String splash = '/';
@@ -23,6 +24,7 @@ class AppRoute {
   static const String homePassenger = '/home_passenger';
   static const String registerPassengerStep1 = '/register_passenger_step1';
   static const String registerUserStep2 = '/register_user_step2';
+  static const String rideDetails = '/ride_details';
   
   // Driver routes
   static const String splashDriver = '/splash_driver';
@@ -63,6 +65,12 @@ class AppRoute {
             role: 'PASSENGER',
             data: data,
           ),
+        );
+      
+      case rideDetails:
+        final ride = settings.arguments;
+        return MaterialPageRoute(
+          builder: (context) => RideDetailScreen(ride: ride),
         );
       
       // Driver routes

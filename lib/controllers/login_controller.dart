@@ -27,11 +27,8 @@ class LoginController {
           onError('Dữ liệu trả về không đầy đủ');
           return;
         }
-        await service.saveCredentials(
-          data.token!,
-          data.email!,
-          data.role!,
-        );
+        
+        // Token is already saved in AuthService.login
         
         // Điều hướng dựa vào vai trò
         if (data.role!.toUpperCase() == 'DRIVER') {

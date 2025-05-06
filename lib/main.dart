@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'views/theme/app_theme.dart';
 import 'app_route.dart';
+import 'utils/token_tester.dart';
 
 void main() {
+  // For testing JWT parsing
+  // TokenTester.runTest();
+  
   runApp(const MyApp());
 }
 
