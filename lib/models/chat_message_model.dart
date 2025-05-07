@@ -1,76 +1,45 @@
-class ChatMessageModel {
-  final int? id;
-  final String? senderEmail;
-  final String? receiverEmail;
-  final String? senderName;
-  final String content;
-  final String roomId;
+class ChatMessage {
+  final int id;
+  final String senderId;
+  final String receiverId;
+  final String message;
+  final String messageType; // text, image, etc.
   final DateTime timestamp;
-  final bool read;
-  final String? status; // 'sending', 'sent', 'delivered', 'read', 'failed'
+  final bool isRead;
 
-  ChatMessageModel({
-    this.id,
-    this.senderEmail,
-    this.receiverEmail,
-    this.senderName,
-    required this.content,
-    required this.roomId,
+  ChatMessage({
+    required this.id,
+    required this.senderId,
+    required this.receiverId,
+    required this.message,
+    required this.messageType,
     required this.timestamp,
-    required this.read,
-    this.status,
+    required this.isRead,
   });
 
-  factory ChatMessageModel.fromJson(Map<String, dynamic> json) {
-    return ChatMessageModel(
-      id: json['id'],
-      senderEmail: json['senderEmail'],
-      receiverEmail: json['receiverEmail'],
-      senderName: json['senderName'],
-      content: json['content'],
-      roomId: json['roomId'],
-      timestamp: DateTime.parse(json['timestamp']),
-      read: json['read'] ?? false,
-      status: json['status'],
+  factory ChatMessage.fromJson(Map<String, dynamic> json) {
+    return ChatMessage(
+      id: json['id'] ?? 0,
+      senderId: json['senderId'] ?? '',
+      receiverId: json['receiverId'] ?? '',
+      message: json['message'] ?? '',
+      messageType: json['messageType'] ?? 'text',
+      timestamp: json['timestamp'] != null 
+          ? DateTime.parse(json['timestamp']) 
+          : DateTime.now(),
+      isRead: json['isRead'] ?? false,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'senderEmail': senderEmail,
-      'receiverEmail': receiverEmail,
-      'senderName': senderName,
-      'content': content,
-      'roomId': roomId,
+      'senderId': senderId,
+      'receiverId': receiverId,
+      'message': message,
+      'messageType': messageType,
       'timestamp': timestamp.toIso8601String(),
-      'read': read,
-      'status': status,
+      'isRead': isRead,
     };
-  }
-
-  // Phương thức để tạo một bản sao với một số thuộc tính được cập nhật
-  ChatMessageModel copyWith({
-    int? id,
-    String? senderEmail,
-    String? receiverEmail,
-    String? senderName,
-    String? content,
-    String? roomId,
-    DateTime? timestamp,
-    bool? read,
-    String? status,
-  }) {
-    return ChatMessageModel(
-      id: id ?? this.id,
-      senderEmail: senderEmail ?? this.senderEmail,
-      receiverEmail: receiverEmail ?? this.receiverEmail,
-      senderName: senderName ?? this.senderName,
-      content: content ?? this.content,
-      roomId: roomId ?? this.roomId,
-      timestamp: timestamp ?? this.timestamp,
-      read: read ?? this.read,
-      status: status ?? this.status,
-    );
   }
 }

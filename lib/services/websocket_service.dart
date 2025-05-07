@@ -1,138 +1,129 @@
 import 'dart:convert';
-import 'package:stomp_dart_client/stomp_dart_client.dart';
-import '../models/notification_model.dart';
-import '../models/chat_message_model.dart';
 import 'package:flutter/foundation.dart';
-import '../utils/app_config.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:web_socket_channel/io.dart';
+import '../models/chat_message_model.dart';
 
 class WebSocketService {
   static final WebSocketService _instance = WebSocketService._internal();
   factory WebSocketService() => _instance;
   WebSocketService._internal();
 
-  StompClient? _stompClient;
-  Function(NotificationModel)? onNotificationReceived;
-  Function(ChatMessageModel)? onChatMessageReceived;
+  WebSocketChannel? _channel;
+  bool _isConnected = false;
   String? _userEmail;
-  final AppConfig _appConfig = AppConfig();
 
-  void initialize(String serverUrl, String token, String userEmail) {
-    _userEmail = userEmail;
+  // Callback for new messages
+  Function(ChatMessage)? onChatMessageReceived;
 
-    if (serverUrl.isNotEmpty) {
-      _appConfig.updateBaseUrl(serverUrl);
-    }
-
-    if (_stompClient != null && _stompClient!.connected) {
-      disconnect();
-    }
-
-    _stompClient = StompClient(
-      config: StompConfig(
-        url: _appConfig.webSocketUrl,
-        onConnect: _onConnect,
-        onDisconnect: (_) {
-          if (kDebugMode) {
-            print('WebSocket disconnected');
-          }
-        },
-        onWebSocketError: (error) {
-          if (kDebugMode) {
-            print('WebSocket error: $error');
-          }
-        },
-        stompConnectHeaders: {'Authorization': 'Bearer $token'},
-        webSocketConnectHeaders: {'Authorization': 'Bearer $token'},
-      ),
-    );
-
-    _stompClient!.activate();
-  }
-
-  void _onConnect(StompFrame frame) {
-    if (kDebugMode) {
-      print('WebSocket connected');
-    }
-
-    // 1. Đăng ký nhận thông báo
-    _stompClient!.subscribe(
-      destination: '/topic/notifications/$_userEmail',
-      callback: (frame) {
-        if (frame.body != null) {
-          try {
-            final notification = NotificationModel.fromJson(
-              json.decode(frame.body!),
-            );
-            if (onNotificationReceived != null) {
-              onNotificationReceived!(notification);
-            }
-          } catch (e) {
-            if (kDebugMode) {
-              print('Error parsing notification: $e');
-            }
-          }
-        }
-      },
-    );
-
-    // 2. Đăng ký nhận tin nhắn chat
-    _stompClient!.subscribe(
-      destination: '/topic/chat/$_userEmail',
-      callback: (frame) {
-        if (frame.body != null) {
-          try {
-            final chatMessage = ChatMessageModel.fromJson(
-              json.decode(frame.body!),
-            );
-            if (onChatMessageReceived != null) {
-              onChatMessageReceived!(chatMessage);
-            }
-          } catch (e) {
-            if (kDebugMode) {
-              print('Error parsing chat message: $e');
-            }
-          }
-        }
-      },
-    );
-  }
-
-  bool isConnected() {
-    return _stompClient?.connected ?? false;
-  }
-
-  void sendChatMessage(String roomId, String receiverEmail, String content) {
-    if (_stompClient?.connected != true) {
-      if (kDebugMode) {
-        print('WebSocket not connected. Cannot send message.');
-      }
+  // Initialize WebSocket connection
+  void initialize(String baseUrl, String token, String userEmail) {
+    if (_isConnected) {
+      // Already connected
       return;
     }
 
-    final message = {
-      'senderEmail': _userEmail,
-      'receiverEmail': receiverEmail,
-      'content': content,
-      'roomId': roomId,
-      'timestamp': DateTime.now().toIso8601String(),
-      'token':
-          _stompClient!.config.stompConnectHeaders?['Authorization']
-              ?.replaceAll('Bearer ', '') ??
-          '',
-    };
+    _userEmail = userEmail;
 
-    if (kDebugMode) {
-      print('Sending message via WebSocket to /app/chat/$roomId');
-      print('Message: ${json.encode(message)}');
+    try {
+      // Convert http to ws protocol
+      final uri = baseUrl.replaceFirst('http', 'ws');
+      final wsUrl = '$uri/ws/chat?token=$token';
+
+      if (kDebugMode) {
+        print('🔌 Connecting to WebSocket: $wsUrl');
+      }
+
+      _channel = IOWebSocketChannel.connect(wsUrl);
+      _isConnected = true;
+
+      _channel!.stream.listen(
+        (dynamic message) {
+          _handleMessage(message);
+        },
+        onDone: _onConnectionClosed,
+        onError: _onError,
+      );
+
+      if (kDebugMode) {
+        print('✅ WebSocket connected successfully');
+      }
+    } catch (e) {
+      _isConnected = false;
+      if (kDebugMode) {
+        print('❌ WebSocket connection error: $e');
+      }
     }
-
-    _stompClient!.send(
-      destination: '/app/chat/$roomId',
-      body: json.encode(message),
-    );
   }
 
-  void disconnect() {
-    _stompClient?.deactivate();
+  // Handle incoming WebSocket messages
+  void _handleMessage(dynamic message) {
+    try {
+      if (message is String) {
+        final data = jsonDecode(message);
+        
+        if (data['type'] == 'chat_message') {
+          final chatMessage = ChatMessage.fromJson(data['data']);
+          
+          if (onChatMessageReceived != null) {
+            onChatMessageReceived!(chatMessage);
+          }
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error parsing WebSocket message: $e');
+      }
+    }
+  }
+
+  // Handle WebSocket connection closed
+  void _onConnectionClosed() {
+    _isConnected = false;
+    if (kDebugMode) {
+      print('🔌 WebSocket connection closed');
+    }
+    // You could implement reconnection logic here
+  }
+
+  // Handle WebSocket errors
+  void _onError(error) {
+    _isConnected = false;
+    if (kDebugMode) {
+      print('❌ WebSocket error: $error');
+    }
+    // Handle error as needed
+  }
+
+  // Check if connected
+  bool isConnected() {
+    return _isConnected;
+  }
+
+  // Close WebSocket connection
+  void close() {
+    if (_channel != null) {
+      _channel!.sink.close();
+      _isConnected = false;
+    }
+  }
+
+  // Send a message through WebSocket
+  void sendChatMessage(String roomId, String receiverId, String message) {
+    if (!_isConnected || _channel == null) {
+      throw Exception('WebSocket is not connected');
+    }
+
+    final messageData = {
+      'type': 'chat_message',
+      'data': {
+        'roomId': roomId,
+        'receiverId': receiverId,
+        'message': message,
+        'messageType': 'text',
+      },
+    };
+
+    _channel!.sink.add(jsonEncode(messageData));
   }
 }

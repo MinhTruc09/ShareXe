@@ -9,9 +9,16 @@ import 'package:sharexe/services/booking_service.dart';
 import 'package:intl/intl.dart';
 import '../../../services/profile_service.dart';
 import '../../../models/user_profile.dart';
+import '../../../models/driver_profile.dart';
 import '../../../models/notification_model.dart';
 import '../../../services/auth_manager.dart';
+import '../../../services/driver_profile_service.dart';
 import 'package:flutter/foundation.dart';
+import '../../../services/ride_service.dart';
+import '../../../models/ride.dart';
+import 'post_ride_screen.dart';
+import '../chat/chat_list_screen.dart';
+import 'profile_screen.dart';
 
 class HomeDscreen extends StatefulWidget {
   const HomeDscreen({super.key});
@@ -26,10 +33,14 @@ class _HomeDscreenState extends State<HomeDscreen> {
   final BookingService _bookingService = BookingService();
   final ProfileService _profileService = ProfileService();
   final AuthManager _authManager = AuthManager();
+  final RideService _rideService = RideService();
+  final DriverProfileService _driverProfileService = DriverProfileService();
 
   List<Booking> _pendingBookings = [];
+  List<Ride> _myRides = [];
   bool _isLoading = false;
-  UserProfile? _userProfile;
+  DriverProfile? _driverProfile;
+  int _currentIndex = 0;
 
   @override
   void initState() {
@@ -37,19 +48,56 @@ class _HomeDscreenState extends State<HomeDscreen> {
     _authController = AuthController(AuthService());
     _loadPendingBookings();
     _loadUserProfile();
+    _loadMyRides();
   }
 
   Future<void> _loadUserProfile() async {
     try {
-      final response = await _profileService.getUserProfile();
+      final profile = await _driverProfileService.getDriverProfile();
 
-      if (response.success) {
+      if (profile != null) {
         setState(() {
-          _userProfile = response.data;
+          _driverProfile = profile;
         });
       }
     } catch (e) {
-      print('Error loading user profile: $e');
+      print('Error loading driver profile: $e');
+    }
+  }
+
+  Future<void> _loadMyRides() async {
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+      
+      // This would be replaced with actual API call to get driver's rides
+      // For now, we'll use a mock implementation
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      setState(() {
+        _isLoading = false;
+        // Mock data for demonstration
+        _myRides = [
+          Ride(
+            id: 1,
+            availableSeats: 2,
+            driverName: _driverProfile?.fullName ?? 'Tài xế',
+            driverEmail: _driverProfile?.email ?? 'driver@example.com',
+            departure: 'Long An',
+            destination: 'Cần Thơ',
+            startTime: DateTime.now().add(const Duration(days: 2)).toIso8601String(),
+            pricePerSeat: 900000,
+            totalSeat: 2,
+            status: 'ACTIVE',
+          ),
+        ];
+      });
+    } catch (e) {
+      print('Error loading rides: $e');
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -59,25 +107,17 @@ class _HomeDscreenState extends State<HomeDscreen> {
     });
 
     try {
-      // Use the booking service to get real pending bookings
-      final bookings = await _bookingService.getDriverPendingBookings();
-
+      // Implement loading of pending bookings
+      // ...
+      
       setState(() {
-        _pendingBookings = bookings;
         _isLoading = false;
       });
     } catch (e) {
-      print('Error loading pending bookings: $e');
+      print('Error loading bookings: $e');
       setState(() {
         _isLoading = false;
       });
-
-      // Show error to user
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Không thể tải yêu cầu: $e')));
-      }
     }
   }
 
@@ -164,10 +204,28 @@ class _HomeDscreenState extends State<HomeDscreen> {
     ).showSnackBar(const SnackBar(content: Text('Đã từ chối yêu cầu')));
   }
 
-  void _logout() async {
-    await _authController.logout();
-    if (mounted) {
-      Navigator.pushReplacementNamed(context, AppRoute.role);
+  Future<void> _logout() async {
+    try {
+      await _authController.logout();
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, AppRoute.role);
+      }
+    } catch (e) {
+      print('Logout error: $e');
+    }
+  }
+
+  Future<void> _navigateToPostRide() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const PostRideScreen(),
+      ),
+    );
+    
+    if (result == true) {
+      // Reload rides if a new ride was posted
+      _loadMyRides();
     }
   }
 
@@ -178,6 +236,352 @@ class _HomeDscreenState extends State<HomeDscreen> {
     } catch (e) {
       return timeString;
     }
+  }
+
+  String _formatCurrency(double amount) {
+    final formatter = NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
+    return formatter.format(amount);
+  }
+
+  Widget _buildBody() {
+    switch (_currentIndex) {
+      case 0:
+        return _buildHomeContent();
+      case 1:
+        return const Center(child: Text('Chuyến đi của tôi'));
+      case 2:
+        return const ChatListScreen();
+      case 3:
+        return DriverProfileScreen();
+      default:
+        return _buildHomeContent();
+    }
+  }
+
+  Widget _buildHomeContent() {
+    return _isLoading
+      ? const Center(child: CircularProgressIndicator())
+      : RefreshIndicator(
+          onRefresh: () async {
+            await _loadPendingBookings();
+            await _loadMyRides();
+          },
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Post Ride Card
+                Card(
+                  elevation: 4,
+                  color: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(color: Colors.blue.shade200),
+                  ),
+                  child: InkWell(
+                    onTap: _navigateToPostRide,
+                    borderRadius: BorderRadius.circular(16),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.add_circle, color: Colors.blue.shade700, size: 40),
+                              const SizedBox(width: 12),
+                              const Expanded(
+                                child: Text(
+                                  'Đăng chuyến đi mới',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF002D72),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              height: 100,
+                              color: Colors.blue.shade50,
+                              padding: const EdgeInsets.all(12),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            const Icon(Icons.location_on_outlined, color: Color(0xFF002D72), size: 20),
+                                            const SizedBox(width: 8),
+                                            const Text('Xuất phát từ'),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 12),
+                                        Row(
+                                          children: [
+                                            const Icon(Icons.location_on, color: Color(0xFF002D72), size: 20),
+                                            const SizedBox(width: 8),
+                                            const Text('Điểm đến'),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  VerticalDivider(color: Colors.blue.shade200, thickness: 1),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            const Icon(Icons.access_time, color: Color(0xFF002D72), size: 20),
+                                            const SizedBox(width: 8),
+                                            const Text('Thời gian xuất phát'),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 12),
+                                        Row(
+                                          children: [
+                                            const Icon(Icons.airline_seat_recline_normal, color: Color(0xFF002D72), size: 20),
+                                            const SizedBox(width: 8),
+                                            const Text('Số lượng'),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: _navigateToPostRide,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF002D72),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                              child: const Text(
+                                'Đăng chuyến +',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                
+                const SizedBox(height: 20),
+                
+                const Text(
+                  'Chuyến đi hiện tại của bạn',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF002D72),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                
+                if (_myRides.isEmpty)
+                  Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: Center(
+                        child: Text(
+                          'Bạn chưa có chuyến đi nào',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _myRides.length,
+                    itemBuilder: (context, index) {
+                      final ride = _myRides[index];
+                      return Card(
+                        elevation: 3,
+                        margin: const EdgeInsets.symmetric(vertical: 8),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.shade100,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      'Đang mở',
+                                      style: TextStyle(
+                                        color: Colors.green.shade800,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  Text(
+                                    _formatCurrency(ride.pricePerSeat ?? 0),
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF002D72),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              Row(
+                                children: [
+                                  const Icon(Icons.location_on_outlined, color: Color(0xFF002D72)),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      ride.departure,
+                                      style: const TextStyle(fontSize: 16),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.only(left: 12),
+                                child: Container(
+                                  height: 30,
+                                  width: 2,
+                                  color: Colors.grey.shade300,
+                                ),
+                              ),
+                              Row(
+                                children: [
+                                  const Icon(Icons.location_on, color: Color(0xFF002D72)),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      ride.destination,
+                                      style: const TextStyle(fontSize: 16),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              Row(
+                                children: [
+                                  const Icon(Icons.access_time, color: Colors.grey),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    _formatTime(ride.startTime),
+                                    style: const TextStyle(color: Colors.grey),
+                                  ),
+                                  const Spacer(),
+                                  const Icon(Icons.airline_seat_recline_normal, color: Colors.grey),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${ride.availableSeats}/${ride.totalSeat} ghế',
+                                    style: const TextStyle(color: Colors.grey),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: OutlinedButton(
+                                      onPressed: () {
+                                        // View ride details
+                                      },
+                                      style: OutlinedButton.styleFrom(
+                                        side: const BorderSide(color: Color(0xFF002D72)),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                      ),
+                                      child: const Text('Chi tiết'),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: ElevatedButton(
+                                      onPressed: () {
+                                        // Edit ride
+                                      },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFF002D72),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                      ),
+                                      child: const Text('Chỉnh sửa'),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+
+                const SizedBox(height: 20),
+                
+                // Pending bookings (existing code)
+                const Text(
+                  'Yêu cầu đặt xe đang chờ',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF002D72),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                
+                if (_pendingBookings.isEmpty)
+                  const Card(
+                    margin: EdgeInsets.only(bottom: 10),
+                    child: Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: Text('Chưa có yêu cầu nào'),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
   }
 
   @override
@@ -197,16 +601,16 @@ class _HomeDscreenState extends State<HomeDscreen> {
             padding: EdgeInsets.zero,
             children: [
               UserAccountsDrawerHeader(
-                accountName: Text(_userProfile?.fullName ?? 'Tài xế'),
-                accountEmail: Text(_userProfile?.email ?? ''),
+                accountName: Text(_driverProfile?.fullName ?? 'Tài xế'),
+                accountEmail: Text(_driverProfile?.email ?? ''),
                 currentAccountPicture: CircleAvatar(
                   backgroundColor: Colors.white,
                   backgroundImage:
-                      _userProfile?.avatarUrl != null
-                          ? NetworkImage(_userProfile!.avatarUrl!)
+                      _driverProfile?.avatarUrl != null
+                          ? NetworkImage(_driverProfile!.avatarUrl!)
                           : null,
                   child:
-                      _userProfile?.avatarUrl == null
+                      _driverProfile?.avatarUrl == null
                           ? const Icon(
                             Icons.person,
                             size: 40,
@@ -230,6 +634,14 @@ class _HomeDscreenState extends State<HomeDscreen> {
                 onTap: () {
                   Navigator.pop(context);
                   // Navigate to my rides screen
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.add_circle_outline),
+                title: const Text('Đăng chuyến mới'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _navigateToPostRide();
                 },
               ),
               ListTile(
@@ -257,189 +669,19 @@ class _HomeDscreenState extends State<HomeDscreen> {
             ],
           ),
         ),
-        body:
-            _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : RefreshIndicator(
-                  onRefresh: _loadPendingBookings,
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Card(
-                          elevation: 4,
-                          child: Padding(
-                            padding: EdgeInsets.all(16.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Chào mừng bạn đến với ShareXE',
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                SizedBox(height: 8),
-                                Text(
-                                  'Bạn đã đăng nhập với tư cách tài xế. Bạn có thể quản lý các chuyến đi và xem yêu cầu từ khách hàng.',
-                                  style: TextStyle(fontSize: 16),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        const Text(
-                          'Các chuyến đi sắp tới',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        ListView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount:
-                              0, // Sẽ được cập nhật khi có dữ liệu thực tế
-                          itemBuilder: (context, index) {
-                            return const Card(
-                              margin: EdgeInsets.only(bottom: 10),
-                              child: ListTile(
-                                title: Text('Chuyến đi #...'),
-                                subtitle: Text('Chưa có dữ liệu'),
-                                trailing: Icon(Icons.arrow_forward),
-                              ),
-                            );
-                          },
-                        ),
-                        if (0 == 0) // Nếu không có chuyến đi nào
-                          const Card(
-                            margin: EdgeInsets.only(bottom: 10),
-                            child: Padding(
-                              padding: EdgeInsets.all(16.0),
-                              child: Text('Chưa có chuyến đi nào'),
-                            ),
-                          ),
-                        const SizedBox(height: 20),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              'Yêu cầu chuyến đi',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(
-                                Icons.refresh,
-                                color: Colors.white,
-                              ),
-                              onPressed: _loadPendingBookings,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        ListView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: _pendingBookings.length,
-                          itemBuilder: (context, index) {
-                            final booking = _pendingBookings[index];
-                            return Card(
-                              margin: const EdgeInsets.only(bottom: 10),
-                              child: Padding(
-                                padding: const EdgeInsets.all(12.0),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          'Yêu cầu #${booking.id}',
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 16,
-                                          ),
-                                        ),
-                                        Text(
-                                          _formatTime(booking.createdAt),
-                                          style: TextStyle(
-                                            color: Colors.grey[600],
-                                            fontSize: 14,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      'Hành khách: ${booking.passengerName}',
-                                    ),
-                                    Text('Số ghế: ${booking.seatsBooked}'),
-                                    const SizedBox(height: 12),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.end,
-                                      children: [
-                                        TextButton.icon(
-                                          icon: const Icon(
-                                            Icons.close,
-                                            color: Colors.red,
-                                          ),
-                                          label: const Text(
-                                            'Từ chối',
-                                            style: TextStyle(color: Colors.red),
-                                          ),
-                                          onPressed:
-                                              () => _rejectBooking(booking),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        ElevatedButton.icon(
-                                          icon: const Icon(Icons.check),
-                                          label: const Text('Chấp nhận'),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.green,
-                                            foregroundColor: Colors.white,
-                                          ),
-                                          onPressed:
-                                              () => _acceptBooking(booking),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                        if (_pendingBookings
-                            .isEmpty) // Nếu không có yêu cầu nào
-                          const Card(
-                            margin: EdgeInsets.only(bottom: 10),
-                            child: Padding(
-                              padding: EdgeInsets.all(16.0),
-                              child: Text('Chưa có yêu cầu nào'),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
+        body: _buildBody(),
+        floatingActionButton: _currentIndex == 0 ? FloatingActionButton(
+          onPressed: _navigateToPostRide,
+          backgroundColor: const Color(0xFF002D72),
+          child: const Icon(Icons.add),
+        ) : null,
         bottomNavigationBar: BottomNavigationBar(
           type: BottomNavigationBarType.fixed,
-          currentIndex: 0, // Home tab
+          currentIndex: _currentIndex,
           onTap: (index) {
-            if (index == 3) {
-              // Profile tab
-              Navigator.pushNamed(context, AppRoute.profileDriver);
-            }
+            setState(() {
+              _currentIndex = index;
+            });
           },
           items: const [
             BottomNavigationBarItem(

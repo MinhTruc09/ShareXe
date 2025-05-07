@@ -12,6 +12,49 @@ class RideService {
 
   RideService() : _apiClient = ApiClient();
 
+  // Create a new ride (for drivers)
+  Future<bool> createRide({
+    required String departure,
+    required String destination,
+    required String startTime,
+    required double pricePerSeat,
+    required int totalSeat,
+  }) async {
+    try {
+      print('🚗 Creating new ride...');
+      
+      final Map<String, dynamic> rideData = {
+        'departure': departure,
+        'destination': destination,
+        'startTime': startTime,
+        'pricePerSeat': pricePerSeat,
+        'totalSeat': totalSeat,
+      };
+      
+      print('📦 Ride data: $rideData');
+      
+      final response = await _apiClient.post(
+        '/ride',
+        body: rideData,
+        requireAuth: true,
+      );
+      
+      print('📡 Response status: ${response.statusCode}');
+      
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        print('✅ Ride created successfully: ${responseData['message']}');
+        return responseData['success'] == true;
+      } else {
+        print('❌ Failed to create ride: ${response.statusCode}');
+        return false;
+      }
+    } catch (e) {
+      print('❌ Error creating ride: $e');
+      return false;
+    }
+  }
+
   // Get available rides
   Future<List<Ride>> getAvailableRides() async {
     print('🔍 Fetching available rides from API...');

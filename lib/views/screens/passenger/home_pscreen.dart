@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../models/ride.dart';
 import '../../../services/ride_service.dart';
 import '../../../services/auth_service.dart';
@@ -7,6 +8,12 @@ import '../../widgets/location_picker.dart';
 import '../../widgets/date_picker.dart';
 import '../../widgets/passenger_counter.dart';
 import '../../../app_route.dart';
+import '../chat/chat_list_screen.dart';
+import 'package:sharexe/controllers/auth_controller.dart';
+import 'package:sharexe/views/screens/passenger/profile_screen.dart';
+import 'package:sharexe/views/widgets/sharexe_background2.dart';
+import 'package:sharexe/views/widgets/ride_search_card.dart';
+import 'package:sharexe/views/widgets/recent_searches.dart';
 
 class HomePscreen extends StatefulWidget {
   const HomePscreen({super.key});
@@ -18,6 +25,8 @@ class HomePscreen extends StatefulWidget {
 class _HomePscreenState extends State<HomePscreen> {
   final RideService _rideService = RideService();
   final AuthService _authService = AuthService();
+  late AuthController _authController;
+  int _currentIndex = 0;
 
   String _departure = '';
   String _destination = '';
@@ -31,6 +40,7 @@ class _HomePscreenState extends State<HomePscreen> {
   @override
   void initState() {
     super.initState();
+    _authController = AuthController(AuthService());
     _fetchAvailableRides();
   }
 
@@ -163,149 +173,110 @@ class _HomePscreenState extends State<HomePscreen> {
     }
   }
 
-  Future<void> _logout() async {
-    await _authService.logout();
-    if (mounted) {
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        AppRoute.splash,
-        (route) => false,
-      );
+  void _logout() async {
+    try {
+      await _authController.logout();
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, AppRoute.role);
+      }
+    } catch (e) {
+      print(e);
     }
   }
 
-  // Handle bottom navigation bar taps
   void _onBottomNavTap(int index) {
-    if (index == 3) {
-      // Profile tab
-      Navigator.pushNamed(context, AppRoute.profilePassenger);
+    setState(() {
+      _currentIndex = index;
+    });
+  }
+
+  Widget _buildBody() {
+    switch (_currentIndex) {
+      case 0:
+        return _buildHomeContent();
+      case 1:
+        return const Center(child: Text('Trang Chuyến đi'));
+      case 2:
+        return const ChatListScreen();
+      case 3:
+        return const ProfileScreen();
+      default:
+        return _buildHomeContent();
     }
+  }
+
+  Widget _buildHomeContent() {
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: RideSearchCard(
+              onSearch: (departure, destination, date) {
+                setState(() {
+                  _departure = departure;
+                  _destination = destination;
+                  _departureDate = date;
+                });
+                _searchRides();
+              },
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: RecentSearches(),
+          ),
+          // Display available rides
+          if (_isLoading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(20.0),
+                child: CircularProgressIndicator(),
+              ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: _buildRidesList(),
+            ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF00AEEF),
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _refreshRides,
-          color: const Color(0xFF002D62),
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Khám phá chuyến\nxe mới',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () {
-                          // Show profile menu or logout option
-                          showDialog(
-                            context: context,
-                            builder:
-                                (context) => AlertDialog(
-                                  title: const Text('Tài khoản'),
-                                  content: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      ListTile(
-                                        leading: const Icon(Icons.person),
-                                        title: const Text('Hồ sơ'),
-                                        onTap: () {
-                                          Navigator.pop(context);
-                                          // Navigate to profile
-                                          Navigator.pushNamed(
-                                            context,
-                                            AppRoute.profilePassenger,
-                                          );
-                                        },
-                                      ),
-                                      ListTile(
-                                        leading: const Icon(Icons.logout),
-                                        title: const Text('Đăng xuất'),
-                                        onTap: () {
-                                          Navigator.pop(context);
-                                          _logout();
-                                        },
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                          );
-                        },
-                        child: const CircleAvatar(
-                          backgroundColor: Colors.white,
-                          child: Icon(Icons.person, color: Color(0xFF00AEEF)),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  _buildSearchCard(),
-                  const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Chuyến xe có sẵn',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      if (_isRefreshing)
-                        const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  _isLoading
-                      ? const Center(
-                        child: CircularProgressIndicator(color: Colors.white),
-                      )
-                      : _buildRidesList(),
-                  // Add extra space at the bottom to ensure refresh works properly
-                  const SizedBox(height: 100),
-                ],
-              ),
+    return SharexeBackground2(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          title: const Text('ShareXE'),
+          backgroundColor: const Color(0xFF00AEEF),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.logout),
+              onPressed: _logout,
             ),
-          ),
+          ],
         ),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
-        selectedItemColor: const Color(0xFF00AEEF),
-        unselectedItemColor: Colors.grey,
-        currentIndex: 0,
-        onTap: _onBottomNavTap,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Trang chủ'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.history),
-            label: 'Chuyến đi',
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.message), label: 'Tin nhắn'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Cá nhân'),
-        ],
+        body: _buildBody(),
+        bottomNavigationBar: BottomNavigationBar(
+          type: BottomNavigationBarType.fixed,
+          backgroundColor: Colors.white,
+          selectedItemColor: const Color(0xFF00AEEF),
+          unselectedItemColor: Colors.grey,
+          currentIndex: _currentIndex,
+          onTap: _onBottomNavTap,
+          items: const [
+            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Trang chủ'),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.history),
+              label: 'Chuyến đi',
+            ),
+            BottomNavigationBarItem(icon: Icon(Icons.message), label: 'Tin nhắn'),
+            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Cá nhân'),
+          ],
+        ),
       ),
     );
   }
