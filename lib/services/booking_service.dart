@@ -1,18 +1,27 @@
 import 'dart:convert';
+import 'package:get/get.dart';
+import 'package:firebase_database/firebase_database.dart';
 import '../utils/http_client.dart';
+import '../utils/api_config.dart';
 import '../models/booking.dart';
+import 'notification_service.dart';
 
-class BookingService {
+class BookingService extends GetxService {
   final ApiClient _apiClient;
+  final FirebaseDatabase _database = FirebaseDatabase.instance;
+  final NotificationService _notificationService = Get.find<NotificationService>();
+  
+  // Observable để theo dõi danh sách booking
+  final RxList<Booking> bookings = <Booking>[].obs;
   
   BookingService()
-      : _apiClient = ApiClient(baseUrl: 'https://e888-2402-800-6318-7ea8-e9f3-483b-bf46-df23.ngrok-free.app/api');
+      : _apiClient = ApiClient(baseUrl: ApiConfig.baseUrl);
   
   Future<Booking?> bookRide(int rideId, int seats) async {
     try {
       // Use POST method with query parameters as required by the API
       final response = await _apiClient.post(
-        '/passenger/booking/$rideId?seats=$seats', 
+        '${ApiConfig.bookRide}/$rideId?seats=$seats', 
         body: null  // No body needed since using query parameters
       );
       
@@ -21,7 +30,10 @@ class BookingService {
           final Map<String, dynamic> responseData = json.decode(response.body);
           
           if (responseData['success'] == true && responseData['data'] != null) {
-            return Booking.fromJson(responseData['data']);
+            final booking = Booking.fromJson(responseData['data']);
+            // Bắt đầu lắng nghe trạng thái booking mới
+            _listenToBookingStatus(booking.id);
+            return booking;
           } else {
             print('Booking response format not as expected: ${responseData['message']}');
             return null;
@@ -43,23 +55,25 @@ class BookingService {
     }
   }
   
-  // Creates a mock booking for demo purposes
-  Booking _getMockBooking(int rideId, int seats) {
-    return Booking(
-      id: 4,
-      rideId: rideId,
-      passengerId: 108,
-      seatsBooked: seats,
-      passengerName: "Tao la Khach",
-      status: "PENDING",
-      createdAt: DateTime.now().toIso8601String(),
-    );
+  void _listenToBookingStatus(int bookingId) {
+    final bookingRef = _database.ref('bookings/$bookingId');
+    bookingRef.onValue.listen((event) {
+      if (event.snapshot.value != null) {
+        final data = Map<String, dynamic>.from(event.snapshot.value as Map);
+        // Cập nhật trạng thái booking trong danh sách
+        final index = bookings.indexWhere((b) => b.id == bookingId);
+        if (index != -1) {
+          final updatedBooking = Booking.fromJson(data);
+          bookings[index] = updatedBooking;
+        }
+      }
+    });
   }
 
   // Get bookings for a passenger
   Future<List<Booking>> getPassengerBookings() async {
     try {
-      final response = await _apiClient.get('/passenger/bookings');
+      final response = await _apiClient.get(ApiConfig.passengerBookings);
       
       if (response.statusCode == 200) {
         try {
@@ -68,7 +82,17 @@ class BookingService {
           if (responseData['success'] == true && responseData['data'] != null) {
             if (responseData['data'] is List) {
               final List<dynamic> bookingsData = responseData['data'];
-              return bookingsData.map((json) => Booking.fromJson(json)).toList();
+              final List<Booking> bookingsList = bookingsData.map((json) => Booking.fromJson(json)).toList();
+              
+              // Cập nhật observable list
+              bookings.value = bookingsList;
+              
+              // Bắt đầu lắng nghe trạng thái cho mỗi booking
+              for (var booking in bookingsList) {
+                _listenToBookingStatus(booking.id);
+              }
+              
+              return bookingsList;
             }
           }
           
@@ -88,6 +112,19 @@ class BookingService {
     }
   }
   
+  // Creates a mock booking for demo purposes
+  Booking _getMockBooking(int rideId, int seats) {
+    return Booking(
+      id: 4,
+      rideId: rideId,
+      passengerId: 108,
+      seatsBooked: seats,
+      passengerName: "Tao la Khach",
+      status: "PENDING",
+      createdAt: DateTime.now().toIso8601String(),
+    );
+  }
+
   // Creates mock bookings for demo purposes
   List<Booking> _getMockBookings() {
     return [

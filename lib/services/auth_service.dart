@@ -4,17 +4,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
 import '../models/passenger.dart';
 import '../models/driver.dart';
+import '../utils/api_config.dart';
 import 'auth_manager.dart';
 
 class AuthService {
-  // API endpoints
-  final String baseUrl = 'https://e888-2402-800-6318-7ea8-e9f3-483b-bf46-df23.ngrok-free.app/api';
   final AuthManager _authManager = AuthManager();
 
   Future<Passenger> login(String email, String password, String role) async {
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/auth/login'),
+        Uri.parse('${ApiConfig.baseUrl}${ApiConfig.login}'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'email': email, 
@@ -58,12 +57,12 @@ class AuthService {
     required String fullName,
     required String phone,
     String? avatarImagePath,
-    String? role, // Thêm role để xác định passenger hoặc driver
+    String? role,
   }) async {
     try {
       if (kIsWeb) {
         final response = await http.post(
-          Uri.parse('$baseUrl/auth/${role == 'DRIVER' ? 'driver' : 'passenger'}-register'),
+          Uri.parse('${ApiConfig.baseUrl}${ApiConfig.register}'),
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({
             'email': email,
@@ -86,7 +85,7 @@ class AuthService {
       } else {
         var request = http.MultipartRequest(
           'POST',
-          Uri.parse('$baseUrl/auth/${role == 'DRIVER' ? 'driver' : 'passenger'}-register'),
+          Uri.parse('${ApiConfig.baseUrl}${ApiConfig.register}'),
         );
         request.fields['email'] = email;
         request.fields['password'] = password;
@@ -133,7 +132,7 @@ class AuthService {
     try {
       if (kIsWeb) {
         final response = await http.post(
-          Uri.parse('$baseUrl/auth/driver-register'),
+          Uri.parse('${ApiConfig.baseUrl}/auth/driver-register'),
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({
             'email': email,
@@ -141,8 +140,8 @@ class AuthService {
             'fullName': fullName,
             'phone': phone,
             'avatarImage': avatarImagePath ?? '',
-            'licenseImage': 'fake_license.jpg', // Giả lập trên web
-            'vehicleImage': 'fake_vehicle.jpg', // Giả lập trên web
+            'licenseImage': 'fake_license.jpg',
+            'vehicleImage': 'fake_vehicle.jpg',
             'licensePlate': licensePlate ?? '',
             'licenseNumber': licenseNumber ?? '',
             'licenseType': licenseType ?? '',
@@ -166,7 +165,7 @@ class AuthService {
       } else {
         var request = http.MultipartRequest(
           'POST',
-          Uri.parse('$baseUrl/auth/driver-register'),
+          Uri.parse('${ApiConfig.baseUrl}/auth/driver-register'),
         );
         request.fields['email'] = email;
         request.fields['password'] = password;
@@ -212,7 +211,7 @@ class AuthService {
     
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/driver/profile'),
+        Uri.parse('${ApiConfig.baseUrl}/driver/profile'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -238,7 +237,7 @@ class AuthService {
     
     try {
       final response = await http.patch(
-        Uri.parse('$baseUrl/driver/status'),
+        Uri.parse('${ApiConfig.baseUrl}/driver/status'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -262,7 +261,7 @@ class AuthService {
     
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/driver/location'),
+        Uri.parse('${ApiConfig.baseUrl}/driver/location'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -316,7 +315,7 @@ class AuthService {
     try {
       final endpoint = role?.toUpperCase() == 'DRIVER' ? 'driver' : 'passenger';
       final response = await http.get(
-        Uri.parse('$baseUrl/$endpoint/profile'),
+        Uri.parse('${ApiConfig.baseUrl}/$endpoint/profile'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
