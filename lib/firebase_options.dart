@@ -78,4 +78,5 @@ class DefaultFirebaseOptions {
     authDomain: 'sharexe-c2071.firebaseapp.com',
     storageBucket: 'sharexe-c2071.firebasestorage.app',
   );
+
 }

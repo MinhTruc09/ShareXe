@@ -1,7 +1,6 @@
 import 'dart:convert';
 import '../models/ride.dart';
 import '../utils/http_client.dart';
-import '../utils/api_config.dart';
 import '../services/auth_manager.dart';
 import 'package:http/http.dart' as http;
 
@@ -10,12 +9,12 @@ class RideService {
   final AuthManager _authManager = AuthManager();
   
   RideService()
-      : _apiClient = ApiClient(baseUrl: ApiConfig.baseUrl);
+      : _apiClient = ApiClient(baseUrl: 'https://e888-2402-800-6318-7ea8-e9f3-483b-bf46-df23.ngrok-free.app/api');
 
   // Get available rides
   Future<List<Ride>> getAvailableRides() async {
     print('🔍 Starting to fetch available rides...');
-    print('🌐 API URL: ${ApiConfig.baseUrl}${ApiConfig.availableRides}');
+    print('🌐 API URL: https://e888-2402-800-6318-7ea8-e9f3-483b-bf46-df23.ngrok-free.app/api/ride/available');
     
     // Check token validity
     await _authManager.checkAndPrintTokenValidity();
@@ -23,7 +22,7 @@ class RideService {
     try {
       // Try using the API client first
       print('📡 Attempting API call through ApiClient...');
-      final response = await _apiClient.get(ApiConfig.availableRides);
+      final response = await _apiClient.get('/ride/available');
       print('📡 Response received - Status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
@@ -95,7 +94,7 @@ class RideService {
       final token = await _authManager.getToken();
       print('🔑 Using direct API call with token: ${token != null ? "Token available" : "No token"}');
       
-      final uri = Uri.parse('${ApiConfig.baseUrl}${ApiConfig.availableRides}');
+      final uri = Uri.parse('https://e888-2402-800-6318-7ea8-e9f3-483b-bf46-df23.ngrok-free.app/api/ride/available');
       print('🌐 Direct API URL: $uri');
       
       final headers = {

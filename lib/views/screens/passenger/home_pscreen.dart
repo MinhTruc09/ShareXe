@@ -168,6 +168,13 @@ class _HomePscreenState extends State<HomePscreen> {
     }
   }
 
+  // Handle bottom navigation bar taps
+  void _onBottomNavTap(int index) {
+    if (index == 3) { // Profile tab
+      Navigator.pushNamed(context, AppRoute.profilePassenger);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -210,6 +217,7 @@ class _HomePscreenState extends State<HomePscreen> {
                                     onTap: () {
                                       Navigator.pop(context);
                                       // Navigate to profile
+                                      Navigator.pushNamed(context, AppRoute.profilePassenger);
                                     },
                                   ),
                                   ListTile(
@@ -275,6 +283,7 @@ class _HomePscreenState extends State<HomePscreen> {
         selectedItemColor: const Color(0xFF00AEEF),
         unselectedItemColor: Colors.grey,
         currentIndex: 0,
+        onTap: _onBottomNavTap,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home),

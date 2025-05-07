@@ -3,6 +3,9 @@ import 'package:intl/intl.dart';
 import '../../models/ride.dart';
 import '../../models/booking.dart';
 import '../../services/booking_service.dart';
+import '../../services/notification_service.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'dart:async';
 
 class RideDetailScreen extends StatefulWidget {
   final dynamic ride;
@@ -15,10 +18,18 @@ class RideDetailScreen extends StatefulWidget {
 
 class _RideDetailScreenState extends State<RideDetailScreen> {
   final BookingService _bookingService = BookingService();
+  final NotificationService _notificationService = NotificationService();
   bool _isBooking = false;
   bool _isBooked = false;
   Booking? _booking;
   int _selectedSeats = 1;
+  StreamSubscription<DatabaseEvent>? _bookingStatusSubscription;
+
+  @override
+  void dispose() {
+    _bookingStatusSubscription?.cancel();
+    super.dispose();
+  }
 
   String _formatTime(String timeString) {
     try {
@@ -89,6 +100,9 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
         if (booking != null) {
           _isBooked = true;
           _booking = booking;
+          
+          // Set up real-time listener for this booking
+          _setupBookingStatusListener(booking.id);
         }
       });
       
@@ -108,6 +122,66 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
         SnackBar(content: Text('Lỗi: $e')),
       );
     }
+  }
+  
+  // Set up real-time listener for booking status
+  void _setupBookingStatusListener(int bookingId) {
+    final DatabaseReference bookingRef = FirebaseDatabase.instance.ref('bookings/$bookingId');
+    
+    _bookingStatusSubscription = bookingRef.onValue.listen((event) {
+      if (event.snapshot.value != null) {
+        try {
+          final data = Map<String, dynamic>.from(event.snapshot.value as Map);
+          final updatedBooking = Booking.fromJson(data);
+          
+          setState(() {
+            _booking = updatedBooking;
+          });
+          
+          // Show notification if status changed to APPROVED
+          if (updatedBooking.status == 'APPROVED') {
+            _showDriverAcceptedDialog(updatedBooking);
+          }
+        } catch (e) {
+          print('Error parsing booking data: $e');
+        }
+      }
+    });
+    
+    // Initial setup of the booking in the database
+    bookingRef.set(_booking!.toJson());
+  }
+  
+  // Show notification when driver accepts booking
+  void _showDriverAcceptedDialog(Booking booking) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Tài xế đã chấp nhận'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Tài xế đã chấp nhận đơn đặt chuyến của bạn!',
+              style: TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 16),
+            _buildDetailItem('Mã đặt chỗ:', '#${booking.id}'),
+            _buildDetailItem('Số ghế:', '${booking.seatsBooked}'),
+            _buildDetailItem('Trạng thái:', 'Đã chấp nhận'),
+            _buildDetailItem('Thời gian cập nhật:', _formatTime(DateTime.now().toIso8601String())),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Đóng'),
+          ),
+        ],
+      ),
+    );
   }
   
   void _showBookingSuccessDialog(Booking booking) {
