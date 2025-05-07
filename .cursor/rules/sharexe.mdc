@@ -1,0 +1,80 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+RULE CHO DỰ ÁN SHAREXE
+1. Đăng ký / Đăng nhập (Authentication)
+Người dùng có thể đăng ký với vai trò là DRIVER hoặc PASSENGER.
+
+Tài khoản DRIVER phải có hình ảnh bằng lái và hình ảnh xe.
+
+Sau khi đăng ký, tài khoản DRIVER sẽ có trạng thái PENDING, cần chờ xác nhận (hoặc chỉ hiển thị trạng thái PENDING).
+
+Sau khi đăng nhập, JWT token được lưu để sử dụng cho các request sau.
+
+Tất cả request cần có Authorization header: Bearer {token}.
+
+2. Phân quyền theo vai trò (Role-based Access)
+DRIVER chỉ có quyền tạo, chỉnh sửa, xoá chuyến đi.
+
+PASSENGER chỉ có quyền xem và đặt chuyến đi.
+
+Không hiển thị tính năng trái với quyền.
+
+API backend cần kiểm tra quyền trước khi xử lý.
+
+3. Quản lý chuyến đi (Ride Management - DRIVER)
+DRIVER có thể tạo chuyến đi với thông tin: điểm đi, điểm đến, thời gian khởi hành, số ghế, giá tiền.
+
+DRIVER có thể cập nhật chuyến đi nếu chưa có người đặt.
+
+DRIVER có thể huỷ chuyến đi nếu chưa bắt đầu.
+
+Trạng thái chuyến đi có thể là: ACTIVE, CANCELLED.
+
+4. Đặt chuyến đi (Booking - PASSENGER)
+PASSENGER có thể xem danh sách chuyến đi đang mở đặt.
+
+PASSENGER có thể đặt số ghế nếu còn đủ ghế trống.
+
+Tổng tiền = số ghế đặt × đơn giá.
+
+Sau khi đặt, trạng thái booking là PENDING.
+
+PASSENGER có thể huỷ hoặc xác nhận hoàn thành chuyến đi.
+
+Trạng thái booking: PENDING, CONFIRMED, CANCELLED.
+
+5. Thông tin cá nhân và lịch sử
+Người dùng có thể xem thông tin cá nhân và chỉnh sửa.
+
+PASSENGER có thể xem danh sách các booking của mình.
+
+DRIVER có thể xem danh sách các chuyến mình đã tạo.
+
+Trạng thái chuyến đi và booking phải hiển thị rõ ràng.
+
+6. Giao diện và xử lý luồng
+Nếu chưa đăng nhập, chuyển hướng người dùng về trang đăng nhập.
+
+Sau khi đăng nhập, hiển thị giao diện tương ứng với role.
+
+Hiển thị thông báo khi thao tác thành công hoặc gặp lỗi.
+
+Kiểm tra kỹ trường hợp lỗi: sai mật khẩu, email trùng, đặt quá số ghế.
+
+7. Test Checklist (dành cho dev và tester)
+Đăng ký thành công và thất bại (email trùng).
+
+Đăng nhập thành công và thất bại (sai mật khẩu).
+
+DRIVER tạo, sửa, huỷ chuyến đi.
+
+PASSENGER đặt chuyến, huỷ chuyến, xác nhận hoàn thành.
+
+Đặt quá số ghế hoặc ghế âm => báo lỗi đúng.
+
+Trường hợp không có token => báo lỗi 401 Unauthorized.
+
+
