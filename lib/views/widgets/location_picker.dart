@@ -97,15 +97,15 @@ class _LocationPickerState extends State<LocationPicker> {
     if (widget.initialValue != null && widget.initialValue!.isNotEmpty) {
       _controller.text = widget.initialValue!;
     }
-    
+
     _filteredLocations = _locations;
-    
+
     _focusNode.addListener(() {
       setState(() {
         _showSuggestions = _focusNode.hasFocus;
       });
     });
-    
+
     _controller.addListener(() {
       _filterLocations();
     });
@@ -125,11 +125,14 @@ class _LocationPickerState extends State<LocationPicker> {
       });
     } else {
       setState(() {
-        _filteredLocations = _locations
-            .where((location) => location
-                .toLowerCase()
-                .contains(_controller.text.toLowerCase()))
-            .toList();
+        _filteredLocations =
+            _locations
+                .where(
+                  (location) => location.toLowerCase().contains(
+                    _controller.text.toLowerCase(),
+                  ),
+                )
+                .toList();
       });
     }
   }
@@ -156,8 +159,10 @@ class _LocationPickerState extends State<LocationPicker> {
               child: TextField(
                 controller: _controller,
                 focusNode: _focusNode,
+                style: const TextStyle(color: Colors.black87, fontSize: 16),
                 decoration: InputDecoration(
                   hintText: widget.hintText,
+                  hintStyle: const TextStyle(color: Colors.grey),
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.zero,
                 ),
@@ -192,4 +197,4 @@ class _LocationPickerState extends State<LocationPicker> {
       ],
     );
   }
-} 
+}

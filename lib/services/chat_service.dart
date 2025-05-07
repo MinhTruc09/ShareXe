@@ -4,36 +4,30 @@ import 'package:flutter/foundation.dart';
 import '../models/chat_message_model.dart';
 import 'auth_manager.dart';
 import 'websocket_service.dart';
+import '../utils/app_config.dart';
+import '../utils/http_client.dart';
 
 class ChatService {
   static final ChatService _instance = ChatService._internal();
   factory ChatService() => _instance;
   ChatService._internal();
-  
+
   final WebSocketService _webSocketService = WebSocketService();
   final AuthManager _authManager = AuthManager();
-  String _baseUrl = 'https://yourapi.com'; // Thay thế bằng URL thực tế
-  
+  final AppConfig _appConfig = AppConfig();
+  final ApiClient _apiClient = ApiClient();
+
   Future<void> initialize(String baseUrl) async {
-    _baseUrl = baseUrl;
+    if (baseUrl.isNotEmpty) {
+      _appConfig.updateBaseUrl(baseUrl);
+    }
   }
-  
+
   // Lấy danh sách các cuộc trò chuyện
   Future<List<Map<String, dynamic>>> getChatRooms() async {
     try {
-      final token = await _authManager.getToken();
-      if (token == null) {
-        throw Exception('Không tìm thấy token xác thực');
-      }
-      
-      final response = await http.get(
-        Uri.parse('$_baseUrl/api/chat/rooms'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
-      
+      final response = await _apiClient.get('/chat/rooms', requireAuth: true);
+
       if (response.statusCode == 200) {
         final jsonResponse = json.decode(response.body);
         if (jsonResponse['success'] == true && jsonResponse['data'] != null) {
@@ -42,7 +36,9 @@ class ChatService {
           return [];
         }
       } else {
-        throw Exception('Lỗi khi tải danh sách phòng chat: ${response.statusCode}');
+        throw Exception(
+          'Lỗi khi tải danh sách phòng chat: ${response.statusCode}',
+        );
       }
     } catch (e) {
       if (kDebugMode) {
@@ -51,23 +47,15 @@ class ChatService {
       return [];
     }
   }
-  
+
   // Lấy lịch sử tin nhắn của một phòng chat
   Future<List<ChatMessageModel>> getChatHistory(String roomId) async {
     try {
-      final token = await _authManager.getToken();
-      if (token == null) {
-        throw Exception('Không tìm thấy token xác thực');
-      }
-      
-      final response = await http.get(
-        Uri.parse('$_baseUrl/api/chat/history/$roomId'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
+      final response = await _apiClient.get(
+        '/chat/history/$roomId',
+        requireAuth: true,
       );
-      
+
       if (response.statusCode == 200) {
         final jsonResponse = json.decode(response.body);
         if (jsonResponse['success'] == true && jsonResponse['data'] != null) {
@@ -86,29 +74,23 @@ class ChatService {
       return [];
     }
   }
-  
+
   // Tạo phòng chat mới hoặc lấy phòng chat hiện tại với một người dùng
   Future<String?> createOrGetChatRoom(String receiverEmail) async {
     try {
-      final token = await _authManager.getToken();
-      if (token == null) {
-        throw Exception('Không tìm thấy token xác thực');
-      }
-      
-      final response = await http.post(
-        Uri.parse('$_baseUrl/api/chat/room'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: json.encode({'receiverEmail': receiverEmail}),
+      final response = await _apiClient.get(
+        '/chat/room/${Uri.encodeComponent(receiverEmail)}',
+        requireAuth: true,
       );
-      
+
       if (response.statusCode == 200) {
         final jsonResponse = json.decode(response.body);
         if (jsonResponse['success'] == true && jsonResponse['data'] != null) {
-          return jsonResponse['data']['roomId'];
+          return jsonResponse['data'];
         } else {
+          if (kDebugMode) {
+            print('Không thể lấy roomId: ${jsonResponse['message']}');
+          }
           return null;
         }
       } else {
@@ -121,16 +103,20 @@ class ChatService {
       return null;
     }
   }
-  
+
   // Gửi tin nhắn chat
-  Future<bool> sendMessage(String roomId, String receiverEmail, String content) async {
+  Future<bool> sendMessage(
+    String roomId,
+    String receiverEmail,
+    String content,
+  ) async {
     if (!_webSocketService.isConnected()) {
       if (kDebugMode) {
         print('WebSocket không được kết nối. Thử gửi qua REST API.');
       }
       return _sendMessageViaRest(roomId, receiverEmail, content);
     }
-    
+
     try {
       _webSocketService.sendChatMessage(roomId, receiverEmail, content);
       return true;
@@ -142,28 +128,24 @@ class ChatService {
       return _sendMessageViaRest(roomId, receiverEmail, content);
     }
   }
-  
+
   // Gửi tin nhắn qua REST API (fallback khi WebSocket không hoạt động)
-  Future<bool> _sendMessageViaRest(String roomId, String receiverEmail, String content) async {
+  Future<bool> _sendMessageViaRest(
+    String roomId,
+    String receiverEmail,
+    String content,
+  ) async {
     try {
-      final token = await _authManager.getToken();
-      if (token == null) {
-        throw Exception('Không tìm thấy token xác thực');
-      }
-      
-      final response = await http.post(
-        Uri.parse('$_baseUrl/api/chat/send'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: json.encode({
+      final response = await _apiClient.post(
+        '/chat/send',
+        body: {
           'roomId': roomId,
           'receiverEmail': receiverEmail,
           'content': content,
-        }),
+        },
+        requireAuth: true,
       );
-      
+
       return response.statusCode == 200;
     } catch (e) {
       if (kDebugMode) {
@@ -172,23 +154,15 @@ class ChatService {
       return false;
     }
   }
-  
+
   // Đánh dấu tin nhắn đã đọc
   Future<bool> markMessagesAsRead(String roomId) async {
     try {
-      final token = await _authManager.getToken();
-      if (token == null) {
-        throw Exception('Không tìm thấy token xác thực');
-      }
-      
-      final response = await http.put(
-        Uri.parse('$_baseUrl/api/chat/read/$roomId'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
+      final response = await _apiClient.put(
+        '/chat/read/$roomId',
+        requireAuth: true,
       );
-      
+
       return response.statusCode == 200;
     } catch (e) {
       if (kDebugMode) {
@@ -197,23 +171,15 @@ class ChatService {
       return false;
     }
   }
-  
+
   // Lấy số lượng tin nhắn chưa đọc
   Future<int> getUnreadMessageCount() async {
     try {
-      final token = await _authManager.getToken();
-      if (token == null) {
-        throw Exception('Không tìm thấy token xác thực');
-      }
-      
-      final response = await http.get(
-        Uri.parse('$_baseUrl/api/chat/unread-count'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
+      final response = await _apiClient.get(
+        '/chat/unread-count',
+        requireAuth: true,
       );
-      
+
       if (response.statusCode == 200) {
         final jsonResponse = json.decode(response.body);
         if (jsonResponse['success'] == true) {
@@ -222,7 +188,9 @@ class ChatService {
           return 0;
         }
       } else {
-        throw Exception('Lỗi khi tải số tin nhắn chưa đọc: ${response.statusCode}');
+        throw Exception(
+          'Lỗi khi tải số tin nhắn chưa đọc: ${response.statusCode}',
+        );
       }
     } catch (e) {
       if (kDebugMode) {
@@ -231,4 +199,4 @@ class ChatService {
       return 0;
     }
   }
-} 
+}

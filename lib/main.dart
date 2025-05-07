@@ -11,25 +11,38 @@ import 'utils/app_config.dart';
 // Required for handling background messages
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // Ensure Firebase is initialized
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  print("Handling a background message: ${message.messageId}");
+  try {
+    // Ensure Firebase is initialized
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    print("Handling a background message: ${message.messageId}");
+  } catch (e) {
+    print("Error handling background message: $e");
+  }
 }
 
 Future<void> main() async {
   // For testing JWT parsing
   // TokenTester.runTest();
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Initialize Firebase
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  
-  // Set up background message handler
-  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-  
-  // Get FCM token
-  await FirebaseMessaging.instance.getToken();
-  
+
+  // Initialize Firebase with error handling
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+
+    // Set up background message handler
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+    // Get FCM token
+    await FirebaseMessaging.instance.getToken();
+  } catch (e) {
+    print("Error initializing Firebase: $e");
+    // Continue without Firebase if initialization fails
+  }
+
   runApp(const MyApp());
 }
 
@@ -42,7 +55,7 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
-  
+
   @override
   void initState() {
     super.initState();
@@ -51,11 +64,19 @@ class _MyAppState extends State<MyApp> {
       _initializeNotifications();
     });
   }
-  
+
   // Initialize the notification service with the current context
   Future<void> _initializeNotifications() async {
-    final appConfig = AppConfig();
-    await NotificationService().initialize(navigatorKey.currentContext, appConfig.apiBaseUrl);
+    try {
+      final appConfig = AppConfig();
+      await NotificationService().initialize(
+        navigatorKey.currentContext,
+        appConfig.apiBaseUrl,
+      );
+    } catch (e) {
+      print("Error initializing notifications: $e");
+      // Continue without notifications if initialization fails
+    }
   }
 
   // This widget is the root of your application.

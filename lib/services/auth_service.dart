@@ -5,40 +5,40 @@ import 'package:flutter/foundation.dart';
 import '../models/passenger.dart';
 import '../models/driver.dart';
 import 'auth_manager.dart';
+import '../utils/app_config.dart';
 
 class AuthService {
-  // API endpoints
-  final String baseUrl = 'https://e888-2402-800-6318-7ea8-e9f3-483b-bf46-df23.ngrok-free.app/api';
+  // Sử dụng cấu hình tập trung từ AppConfig
+  final AppConfig _appConfig = AppConfig();
   final AuthManager _authManager = AuthManager();
+
+  // Getter để lấy baseUrl từ AppConfig
+  String get baseUrl => '${_appConfig.apiBaseUrl}/api';
 
   Future<Passenger> login(String email, String password, String role) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/auth/login'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'email': email, 
-          'password': password,
-          'role': role,
-        }),
+        body: jsonEncode({'email': email, 'password': password, 'role': role}),
       );
 
       if (response.statusCode == 200) {
         final jsonResponse = jsonDecode(response.body);
         final parsed = Passenger.fromJson(jsonResponse);
-        
+
         // Extract token data
         if (parsed.success && parsed.data != null) {
           final token = parsed.data!.token;
           final userEmail = parsed.data!.email;
           final userRole = parsed.data!.role;
-          
+
           if (token != null && userEmail != null && userRole != null) {
             // Save auth data using AuthManager
             await _authManager.saveAuthData(token, userEmail, userRole);
           }
         }
-        
+
         return parsed;
       } else {
         return Passenger(
@@ -48,7 +48,11 @@ class AuthService {
         );
       }
     } catch (e) {
-      throw Exception('Failed to connect to the server: $e');
+      return Passenger(
+        success: false,
+        message: 'Failed to connect to the server: $e',
+        data: null,
+      );
     }
   }
 
@@ -63,7 +67,9 @@ class AuthService {
     try {
       if (kIsWeb) {
         final response = await http.post(
-          Uri.parse('$baseUrl/auth/${role == 'DRIVER' ? 'driver' : 'passenger'}-register'),
+          Uri.parse(
+            '$baseUrl/auth/${role == 'DRIVER' ? 'driver' : 'passenger'}-register',
+          ),
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({
             'email': email,
@@ -86,14 +92,18 @@ class AuthService {
       } else {
         var request = http.MultipartRequest(
           'POST',
-          Uri.parse('$baseUrl/auth/${role == 'DRIVER' ? 'driver' : 'passenger'}-register'),
+          Uri.parse(
+            '$baseUrl/auth/${role == 'DRIVER' ? 'driver' : 'passenger'}-register',
+          ),
         );
         request.fields['email'] = email;
         request.fields['password'] = password;
         request.fields['fullName'] = fullName;
         request.fields['phone'] = phone;
         if (avatarImagePath != null) {
-          request.files.add(await http.MultipartFile.fromPath('avatarImage', avatarImagePath));
+          request.files.add(
+            await http.MultipartFile.fromPath('avatarImage', avatarImagePath),
+          );
         }
         final response = await request.send();
         final responseBody = await response.stream.bytesToString();
@@ -109,7 +119,11 @@ class AuthService {
         }
       }
     } catch (e) {
-      throw Exception('Failed to connect to the server: $e');
+      return Passenger(
+        success: false,
+        message: 'Failed to connect to the server: $e',
+        data: null,
+      );
     }
   }
 
@@ -182,10 +196,16 @@ class AuthService {
         request.fields['vehicleYear'] = vehicleYear ?? '';
 
         if (avatarImagePath != null) {
-          request.files.add(await http.MultipartFile.fromPath('avatarImage', avatarImagePath));
+          request.files.add(
+            await http.MultipartFile.fromPath('avatarImage', avatarImagePath),
+          );
         }
-        request.files.add(await http.MultipartFile.fromPath('licenseImage', licenseImagePath));
-        request.files.add(await http.MultipartFile.fromPath('vehicleImage', vehicleImagePath));
+        request.files.add(
+          await http.MultipartFile.fromPath('licenseImage', licenseImagePath),
+        );
+        request.files.add(
+          await http.MultipartFile.fromPath('vehicleImage', vehicleImagePath),
+        );
         final response = await request.send();
         final responseBody = await response.stream.bytesToString();
         if (response.statusCode == 200) {
@@ -200,16 +220,20 @@ class AuthService {
         }
       }
     } catch (e) {
-      throw Exception('Failed to connect to the server: $e');
+      return Passenger(
+        success: false,
+        message: 'Failed to connect to the server: $e',
+        data: null,
+      );
     }
   }
 
   // Lấy thông tin driver từ server
   Future<Driver?> getDriverProfile() async {
     final token = await _authManager.getToken();
-    
+
     if (token == null) return null;
-    
+
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/driver/profile'),
@@ -218,7 +242,7 @@ class AuthService {
           'Authorization': 'Bearer $token',
         },
       );
-      
+
       if (response.statusCode == 200) {
         final jsonResponse = jsonDecode(response.body);
         return Driver.fromJson(jsonResponse['data']);
@@ -226,16 +250,17 @@ class AuthService {
         return null;
       }
     } catch (e) {
-      throw Exception('Failed to get driver profile: $e');
+      print('Failed to get driver profile: $e');
+      return null;
     }
   }
 
   // Cập nhật trạng thái của tài xế (hoạt động/ngừng hoạt động)
   Future<bool> updateDriverStatus(bool isActive) async {
     final token = await _authManager.getToken();
-    
+
     if (token == null) return false;
-    
+
     try {
       final response = await http.patch(
         Uri.parse('$baseUrl/driver/status'),
@@ -243,23 +268,22 @@ class AuthService {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
         },
-        body: jsonEncode({
-          'isActive': isActive,
-        }),
+        body: jsonEncode({'isActive': isActive}),
       );
-      
+
       return response.statusCode == 200;
     } catch (e) {
-      throw Exception('Failed to update driver status: $e');
+      print('Failed to update driver status: $e');
+      return false;
     }
   }
-  
+
   // Cập nhật vị trí của tài xế
   Future<bool> updateDriverLocation(double lat, double lng) async {
     final token = await _authManager.getToken();
-    
+
     if (token == null) return false;
-    
+
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/driver/location'),
@@ -267,36 +291,53 @@ class AuthService {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
         },
-        body: jsonEncode({
-          'lat': lat,
-          'lng': lng,
-        }),
+        body: jsonEncode({'lat': lat, 'lng': lng}),
       );
-      
+
       return response.statusCode == 200;
     } catch (e) {
-      throw Exception('Failed to update driver location: $e');
+      print('Failed to update driver location: $e');
+      return false;
     }
   }
 
   // Check if user is currently logged in
   Future<bool> isLoggedIn() async {
-    return await _authManager.validateSession();
+    try {
+      return await _authManager.validateSession();
+    } catch (e) {
+      print("Error checking login status: $e");
+      return false;
+    }
   }
-  
+
   // Get current user's role
   Future<String?> getCurrentUserRole() async {
-    return await _authManager.getUserRole();
+    try {
+      return await _authManager.getUserRole();
+    } catch (e) {
+      print("Error getting user role: $e");
+      return null;
+    }
   }
-  
+
   // Get JWT token for API requests
   Future<String?> getAuthToken() async {
-    return await _authManager.getToken();
+    try {
+      return await _authManager.getToken();
+    } catch (e) {
+      print("Error getting auth token: $e");
+      return null;
+    }
   }
-  
+
   // Sign out user
   Future<void> logout() async {
-    await _authManager.logout();
+    try {
+      await _authManager.logout();
+    } catch (e) {
+      print("Error during logout: $e");
+    }
   }
 
   // Lấy thông tin người dùng chung
@@ -304,15 +345,11 @@ class AuthService {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token');
     final role = prefs.getString('role');
-    
+
     if (token == null) {
-      return Passenger(
-        success: false, 
-        message: 'No token found', 
-        data: null
-      );
+      return Passenger(success: false, message: 'No token found', data: null);
     }
-    
+
     try {
       final endpoint = role?.toUpperCase() == 'DRIVER' ? 'driver' : 'passenger';
       final response = await http.get(
@@ -322,7 +359,7 @@ class AuthService {
           'Authorization': 'Bearer $token',
         },
       );
-      
+
       if (response.statusCode == 200) {
         final jsonResponse = jsonDecode(response.body);
         return Passenger(
@@ -338,7 +375,11 @@ class AuthService {
         );
       }
     } catch (e) {
-      throw Exception('Failed to get user profile: $e');
+      return Passenger(
+        success: false,
+        message: 'Failed to get user profile: $e',
+        data: null,
+      );
     }
   }
 }

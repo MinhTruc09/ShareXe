@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import '../../services/auth_service.dart';
 import '../../app_route.dart';
 
@@ -11,6 +12,9 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen> {
   final AuthService _authService = AuthService();
+  String _debugMessage = '';
+  bool _isLoading = true;
+  bool _hasError = false;
 
   @override
   void initState() {
@@ -19,27 +23,69 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _checkLoginStatus() async {
-    await Future.delayed(const Duration(seconds: 2)); // Show splash for 2 seconds
+    try {
+      await Future.delayed(
+        const Duration(seconds: 2),
+      ); // Show splash for 2 seconds
 
-    // Check if user is already logged in
-    if (await _authService.isLoggedIn()) {
-      // Get user role to determine which home screen to navigate to
-      String? userRole = await _authService.getCurrentUserRole();
-      
-      if (!mounted) return;
-      
-      if (userRole == 'PASSENGER') {
-        Navigator.pushReplacementNamed(context, AppRoute.homePassenger);
-      } else if (userRole == 'DRIVER') {
-        Navigator.pushReplacementNamed(context, AppRoute.homeDriver);
+      // Check if user is already logged in
+      bool isLoggedIn = false;
+      try {
+        isLoggedIn = await _authService.isLoggedIn();
+        if (kDebugMode) {
+          setState(() {
+            _debugMessage = 'Is logged in: $isLoggedIn';
+          });
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          setState(() {
+            _debugMessage = 'Error checking login: $e';
+          });
+        }
+      }
+
+      if (isLoggedIn) {
+        // Get user role to determine which home screen to navigate to
+        String? userRole;
+        try {
+          userRole = await _authService.getCurrentUserRole();
+          if (kDebugMode) {
+            setState(() {
+              _debugMessage += '\nUser role: $userRole';
+            });
+          }
+        } catch (e) {
+          if (kDebugMode) {
+            setState(() {
+              _debugMessage += '\nError getting role: $e';
+            });
+          }
+        }
+
+        if (!mounted) return;
+
+        if (userRole == 'PASSENGER') {
+          Navigator.pushReplacementNamed(context, AppRoute.homePassenger);
+        } else if (userRole == 'DRIVER') {
+          Navigator.pushReplacementNamed(context, AppRoute.homeDriver);
+        } else {
+          // If role is unknown, go to role selection screen
+          Navigator.pushReplacementNamed(context, AppRoute.role);
+        }
       } else {
-        // If role is unknown, go to role selection screen
+        // Not logged in, go to role selection screen
+        if (!mounted) return;
         Navigator.pushReplacementNamed(context, AppRoute.role);
       }
-    } else {
-      // Not logged in, go to role selection screen
-      if (!mounted) return;
-      Navigator.pushReplacementNamed(context, AppRoute.role);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _hasError = true;
+          _debugMessage = 'Error: $e';
+        });
+      }
     }
   }
 
@@ -53,10 +99,13 @@ class _SplashScreenState extends State<SplashScreen> {
           children: [
             // App logo
             Image.asset(
-              'images/app_logo.png',
+              'assets/images/logo.png', // Sử dụng logo.png có sẵn thay vì app_logo.png
               width: 150,
               height: 150,
               errorBuilder: (context, error, stackTrace) {
+                if (kDebugMode) {
+                  print('Error loading logo: $error');
+                }
                 return const Icon(
                   Icons.directions_car,
                   size: 150,
@@ -74,12 +123,36 @@ class _SplashScreenState extends State<SplashScreen> {
               ),
             ),
             const SizedBox(height: 50),
-            const CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-            ),
+            if (_isLoading)
+              const CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            if (_hasError)
+              ElevatedButton(
+                onPressed: () {
+                  setState(() {
+                    _isLoading = true;
+                    _hasError = false;
+                  });
+                  _checkLoginStatus();
+                },
+                child: const Text('Retry'),
+              ),
+            if (kDebugMode && _debugMessage.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Container(
+                  padding: const EdgeInsets.all(8.0),
+                  color: Colors.black54,
+                  child: Text(
+                    _debugMessage,
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
     );
   }
-} 
+}

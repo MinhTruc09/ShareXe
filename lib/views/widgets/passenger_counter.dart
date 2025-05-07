@@ -71,8 +71,10 @@ class _PassengerCounterState extends State<PassengerCounter> {
           child: TextField(
             controller: _controller,
             readOnly: true,
+            style: const TextStyle(color: Colors.black87, fontSize: 16),
             decoration: InputDecoration(
               hintText: widget.hintText,
+              hintStyle: const TextStyle(color: Colors.grey),
               border: InputBorder.none,
               contentPadding: EdgeInsets.zero,
             ),
@@ -108,4 +110,4 @@ class _PassengerCounterState extends State<PassengerCounter> {
       ],
     );
   }
-} 
+}

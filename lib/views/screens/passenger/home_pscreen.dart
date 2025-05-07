@@ -18,45 +18,45 @@ class HomePscreen extends StatefulWidget {
 class _HomePscreenState extends State<HomePscreen> {
   final RideService _rideService = RideService();
   final AuthService _authService = AuthService();
-  
+
   String _departure = '';
   String _destination = '';
   DateTime? _departureDate;
   int _passengerCount = 1;
-  
+
   List<Ride> _availableRides = [];
   bool _isLoading = false;
   bool _isRefreshing = false;
-  
+
   @override
   void initState() {
     super.initState();
     _fetchAvailableRides();
   }
-  
+
   @override
   void dispose() {
     super.dispose();
   }
-  
+
   Future<void> _fetchAvailableRides() async {
     setState(() {
       _isLoading = true;
     });
-    
+
     try {
       print('🔍 Fetching available rides from API...');
       // Fetching available rides from the specific endpoint
       final rides = await _rideService.getAvailableRides();
-      
+
       print('✅ Successfully fetched ${rides.length} rides from API');
-      
+
       if (mounted) {
         setState(() {
           _availableRides = rides;
           _isLoading = false;
         });
-        
+
         if (rides.isEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Không có chuyến xe phù hợp')),
@@ -78,25 +78,25 @@ class _HomePscreenState extends State<HomePscreen> {
       }
     }
   }
-  
+
   Future<void> _refreshRides() async {
     if (_isRefreshing) return;
-    
+
     setState(() {
       _isRefreshing = true;
     });
-    
+
     try {
       print('🔄 Refreshing available rides from API...');
       final rides = await _rideService.getAvailableRides();
-      
+
       print('✅ Successfully refreshed ${rides.length} rides from API');
-      
+
       if (mounted) {
         setState(() {
           _availableRides = rides;
         });
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Đã cập nhật danh sách chuyến xe')),
         );
@@ -116,44 +116,50 @@ class _HomePscreenState extends State<HomePscreen> {
       }
     }
   }
-  
+
   Future<void> _searchRides() async {
     if (_departure.isEmpty && _destination.isEmpty && _departureDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng nhập ít nhất một điều kiện tìm kiếm')),
+        const SnackBar(
+          content: Text('Vui lòng nhập ít nhất một điều kiện tìm kiếm'),
+        ),
       );
       return;
     }
-    
+
     setState(() {
       _isLoading = true;
     });
-    
+
     try {
       final rides = await _rideService.searchRides(
         departure: _departure,
         destination: _destination,
-        departureDate: _departureDate,
+        startTime: _departureDate,
         passengerCount: _passengerCount,
       );
-      
+
       setState(() {
         _availableRides = rides;
         _isLoading = false;
       });
-      
+
       if (rides.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Không tìm thấy chuyến xe phù hợp')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Tìm thấy ${rides.length} chuyến đi phù hợp')),
         );
       }
     } catch (e) {
       setState(() {
         _isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lỗi tìm kiếm: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Lỗi tìm kiếm: $e')));
     }
   }
 
@@ -170,7 +176,8 @@ class _HomePscreenState extends State<HomePscreen> {
 
   // Handle bottom navigation bar taps
   void _onBottomNavTap(int index) {
-    if (index == 3) { // Profile tab
+    if (index == 3) {
+      // Profile tab
       Navigator.pushNamed(context, AppRoute.profilePassenger);
     }
   }
@@ -206,31 +213,35 @@ class _HomePscreenState extends State<HomePscreen> {
                           // Show profile menu or logout option
                           showDialog(
                             context: context,
-                            builder: (context) => AlertDialog(
-                              title: const Text('Tài khoản'),
-                              content: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  ListTile(
-                                    leading: const Icon(Icons.person),
-                                    title: const Text('Hồ sơ'),
-                                    onTap: () {
-                                      Navigator.pop(context);
-                                      // Navigate to profile
-                                      Navigator.pushNamed(context, AppRoute.profilePassenger);
-                                    },
+                            builder:
+                                (context) => AlertDialog(
+                                  title: const Text('Tài khoản'),
+                                  content: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      ListTile(
+                                        leading: const Icon(Icons.person),
+                                        title: const Text('Hồ sơ'),
+                                        onTap: () {
+                                          Navigator.pop(context);
+                                          // Navigate to profile
+                                          Navigator.pushNamed(
+                                            context,
+                                            AppRoute.profilePassenger,
+                                          );
+                                        },
+                                      ),
+                                      ListTile(
+                                        leading: const Icon(Icons.logout),
+                                        title: const Text('Đăng xuất'),
+                                        onTap: () {
+                                          Navigator.pop(context);
+                                          _logout();
+                                        },
+                                      ),
+                                    ],
                                   ),
-                                  ListTile(
-                                    leading: const Icon(Icons.logout),
-                                    title: const Text('Đăng xuất'),
-                                    onTap: () {
-                                      Navigator.pop(context);
-                                      _logout();
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
+                                ),
                           );
                         },
                         child: const CircleAvatar(
@@ -256,8 +267,8 @@ class _HomePscreenState extends State<HomePscreen> {
                       ),
                       if (_isRefreshing)
                         const SizedBox(
-                          width: 20, 
-                          height: 20, 
+                          width: 20,
+                          height: 20,
                           child: CircularProgressIndicator(
                             color: Colors.white,
                             strokeWidth: 2,
@@ -267,7 +278,9 @@ class _HomePscreenState extends State<HomePscreen> {
                   ),
                   const SizedBox(height: 10),
                   _isLoading
-                      ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                      ? const Center(
+                        child: CircularProgressIndicator(color: Colors.white),
+                      )
                       : _buildRidesList(),
                   // Add extra space at the bottom to ensure refresh works properly
                   const SizedBox(height: 100),
@@ -285,22 +298,13 @@ class _HomePscreenState extends State<HomePscreen> {
         currentIndex: 0,
         onTap: _onBottomNavTap,
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Trang chủ',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Trang chủ'),
           BottomNavigationBarItem(
             icon: Icon(Icons.history),
             label: 'Chuyến đi',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.message),
-            label: 'Tin nhắn',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Cá nhân',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.message), label: 'Tin nhắn'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Cá nhân'),
         ],
       ),
     );
@@ -308,9 +312,7 @@ class _HomePscreenState extends State<HomePscreen> {
 
   Widget _buildSearchCard() {
     return Card(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       color: Colors.white,
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -370,10 +372,7 @@ class _HomePscreenState extends State<HomePscreen> {
                   ),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
-                child: const Text(
-                  'Tìm chuyến',
-                  style: TextStyle(fontSize: 16),
-                ),
+                child: const Text('Tìm chuyến', style: TextStyle(fontSize: 16)),
               ),
             ),
           ],
@@ -395,7 +394,7 @@ class _HomePscreenState extends State<HomePscreen> {
         ),
       );
     }
-    
+
     return ListView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -408,13 +407,13 @@ class _HomePscreenState extends State<HomePscreen> {
               // Load ride details when tapped
               final rideId = _availableRides[index].id;
               final rideDetails = await _rideService.getRideDetails(rideId);
-              
+
               if (mounted && rideDetails != null) {
                 // Show ride details (you'd have a screen for this)
                 Navigator.pushNamed(
-                  context, 
+                  context,
                   AppRoute.rideDetails,
-                  arguments: rideDetails
+                  arguments: rideDetails,
                 );
               }
             },

@@ -9,6 +9,9 @@ import 'package:sharexe/services/booking_service.dart';
 import 'package:intl/intl.dart';
 import '../../../services/profile_service.dart';
 import '../../../models/user_profile.dart';
+import '../../../models/notification_model.dart';
+import '../../../services/auth_manager.dart';
+import 'package:flutter/foundation.dart';
 
 class HomeDscreen extends StatefulWidget {
   const HomeDscreen({super.key});
@@ -22,7 +25,8 @@ class _HomeDscreenState extends State<HomeDscreen> {
   final NotificationService _notificationService = NotificationService();
   final BookingService _bookingService = BookingService();
   final ProfileService _profileService = ProfileService();
-  
+  final AuthManager _authManager = AuthManager();
+
   List<Booking> _pendingBookings = [];
   bool _isLoading = false;
   UserProfile? _userProfile;
@@ -38,7 +42,7 @@ class _HomeDscreenState extends State<HomeDscreen> {
   Future<void> _loadUserProfile() async {
     try {
       final response = await _profileService.getUserProfile();
-      
+
       if (response.success) {
         setState(() {
           _userProfile = response.data;
@@ -53,11 +57,11 @@ class _HomeDscreenState extends State<HomeDscreen> {
     setState(() {
       _isLoading = true;
     });
-    
+
     try {
       // Use the booking service to get real pending bookings
       final bookings = await _bookingService.getDriverPendingBookings();
-      
+
       setState(() {
         _pendingBookings = bookings;
         _isLoading = false;
@@ -67,59 +71,97 @@ class _HomeDscreenState extends State<HomeDscreen> {
       setState(() {
         _isLoading = false;
       });
-      
+
       // Show error to user
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Không thể tải yêu cầu: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Không thể tải yêu cầu: $e')));
       }
     }
   }
-  
+
   Future<void> _acceptBooking(Booking booking) async {
     try {
       setState(() {
         _isLoading = true;
       });
-      
-      // Call API to accept booking
+
+      // Cập nhật trạng thái booking trong Firebase để theo dõi realtime
+      await _notificationService.updateBookingStatus(booking.id, "APPROVED");
+
+      // Gọi API để chấp nhận booking
       final success = await _notificationService.acceptBooking(booking.id);
-      
+
       if (success) {
-        // Update local state
+        // Cập nhật trạng thái trong giao diện
         setState(() {
-          _pendingBookings = _pendingBookings.where((b) => b.id != booking.id).toList();
+          _pendingBookings =
+              _pendingBookings.where((b) => b.id != booking.id).toList();
         });
-        
+
+        // Hiển thị thông báo thành công
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Chấp nhận yêu cầu thành công')),
         );
+
+        // Tạo thông báo cho hành khách
+        try {
+          // Sử dụng tên của hành khách từ booking để gửi thông báo
+          if (kDebugMode) {
+            print('Gửi thông báo tới: ${booking.passengerName}');
+          }
+
+          await _notificationService.showLocalNotification(
+            NotificationModel(
+              id: DateTime.now().millisecondsSinceEpoch,
+              userEmail:
+                  booking
+                      .passengerName, // Dùng passengerName vì không có passengerEmail
+              title: 'Đặt chỗ đã được chấp nhận',
+              content:
+                  'Tài xế đã chấp nhận đặt chỗ của bạn cho chuyến đi #${booking.rideId}',
+              type: 'booking_accepted',
+              read: false,
+              referenceId: booking.id,
+              createdAt: DateTime.now(),
+            ),
+          );
+
+          if (kDebugMode) {
+            print('Đã gửi thông báo thành công');
+          }
+        } catch (e) {
+          if (kDebugMode) {
+            print('Lỗi khi hiển thị thông báo: $e');
+          }
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Có lỗi xảy ra khi chấp nhận yêu cầu')),
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lỗi: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
     } finally {
       setState(() {
         _isLoading = false;
       });
     }
   }
-  
+
   Future<void> _rejectBooking(Booking booking) async {
     // In a real implementation, you'd call an API to reject
     setState(() {
-      _pendingBookings = _pendingBookings.where((b) => b.id != booking.id).toList();
+      _pendingBookings =
+          _pendingBookings.where((b) => b.id != booking.id).toList();
     });
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Đã từ chối yêu cầu')),
-    );
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Đã từ chối yêu cầu')));
   }
 
   void _logout() async {
@@ -128,7 +170,7 @@ class _HomeDscreenState extends State<HomeDscreen> {
       Navigator.pushReplacementNamed(context, AppRoute.role);
     }
   }
-  
+
   String _formatTime(String timeString) {
     try {
       final dateTime = DateTime.parse(timeString);
@@ -147,10 +189,7 @@ class _HomeDscreenState extends State<HomeDscreen> {
           backgroundColor: const Color(0xFF002D72),
           title: const Text('Trang chủ tài xế'),
           actions: [
-            IconButton(
-              icon: const Icon(Icons.logout),
-              onPressed: _logout,
-            ),
+            IconButton(icon: const Icon(Icons.logout), onPressed: _logout),
           ],
         ),
         drawer: Drawer(
@@ -162,16 +201,20 @@ class _HomeDscreenState extends State<HomeDscreen> {
                 accountEmail: Text(_userProfile?.email ?? ''),
                 currentAccountPicture: CircleAvatar(
                   backgroundColor: Colors.white,
-                  backgroundImage: _userProfile?.avatarUrl != null 
-                    ? NetworkImage(_userProfile!.avatarUrl!)
-                    : null,
-                  child: _userProfile?.avatarUrl == null 
-                    ? const Icon(Icons.person, size: 40, color: Colors.blue)
-                    : null,
+                  backgroundImage:
+                      _userProfile?.avatarUrl != null
+                          ? NetworkImage(_userProfile!.avatarUrl!)
+                          : null,
+                  child:
+                      _userProfile?.avatarUrl == null
+                          ? const Icon(
+                            Icons.person,
+                            size: 40,
+                            color: Colors.blue,
+                          )
+                          : null,
                 ),
-                decoration: const BoxDecoration(
-                  color: Color(0xFF002D72),
-                ),
+                decoration: const BoxDecoration(color: Color(0xFF002D72)),
               ),
               ListTile(
                 leading: const Icon(Icons.person),
@@ -214,169 +257,187 @@ class _HomeDscreenState extends State<HomeDscreen> {
             ],
           ),
         ),
-        body: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : RefreshIndicator(
-                onRefresh: _loadPendingBookings,
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Card(
-                        elevation: 4,
-                        child: Padding(
-                          padding: EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Chào mừng bạn đến với ShareXE',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
+        body:
+            _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : RefreshIndicator(
+                  onRefresh: _loadPendingBookings,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Card(
+                          elevation: 4,
+                          child: Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Chào mừng bạn đến với ShareXE',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                SizedBox(height: 8),
+                                Text(
+                                  'Bạn đã đăng nhập với tư cách tài xế. Bạn có thể quản lý các chuyến đi và xem yêu cầu từ khách hàng.',
+                                  style: TextStyle(fontSize: 16),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        const Text(
+                          'Các chuyến đi sắp tới',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount:
+                              0, // Sẽ được cập nhật khi có dữ liệu thực tế
+                          itemBuilder: (context, index) {
+                            return const Card(
+                              margin: EdgeInsets.only(bottom: 10),
+                              child: ListTile(
+                                title: Text('Chuyến đi #...'),
+                                subtitle: Text('Chưa có dữ liệu'),
+                                trailing: Icon(Icons.arrow_forward),
+                              ),
+                            );
+                          },
+                        ),
+                        if (0 == 0) // Nếu không có chuyến đi nào
+                          const Card(
+                            margin: EdgeInsets.only(bottom: 10),
+                            child: Padding(
+                              padding: EdgeInsets.all(16.0),
+                              child: Text('Chưa có chuyến đi nào'),
+                            ),
+                          ),
+                        const SizedBox(height: 20),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Yêu cầu chuyến đi',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(
+                                Icons.refresh,
+                                color: Colors.white,
+                              ),
+                              onPressed: _loadPendingBookings,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: _pendingBookings.length,
+                          itemBuilder: (context, index) {
+                            final booking = _pendingBookings[index];
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 10),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          'Yêu cầu #${booking.id}',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
+                                          ),
+                                        ),
+                                        Text(
+                                          _formatTime(booking.createdAt),
+                                          style: TextStyle(
+                                            color: Colors.grey[600],
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Hành khách: ${booking.passengerName}',
+                                    ),
+                                    Text('Số ghế: ${booking.seatsBooked}'),
+                                    const SizedBox(height: 12),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        TextButton.icon(
+                                          icon: const Icon(
+                                            Icons.close,
+                                            color: Colors.red,
+                                          ),
+                                          label: const Text(
+                                            'Từ chối',
+                                            style: TextStyle(color: Colors.red),
+                                          ),
+                                          onPressed:
+                                              () => _rejectBooking(booking),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        ElevatedButton.icon(
+                                          icon: const Icon(Icons.check),
+                                          label: const Text('Chấp nhận'),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.green,
+                                            foregroundColor: Colors.white,
+                                          ),
+                                          onPressed:
+                                              () => _acceptBooking(booking),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                 ),
                               ),
-                              SizedBox(height: 8),
-                              Text(
-                                'Bạn đã đăng nhập với tư cách tài xế. Bạn có thể quản lý các chuyến đi và xem yêu cầu từ khách hàng.',
-                                style: TextStyle(fontSize: 16),
-                              ),
-                            ],
-                          ),
+                            );
+                          },
                         ),
-                      ),
-                      const SizedBox(height: 20),
-                      const Text(
-                        'Các chuyến đi sắp tới',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: 0, // Sẽ được cập nhật khi có dữ liệu thực tế
-                        itemBuilder: (context, index) {
-                          return const Card(
+                        if (_pendingBookings
+                            .isEmpty) // Nếu không có yêu cầu nào
+                          const Card(
                             margin: EdgeInsets.only(bottom: 10),
-                            child: ListTile(
-                              title: Text('Chuyến đi #...'),
-                              subtitle: Text('Chưa có dữ liệu'),
-                              trailing: Icon(Icons.arrow_forward),
-                            ),
-                          );
-                        },
-                      ),
-                      if (0 == 0) // Nếu không có chuyến đi nào
-                        const Card(
-                          margin: EdgeInsets.only(bottom: 10),
-                          child: Padding(
-                            padding: EdgeInsets.all(16.0),
-                            child: Text('Chưa có chuyến đi nào'),
-                          ),
-                        ),
-                      const SizedBox(height: 20),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Yêu cầu chuyến đi',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.refresh, color: Colors.white),
-                            onPressed: _loadPendingBookings,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: _pendingBookings.length,
-                        itemBuilder: (context, index) {
-                          final booking = _pendingBookings[index];
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 10),
                             child: Padding(
-                              padding: const EdgeInsets.all(12.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        'Yêu cầu #${booking.id}',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 16,
-                                        ),
-                                      ),
-                                      Text(
-                                        _formatTime(booking.createdAt),
-                                        style: TextStyle(
-                                          color: Colors.grey[600],
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text('Hành khách: ${booking.passengerName}'),
-                                  Text('Số ghế: ${booking.seatsBooked}'),
-                                  const SizedBox(height: 12),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.end,
-                                    children: [
-                                      TextButton.icon(
-                                        icon: const Icon(Icons.close, color: Colors.red),
-                                        label: const Text('Từ chối', style: TextStyle(color: Colors.red)),
-                                        onPressed: () => _rejectBooking(booking),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      ElevatedButton.icon(
-                                        icon: const Icon(Icons.check),
-                                        label: const Text('Chấp nhận'),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.green,
-                                          foregroundColor: Colors.white,
-                                        ),
-                                        onPressed: () => _acceptBooking(booking),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
+                              padding: EdgeInsets.all(16.0),
+                              child: Text('Chưa có yêu cầu nào'),
                             ),
-                          );
-                        },
-                      ),
-                      if (_pendingBookings.isEmpty) // Nếu không có yêu cầu nào
-                        const Card(
-                          margin: EdgeInsets.only(bottom: 10),
-                          child: Padding(
-                            padding: EdgeInsets.all(16.0),
-                            child: Text('Chưa có yêu cầu nào'),
                           ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
         bottomNavigationBar: BottomNavigationBar(
           type: BottomNavigationBarType.fixed,
           currentIndex: 0, // Home tab
           onTap: (index) {
-            if (index == 3) { // Profile tab
+            if (index == 3) {
+              // Profile tab
               Navigator.pushNamed(context, AppRoute.profileDriver);
             }
           },
@@ -402,4 +463,4 @@ class _HomeDscreenState extends State<HomeDscreen> {
       ),
     );
   }
-} 
+}

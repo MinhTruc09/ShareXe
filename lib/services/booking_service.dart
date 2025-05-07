@@ -4,26 +4,27 @@ import '../models/booking.dart';
 
 class BookingService {
   final ApiClient _apiClient;
-  
-  BookingService()
-      : _apiClient = ApiClient(baseUrl: 'https://e888-2402-800-6318-7ea8-e9f3-483b-bf46-df23.ngrok-free.app/api');
-  
+
+  BookingService() : _apiClient = ApiClient();
+
   Future<Booking?> bookRide(int rideId, int seats) async {
     try {
       // Use POST method with query parameters as required by the API
       final response = await _apiClient.post(
-        '/passenger/booking/$rideId?seats=$seats', 
-        body: null  // No body needed since using query parameters
+        '/passenger/booking/$rideId?seats=$seats',
+        body: null, // No body needed since using query parameters
       );
-      
+
       if (response.statusCode == 200) {
         try {
           final Map<String, dynamic> responseData = json.decode(response.body);
-          
+
           if (responseData['success'] == true && responseData['data'] != null) {
             return Booking.fromJson(responseData['data']);
           } else {
-            print('Booking response format not as expected: ${responseData['message']}');
+            print(
+              'Booking response format not as expected: ${responseData['message']}',
+            );
             return null;
           }
         } catch (e) {
@@ -42,7 +43,7 @@ class BookingService {
       return _getMockBooking(rideId, seats);
     }
   }
-  
+
   // Creates a mock booking for demo purposes
   Booking _getMockBooking(int rideId, int seats) {
     return Booking(
@@ -60,18 +61,20 @@ class BookingService {
   Future<List<Booking>> getPassengerBookings() async {
     try {
       final response = await _apiClient.get('/passenger/bookings');
-      
+
       if (response.statusCode == 200) {
         try {
           final Map<String, dynamic> responseData = json.decode(response.body);
-          
+
           if (responseData['success'] == true && responseData['data'] != null) {
             if (responseData['data'] is List) {
               final List<dynamic> bookingsData = responseData['data'];
-              return bookingsData.map((json) => Booking.fromJson(json)).toList();
+              return bookingsData
+                  .map((json) => Booking.fromJson(json))
+                  .toList();
             }
           }
-          
+
           // Return mock bookings if no data or wrong format
           return _getMockBookings();
         } catch (e) {
@@ -87,7 +90,7 @@ class BookingService {
       return _getMockBookings();
     }
   }
-  
+
   // Creates mock bookings for demo purposes
   List<Booking> _getMockBookings() {
     return [
@@ -98,7 +101,8 @@ class BookingService {
         seatsBooked: 1,
         passengerName: "Tao la Khach",
         status: "APPROVED",
-        createdAt: DateTime.now().subtract(const Duration(days: 2)).toIso8601String(),
+        createdAt:
+            DateTime.now().subtract(const Duration(days: 2)).toIso8601String(),
       ),
       Booking(
         id: 2,
@@ -107,7 +111,8 @@ class BookingService {
         seatsBooked: 2,
         passengerName: "Tao la Khach",
         status: "PENDING",
-        createdAt: DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
+        createdAt:
+            DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
       ),
     ];
   }
@@ -116,18 +121,20 @@ class BookingService {
   Future<List<Booking>> getDriverPendingBookings() async {
     try {
       final response = await _apiClient.get('/driver/bookings/pending');
-      
+
       if (response.statusCode == 200) {
         try {
           final Map<String, dynamic> responseData = json.decode(response.body);
-          
+
           if (responseData['success'] == true && responseData['data'] != null) {
             if (responseData['data'] is List) {
               final List<dynamic> bookingsData = responseData['data'];
-              return bookingsData.map((json) => Booking.fromJson(json)).toList();
+              return bookingsData
+                  .map((json) => Booking.fromJson(json))
+                  .toList();
             }
           }
-          
+
           // Return mock bookings if no data or wrong format
           return _getMockPendingBookings();
         } catch (e) {
@@ -143,7 +150,7 @@ class BookingService {
       return _getMockPendingBookings();
     }
   }
-  
+
   // Creates mock pending bookings for demo purposes
   List<Booking> _getMockPendingBookings() {
     return [
@@ -154,7 +161,8 @@ class BookingService {
         seatsBooked: 2,
         passengerName: "Nguyễn Văn A",
         status: "PENDING",
-        createdAt: DateTime.now().subtract(const Duration(hours: 1)).toIso8601String(),
+        createdAt:
+            DateTime.now().subtract(const Duration(hours: 1)).toIso8601String(),
       ),
       Booking(
         id: 102,
@@ -163,8 +171,11 @@ class BookingService {
         seatsBooked: 1,
         passengerName: "Trần Thị B",
         status: "PENDING",
-        createdAt: DateTime.now().subtract(const Duration(minutes: 30)).toIso8601String(),
+        createdAt:
+            DateTime.now()
+                .subtract(const Duration(minutes: 30))
+                .toIso8601String(),
       ),
     ];
   }
-} 
+}
