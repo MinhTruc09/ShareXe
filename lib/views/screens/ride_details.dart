@@ -389,7 +389,7 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
                             try {
                               // Lấy hoặc tạo phòng chat với tài xế
                               final roomId = await chatService
-                                  .createOrGetChatRoom(rideData.driverEmail);
+                                  .initChatWithDriver(rideData.driverEmail, rideData.id.toString());
 
                               if (roomId != null && context.mounted) {
                                 Navigator.push(

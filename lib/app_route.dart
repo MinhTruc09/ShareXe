@@ -18,6 +18,10 @@ import 'views/screens/ride_details.dart';
 import 'views/screens/passenger/edit_profile_screen.dart';
 import 'views/screens/driver/edit_profile_screen.dart';
 import 'views/screens/driver/profile_screen.dart';
+import 'views/screens/driver/post_ride_screen.dart';
+import 'views/screens/chat/chat_list_screen.dart';
+import 'views/screens/chat/chat_detail_screen.dart';
+import 'models/driver_profile.dart';
 
 class AppRoute {
   static const String splash = '/splash';
@@ -41,6 +45,11 @@ class AppRoute {
   static const String registerDriverStep2 = '/register-driver-step2';
   static const String profileDriver = '/profile-driver';
   static const String editProfileDriver = '/edit-profile-driver';
+  static const String postRide = '/post-ride';
+
+  // Add route constants
+  static const String chatList = '/chat-list';
+  static const String chatDetail = '/chat-detail';
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -99,6 +108,8 @@ class AppRoute {
         return MaterialPageRoute(builder: (_) => const LoginDriver());
       case homeDriver:
         return MaterialPageRoute(builder: (_) => const HomeDscreen());
+      case postRide:
+        return MaterialPageRoute(builder: (_) => const PostRideScreen());
       case registerDriverStep1:
         return MaterialPageRoute(
           builder: (context) => RegisterDriverStep1(
@@ -123,8 +134,17 @@ class AppRoute {
       case editProfileDriver:
         return MaterialPageRoute(
           builder: (context) => DriverEditProfileScreen(
-            userProfile: ModalRoute.of(context)!.settings.arguments as UserProfile,
+            userProfile: ModalRoute.of(context)!.settings.arguments as DriverProfile,
           ),
+        );
+        
+      // Chat routes
+      case chatList:
+        return MaterialPageRoute(builder: (_) => const ChatListScreen());
+      case chatDetail:
+        final chatRoomId = settings.arguments as String;
+        return MaterialPageRoute(
+          builder: (_) => ChatDetailScreen(chatRoomId: chatRoomId),
         );
         
       default:

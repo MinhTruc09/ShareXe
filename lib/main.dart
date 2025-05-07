@@ -7,6 +7,9 @@ import 'utils/token_tester.dart';
 import 'services/notification_service.dart';
 import 'firebase_options.dart';
 import 'utils/app_config.dart';
+import 'services/profile_service.dart';
+import 'services/driver_profile_service.dart';
+import 'services/auth_manager.dart';
 
 // Required for handling background messages
 @pragma('vm:entry-point')
@@ -61,7 +64,7 @@ class _MyAppState extends State<MyApp> {
     super.initState();
     // Initialize notification service after build completes
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initializeNotifications();
+      _initializeServices();
     });
   }
 
@@ -76,6 +79,28 @@ class _MyAppState extends State<MyApp> {
     } catch (e) {
       print("Error initializing notifications: $e");
       // Continue without notifications if initialization fails
+    }
+  }
+
+  Future<void> _initializeServices() async {
+    // Initialize existing services
+    await _initializeNotifications();
+    
+    // Initialize profile services for both user types
+    final profileService = ProfileService();
+    final driverProfileService = DriverProfileService();
+    
+    // Pre-load user profile if logged in
+    final authManager = AuthManager();
+    final token = await authManager.getToken();
+    
+    if (token != null) {
+      final role = await authManager.getUserRole();
+      if (role == 'DRIVER') {
+        await driverProfileService.getDriverProfile();
+      } else {
+        await profileService.getUserProfile();
+      }
     }
   }
 

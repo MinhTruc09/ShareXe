@@ -34,7 +34,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
-  List<ChatMessageModel> _messages = [];
+  List<ChatMessage> _messages = [];
   bool _isLoading = true;
   bool _isSending = false;
   String? _userEmail;
@@ -108,7 +108,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
       await _loadChatHistory();
 
       // Đánh dấu tin nhắn đã đọc
-      await _chatService.markMessagesAsRead(widget.roomId);
+      await _chatService.markAsRead(widget.roomId);
     } catch (e) {
       if (kDebugMode) {
         print('Lỗi khởi tạo chat: $e');
@@ -131,14 +131,14 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   void _setupWebSocketListener() {
     _webSocketService.onChatMessageReceived = (message) async {
       if (kDebugMode) {
-        print('Nhận tin nhắn qua WebSocket: ${message.content}');
+        print('Nhận tin nhắn qua WebSocket: ${message.message}');
         print(
-          'Phòng chat hiện tại: ${widget.roomId}, Phòng của tin nhắn: ${message.roomId}',
+          'Phòng chat hiện tại: ${widget.roomId}, Phòng của tin nhắn: ${message.receiverId}',
         );
       }
 
       // Chỉ hiển thị tin nhắn thuộc phòng chat hiện tại
-      if (message.roomId == widget.roomId) {
+      if (message.receiverId == widget.roomId) {
         // Lưu tin nhắn vào bộ nhớ cục bộ
         await _chatLocalStorage.addMessage(widget.roomId, message);
 
@@ -160,7 +160,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
           });
 
           // Đánh dấu tin nhắn đã đọc
-          _chatService.markMessagesAsRead(widget.roomId);
+          _chatService.markAsRead(widget.roomId);
         }
       }
     };
@@ -218,7 +218,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
       });
 
       // Đánh dấu tin nhắn đã đọc
-      await _chatService.markMessagesAsRead(widget.roomId);
+      await _chatService.markAsRead(widget.roomId);
     } catch (e) {
       // Nếu đã có tin nhắn từ local, không hiển thị thông báo lỗi
       if (_messages.isEmpty) {
@@ -241,17 +241,17 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
 
   // Hàm so sánh hai danh sách tin nhắn
   bool _areMessagesEqual(
-    List<ChatMessageModel> list1,
-    List<ChatMessageModel> list2,
+    List<ChatMessage> list1,
+    List<ChatMessage> list2,
   ) {
     if (list1.length != list2.length) {
       return false;
     }
 
     for (int i = 0; i < list1.length; i++) {
-      if (list1[i].content != list2[i].content ||
+      if (list1[i].message != list2[i].message ||
           !list1[i].timestamp.isAtSameMomentAs(list2[i].timestamp) ||
-          list1[i].senderEmail != list2[i].senderEmail) {
+          list1[i].senderId != list2[i].senderId) {
         return false;
       }
     }
@@ -270,16 +270,14 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     _messageController.clear();
 
     // Tạo tin nhắn tạm thời để hiển thị ngay lập tức
-    final localMessage = ChatMessageModel(
+    final localMessage = ChatMessage(
       id: 0, // ID tạm thời
-      senderEmail: _userEmail ?? '',
-      receiverEmail: widget.partnerEmail,
-      senderName: await _authManager.getUsername() ?? 'Tôi',
-      content: message,
-      roomId: widget.roomId,
+      senderId: _userEmail ?? '',
+      receiverId: widget.partnerEmail,
+      message: message,
+      messageType: 'text',
       timestamp: DateTime.now(),
-      read: false,
-      status: 'sending', // Trạng thái đang gửi
+      isRead: false,
     );
 
     // Thêm tin nhắn vào UI ngay lập tức
@@ -303,34 +301,16 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
 
     try {
       final success = await _chatService.sendMessage(
-        widget.roomId,
         widget.partnerEmail,
         message,
+        widget.roomId,
       );
-
-      // Cập nhật trạng thái tin nhắn
-      final updatedStatus = success ? 'sent' : 'failed';
-
-      setState(() {
-        final index = _messages.indexWhere(
-          (msg) =>
-              msg.content == localMessage.content &&
-              msg.timestamp.isAtSameMomentAs(localMessage.timestamp),
-        );
-
-        if (index >= 0) {
-          final updatedMessage = _messages[index].copyWith(
-            status: updatedStatus,
-          );
-          _messages[index] = updatedMessage;
-        }
-      });
 
       // Cập nhật trạng thái tin nhắn trong bộ nhớ cục bộ
       await _chatLocalStorage.updateMessageStatus(
         widget.roomId,
         localMessage,
-        updatedStatus,
+        success ? 'sent' : 'failed',
       );
 
       if (!success && mounted) {
@@ -341,20 +321,6 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
       }
     } catch (e) {
       if (mounted) {
-        // Cập nhật trạng thái tin nhắn thất bại
-        setState(() {
-          final index = _messages.indexWhere(
-            (msg) =>
-                msg.content == localMessage.content &&
-                msg.timestamp.isAtSameMomentAs(localMessage.timestamp),
-          );
-
-          if (index >= 0) {
-            final updatedMessage = _messages[index].copyWith(status: 'failed');
-            _messages[index] = updatedMessage;
-          }
-        });
-
         // Cập nhật trạng thái tin nhắn trong bộ nhớ cục bộ
         await _chatLocalStorage.updateMessageStatus(
           widget.roomId,
@@ -449,7 +415,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
                         itemCount: _messages.length,
                         itemBuilder: (context, index) {
                           final message = _messages[index];
-                          final isMyMessage = message.senderEmail == _userEmail;
+                          final isMyMessage = message.senderId == _userEmail;
 
                           return _buildMessageBubble(message, isMyMessage);
                         },
@@ -522,51 +488,27 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     );
   }
 
-  Widget _buildMessageBubble(ChatMessageModel message, bool isMyMessage) {
+  Widget _buildMessageBubble(ChatMessage message, bool isMyMessage) {
     final messageTime = _formatMessageTime(message.timestamp);
+    
+    // Check if sender is current user
+    final bool isSender = message.senderId == _userEmail;
 
     // Icon trạng thái tin nhắn
     Widget? statusIcon;
-    if (isMyMessage && message.status != null) {
-      switch (message.status) {
-        case 'sending':
-          statusIcon = const SizedBox(
-            width: 12,
-            height: 12,
-            child: CircularProgressIndicator(
-              strokeWidth: 2.0,
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.white70),
-            ),
-          );
-          break;
-        case 'sent':
-          statusIcon = const Icon(
-            Icons.check,
-            size: 14.0,
-            color: Colors.white70,
-          );
-          break;
-        case 'delivered':
-          statusIcon = const Icon(
-            Icons.done_all,
-            size: 14.0,
-            color: Colors.white70,
-          );
-          break;
-        case 'read':
-          statusIcon = const Icon(
-            Icons.done_all,
-            size: 14.0,
-            color: Colors.lightBlueAccent,
-          );
-          break;
-        case 'failed':
-          statusIcon = const Icon(
-            Icons.error_outline,
-            size: 14.0,
-            color: Colors.redAccent,
-          );
-          break;
+    if (isMyMessage) {
+      if (message.isRead) {
+        statusIcon = const Icon(
+          Icons.done_all,
+          size: 14.0,
+          color: Colors.lightBlueAccent,
+        );
+      } else {
+        statusIcon = const Icon(
+          Icons.check,
+          size: 14.0,
+          color: Colors.white70,
+        );
       }
     }
 
@@ -609,7 +551,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    message.content,
+                    message.message,
                     style: TextStyle(
                       color: isMyMessage ? Colors.white : Colors.black87,
                       fontSize: 16,

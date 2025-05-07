@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../../models/chat_room_model.dart';
 import '../../../services/chat_service.dart';
-import 'chat_room_screen.dart';
+import 'chat_detail_screen.dart';
 
 class ChatListScreen extends StatefulWidget {
   const ChatListScreen({Key? key}) : super(key: key);
@@ -12,7 +13,7 @@ class ChatListScreen extends StatefulWidget {
 
 class _ChatListScreenState extends State<ChatListScreen> {
   final ChatService _chatService = ChatService();
-  List<Map<String, dynamic>> _chatRooms = [];
+  List<ChatRoom> _chatRooms = [];
   bool _isLoading = true;
   
   @override
@@ -27,56 +28,36 @@ class _ChatListScreenState extends State<ChatListScreen> {
     });
     
     try {
-      final chatRooms = await _chatService.getChatRooms();
+      // In a real app, this would call the API
+      // final chatRooms = await _chatService.getChatRooms();
+      
+      // For demo purposes, use mock data
+      final chatRooms = _chatService.getMockChatRooms();
+      
       setState(() {
         _chatRooms = chatRooms;
         _isLoading = false;
       });
     } catch (e) {
+      print('Error loading chat rooms: $e');
       setState(() {
         _isLoading = false;
       });
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Không thể tải danh sách chat: $e')),
-        );
-      }
     }
   }
   
-  void _navigateToChatRoom(String roomId, String partnerName, String partnerEmail) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ChatRoomScreen(
-          roomId: roomId,
-          partnerName: partnerName,
-          partnerEmail: partnerEmail,
-        ),
-      ),
-    ).then((_) {
-      // Reload chat list when returning from chat room
-      _loadChatRooms();
-    });
-  }
-  
-  String _formatDateTime(String dateTimeString) {
-    try {
-      final dateTime = DateTime.parse(dateTimeString);
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-      final messageDate = DateTime(dateTime.year, dateTime.month, dateTime.day);
-      
-      if (messageDate == today) {
-        return DateFormat('HH:mm').format(dateTime);
-      } else if (today.difference(messageDate).inDays <= 7) {
-        return DateFormat('E').format(dateTime); // Day of week
-      } else {
-        return DateFormat('dd/MM/yyyy').format(dateTime);
-      }
-    } catch (e) {
-      return '';
+  String _formatTime(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+    
+    if (difference.inDays > 0) {
+      return DateFormat('dd/MM/yyyy').format(dateTime);
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours} giờ trước';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes} phút trước';
+    } else {
+      return 'Vừa xong';
     }
   }
   
@@ -84,7 +65,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Trò chuyện'),
+        title: const Text('Tin nhắn'),
         backgroundColor: const Color(0xFF002D72),
       ),
       body: _isLoading
@@ -96,23 +77,25 @@ class _ChatListScreenState extends State<ChatListScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(
-                            Icons.chat_bubble_outline,
-                            size: 64,
-                            color: Colors.grey,
+                          Icon(Icons.message_outlined, 
+                            size: 80, 
+                            color: Colors.grey.shade400
                           ),
                           const SizedBox(height: 16),
-                          const Text(
-                            'Bạn chưa có cuộc trò chuyện nào',
+                          Text(
+                            'Chưa có cuộc trò chuyện nào',
                             style: TextStyle(
                               fontSize: 16,
-                              color: Colors.grey,
+                              color: Colors.grey.shade600,
                             ),
                           ),
-                          const SizedBox(height: 32),
-                          ElevatedButton(
-                            onPressed: _loadChatRooms,
-                            child: const Text('Làm mới'),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Tin nhắn từ tài xế sẽ xuất hiện ở đây',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade500,
+                            ),
                           ),
                         ],
                       ),
@@ -121,97 +104,120 @@ class _ChatListScreenState extends State<ChatListScreen> {
                       itemCount: _chatRooms.length,
                       itemBuilder: (context, index) {
                         final room = _chatRooms[index];
-                        final partnerName = room['partnerName'] ?? 'Người dùng';
-                        final lastMessage = room['lastMessage'] ?? '';
-                        final lastMessageTime = room['lastMessageTime'] ?? '';
-                        final unreadCount = room['unreadCount'] ?? 0;
-                        final roomId = room['roomId'] ?? '';
-                        final partnerEmail = room['partnerEmail'] ?? '';
-                        final partnerAvatar = room['partnerAvatar'];
-                        
-                        return Card(
-                          margin: const EdgeInsets.symmetric(
-                            horizontal: 8.0,
-                            vertical: 4.0,
-                          ),
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: const Color(0xFF002D72),
-                              backgroundImage: partnerAvatar != null
-                                  ? NetworkImage(partnerAvatar)
-                                  : null,
-                              child: partnerAvatar == null
-                                  ? Text(
-                                      partnerName.isNotEmpty
-                                          ? partnerName[0].toUpperCase()
-                                          : '?',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    )
-                                  : null,
-                            ),
-                            title: Text(
-                              partnerName,
-                              style: TextStyle(
-                                fontWeight: unreadCount > 0
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
-                              ),
-                            ),
-                            subtitle: Text(
-                              lastMessage,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            trailing: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  _formatDateTime(lastMessageTime),
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                                if (unreadCount > 0)
-                                  Container(
-                                    margin: const EdgeInsets.only(top: 4),
-                                    padding: const EdgeInsets.all(6),
-                                    decoration: BoxDecoration(
-                                      color: Colors.blue,
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Text(
-                                      unreadCount.toString(),
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            onTap: () => _navigateToChatRoom(
-                              roomId,
-                              partnerName,
-                              partnerEmail,
-                            ),
-                          ),
-                        );
+                        return _buildChatRoomItem(room);
                       },
                     ),
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // TODO: Implement new chat functionality
-          // This would typically open a contact list
+    );
+  }
+  
+  Widget _buildChatRoomItem(ChatRoom room) {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ChatDetailScreen(chatRoomId: room.id),
+            ),
+          ).then((_) => _loadChatRooms()); // Reload after returning
         },
-        backgroundColor: const Color(0xFF002D72),
-        child: const Icon(Icons.chat),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Row(
+            children: [
+              // Avatar
+              CircleAvatar(
+                radius: 28,
+                backgroundColor: Colors.grey.shade200,
+                backgroundImage: room.userAvatar.isNotEmpty
+                    ? NetworkImage(room.userAvatar)
+                    : null,
+                child: room.userAvatar.isEmpty
+                    ? const Icon(Icons.person, size: 28, color: Colors.grey)
+                    : null,
+              ),
+              const SizedBox(width: 12),
+              
+              // Chat info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            room.userName,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Text(
+                          _formatTime(room.lastMessageTime),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: room.unreadCount > 0
+                                ? const Color(0xFF002D72)
+                                : Colors.grey,
+                            fontWeight: room.unreadCount > 0
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            room.lastMessage,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: room.unreadCount > 0
+                                  ? Colors.black
+                                  : Colors.grey.shade600,
+                              fontWeight: room.unreadCount > 0
+                                  ? FontWeight.w500
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                        if (room.unreadCount > 0)
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF002D72),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Text(
+                              room.unreadCount.toString(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

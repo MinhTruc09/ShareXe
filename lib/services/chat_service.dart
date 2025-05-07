@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 import '../models/chat_message_model.dart';
+import '../models/chat_room_model.dart';
 import 'auth_manager.dart';
 import 'websocket_service.dart';
 import '../utils/app_config.dart';
@@ -14,134 +15,94 @@ class ChatService {
 
   final WebSocketService _webSocketService = WebSocketService();
   final AuthManager _authManager = AuthManager();
-  final AppConfig _appConfig = AppConfig();
   final ApiClient _apiClient = ApiClient();
+  final AppConfig _appConfig = AppConfig();
 
-  Future<void> initialize(String baseUrl) async {
-    if (baseUrl.isNotEmpty) {
-      _appConfig.updateBaseUrl(baseUrl);
+  // Initialize WebSocket connection
+  Future<void> initializeWebSocket() async {
+    try {
+      final token = await _authManager.getToken();
+      final email = await _authManager.getUserEmail();
+      
+      if (token != null && email != null) {
+        _webSocketService.initialize(
+          _appConfig.apiBaseUrl,
+          token,
+          email,
+        );
+        
+        _webSocketService.onChatMessageReceived = (message) {
+          // Handle incoming message
+          if (onMessageReceived != null) {
+            onMessageReceived!(message);
+          }
+        };
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error initializing WebSocket: $e');
+      }
     }
   }
-
-  // Lấy danh sách các cuộc trò chuyện
-  Future<List<Map<String, dynamic>>> getChatRooms() async {
+  
+  // Callback for new messages
+  Function(ChatMessage)? onMessageReceived;
+  
+  // Get all chat rooms for the current user
+  Future<List<ChatRoom>> getChatRooms() async {
     try {
       final response = await _apiClient.get('/chat/rooms', requireAuth: true);
 
       if (response.statusCode == 200) {
         final jsonResponse = json.decode(response.body);
         if (jsonResponse['success'] == true && jsonResponse['data'] != null) {
-          return List<Map<String, dynamic>>.from(jsonResponse['data']);
-        } else {
-          return [];
+          List<dynamic> roomsJson = jsonResponse['data'];
+          return roomsJson.map((json) => ChatRoom.fromJson(json)).toList();
         }
-      } else {
-        throw Exception(
-          'Lỗi khi tải danh sách phòng chat: ${response.statusCode}',
-        );
       }
+      return [];
     } catch (e) {
       if (kDebugMode) {
-        print('Lỗi khi lấy danh sách phòng chat: $e');
+        print('Error getting chat rooms: $e');
       }
       return [];
     }
   }
 
-  // Lấy lịch sử tin nhắn của một phòng chat
-  Future<List<ChatMessageModel>> getChatHistory(String roomId) async {
+  // Get chat history for a specific room
+  Future<List<ChatMessage>> getChatHistory(String roomId) async {
     try {
       final response = await _apiClient.get(
-        '/chat/history/$roomId',
+        '/chat/messages/$roomId',
         requireAuth: true,
       );
 
       if (response.statusCode == 200) {
         final jsonResponse = json.decode(response.body);
         if (jsonResponse['success'] == true && jsonResponse['data'] != null) {
-          final List<dynamic> data = jsonResponse['data'];
-          return data.map((item) => ChatMessageModel.fromJson(item)).toList();
-        } else {
-          return [];
+          List<dynamic> messagesJson = jsonResponse['data'];
+          return messagesJson.map((json) => ChatMessage.fromJson(json)).toList();
         }
-      } else {
-        throw Exception('Lỗi khi tải lịch sử chat: ${response.statusCode}');
       }
+      return [];
     } catch (e) {
       if (kDebugMode) {
-        print('Lỗi khi lấy lịch sử chat: $e');
+        print('Error getting chat history: $e');
       }
       return [];
     }
   }
 
-  // Tạo phòng chat mới hoặc lấy phòng chat hiện tại với một người dùng
-  Future<String?> createOrGetChatRoom(String receiverEmail) async {
-    try {
-      final response = await _apiClient.get(
-        '/chat/room/${Uri.encodeComponent(receiverEmail)}',
-        requireAuth: true,
-      );
-
-      if (response.statusCode == 200) {
-        final jsonResponse = json.decode(response.body);
-        if (jsonResponse['success'] == true && jsonResponse['data'] != null) {
-          return jsonResponse['data'];
-        } else {
-          if (kDebugMode) {
-            print('Không thể lấy roomId: ${jsonResponse['message']}');
-          }
-          return null;
-        }
-      } else {
-        throw Exception('Lỗi khi tạo phòng chat: ${response.statusCode}');
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Lỗi khi tạo phòng chat: $e');
-      }
-      return null;
-    }
-  }
-
-  // Gửi tin nhắn chat
-  Future<bool> sendMessage(
-    String roomId,
-    String receiverEmail,
-    String content,
-  ) async {
-    if (!_webSocketService.isConnected()) {
-      if (kDebugMode) {
-        print('WebSocket không được kết nối. Thử gửi qua REST API.');
-      }
-      return _sendMessageViaRest(roomId, receiverEmail, content);
-    }
-
-    try {
-      _webSocketService.sendChatMessage(roomId, receiverEmail, content);
-      return true;
-    } catch (e) {
-      if (kDebugMode) {
-        print('Lỗi khi gửi tin nhắn qua WebSocket: $e');
-      }
-      // Fallback to REST API if WebSocket fails
-      return _sendMessageViaRest(roomId, receiverEmail, content);
-    }
-  }
-
-  // Gửi tin nhắn qua REST API (fallback khi WebSocket không hoạt động)
-  Future<bool> _sendMessageViaRest(
-    String roomId,
-    String receiverEmail,
-    String content,
-  ) async {
+  // Send a message
+  Future<bool> sendMessage(String receiverId, String message, String rideId) async {
     try {
       final response = await _apiClient.post(
         '/chat/send',
         body: {
-          'roomId': roomId,
-          'receiverEmail': receiverEmail,
-          'content': content,
+          'receiverId': receiverId,
+          'message': message,
+          'rideId': rideId,
+          'messageType': 'text'
         },
         requireAuth: true,
       );
@@ -149,14 +110,14 @@ class ChatService {
       return response.statusCode == 200;
     } catch (e) {
       if (kDebugMode) {
-        print('Lỗi khi gửi tin nhắn: $e');
+        print('Error sending message: $e');
       }
       return false;
     }
   }
 
-  // Đánh dấu tin nhắn đã đọc
-  Future<bool> markMessagesAsRead(String roomId) async {
+  // Mark messages as read
+  Future<bool> markAsRead(String roomId) async {
     try {
       final response = await _apiClient.put(
         '/chat/read/$roomId',
@@ -166,14 +127,14 @@ class ChatService {
       return response.statusCode == 200;
     } catch (e) {
       if (kDebugMode) {
-        print('Lỗi khi đánh dấu tin nhắn đã đọc: $e');
+        print('Error marking messages as read: $e');
       }
       return false;
     }
   }
 
-  // Lấy số lượng tin nhắn chưa đọc
-  Future<int> getUnreadMessageCount() async {
+  // Get unread message count
+  Future<int> getUnreadCount() async {
     try {
       final response = await _apiClient.get(
         '/chat/unread-count',
@@ -184,19 +145,202 @@ class ChatService {
         final jsonResponse = json.decode(response.body);
         if (jsonResponse['success'] == true) {
           return jsonResponse['data'] ?? 0;
-        } else {
-          return 0;
         }
-      } else {
-        throw Exception(
-          'Lỗi khi tải số tin nhắn chưa đọc: ${response.statusCode}',
-        );
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Lỗi khi lấy số tin nhắn chưa đọc: $e');
       }
       return 0;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error getting unread count: $e');
+      }
+      return 0;
+    }
+  }
+
+  // Initialize chat room with driver after booking
+  Future<String?> initChatWithDriver(String driverId, String rideId) async {
+    try {
+      final response = await _apiClient.post(
+        '/chat/init',
+        body: {
+          'driverId': driverId,
+          'rideId': rideId,
+        },
+        requireAuth: true,
+      );
+
+      if (response.statusCode == 200) {
+        final jsonResponse = json.decode(response.body);
+        if (jsonResponse['success'] == true && jsonResponse['data'] != null) {
+          return jsonResponse['data']['roomId'];
+        }
+      }
+      return null;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error initializing chat: $e');
+      }
+      return null;
+    }
+  }
+
+  // Get mock data for testing
+  List<ChatRoom> getMockChatRooms() {
+    return [
+      ChatRoom(
+        id: '1',
+        userId: 'driver1',
+        userName: 'Nguyễn Văn A',
+        userAvatar: 'https://randomuser.me/api/portraits/men/1.jpg',
+        lastMessage: 'Tôi sẽ đón bạn lúc 8h sáng nhé',
+        lastMessageTime: DateTime.now().subtract(const Duration(minutes: 5)),
+        unreadCount: 2,
+        rideId: '101',
+      ),
+      ChatRoom(
+        id: '2',
+        userId: 'driver2',
+        userName: 'Trần Thị B',
+        userAvatar: 'https://randomuser.me/api/portraits/women/2.jpg',
+        lastMessage: 'Bạn đang ở đâu vậy?',
+        lastMessageTime: DateTime.now().subtract(const Duration(hours: 2)),
+        unreadCount: 0,
+        rideId: '102',
+      ),
+      ChatRoom(
+        id: '3',
+        userId: 'driver3',
+        userName: 'Lê Văn C',
+        userAvatar: 'https://randomuser.me/api/portraits/men/3.jpg',
+        lastMessage: 'Cảm ơn bạn đã sử dụng dịch vụ',
+        lastMessageTime: DateTime.now().subtract(const Duration(days: 2)),
+        unreadCount: 0,
+        rideId: '103',
+      ),
+    ];
+  }
+
+  // Get mock chat history for testing
+  List<ChatMessage> getMockChatHistory(String roomId) {
+    final String currentUserId = 'currentuser'; // This would normally come from auth
+    final String otherUserId = roomId == '1' ? 'driver1' : (roomId == '2' ? 'driver2' : 'driver3');
+    
+    if (roomId == '1') {
+      return [
+        ChatMessage(
+          id: 1,
+          senderId: otherUserId,
+          receiverId: currentUserId,
+          message: 'Xin chào, tôi là tài xế của bạn',
+          messageType: 'text',
+          timestamp: DateTime.now().subtract(const Duration(hours: 1, minutes: 30)),
+          isRead: true,
+        ),
+        ChatMessage(
+          id: 2,
+          senderId: currentUserId,
+          receiverId: otherUserId,
+          message: 'Xin chào, bạn sẽ đón tôi ở đâu?',
+          messageType: 'text',
+          timestamp: DateTime.now().subtract(const Duration(hours: 1, minutes: 25)),
+          isRead: true,
+        ),
+        ChatMessage(
+          id: 3,
+          senderId: otherUserId,
+          receiverId: currentUserId,
+          message: 'Tôi sẽ đón bạn ở đầu đường Lê Lợi nhé',
+          messageType: 'text',
+          timestamp: DateTime.now().subtract(const Duration(hours: 1)),
+          isRead: true,
+        ),
+        ChatMessage(
+          id: 4,
+          senderId: currentUserId,
+          receiverId: otherUserId,
+          message: 'Vâng, tôi sẽ có mặt đúng giờ',
+          messageType: 'text',
+          timestamp: DateTime.now().subtract(const Duration(minutes: 55)),
+          isRead: true,
+        ),
+        ChatMessage(
+          id: 5,
+          senderId: otherUserId,
+          receiverId: currentUserId,
+          message: 'Tôi sẽ đón bạn lúc 8h sáng nhé',
+          messageType: 'text',
+          timestamp: DateTime.now().subtract(const Duration(minutes: 5)),
+          isRead: false,
+        ),
+      ];
+    } else if (roomId == '2') {
+      return [
+        ChatMessage(
+          id: 1,
+          senderId: currentUserId,
+          receiverId: otherUserId,
+          message: 'Chào bạn, tôi đã đặt xe của bạn',
+          messageType: 'text',
+          timestamp: DateTime.now().subtract(const Duration(hours: 3)),
+          isRead: true,
+        ),
+        ChatMessage(
+          id: 2,
+          senderId: otherUserId,
+          receiverId: currentUserId,
+          message: 'Vâng, tôi sẽ đón bạn lúc 15h chiều nhé',
+          messageType: 'text',
+          timestamp: DateTime.now().subtract(const Duration(hours: 2, minutes: 50)),
+          isRead: true,
+        ),
+        ChatMessage(
+          id: 3,
+          senderId: otherUserId,
+          receiverId: currentUserId,
+          message: 'Bạn đang ở đâu vậy?',
+          messageType: 'text',
+          timestamp: DateTime.now().subtract(const Duration(hours: 2)),
+          isRead: true,
+        ),
+      ];
+    } else {
+      return [
+        ChatMessage(
+          id: 1,
+          senderId: otherUserId,
+          receiverId: currentUserId,
+          message: 'Chào bạn, tôi là tài xế của bạn hôm nay',
+          messageType: 'text',
+          timestamp: DateTime.now().subtract(const Duration(days: 3)),
+          isRead: true,
+        ),
+        ChatMessage(
+          id: 2,
+          senderId: currentUserId,
+          receiverId: otherUserId,
+          message: 'Vâng, tôi sẽ đợi ở đầu ngõ',
+          messageType: 'text',
+          timestamp: DateTime.now().subtract(const Duration(days: 3)).add(const Duration(minutes: 5)),
+          isRead: true,
+        ),
+        ChatMessage(
+          id: 3,
+          senderId: otherUserId,
+          receiverId: currentUserId,
+          message: 'Chuyến đi của chúng ta đã hoàn thành',
+          messageType: 'text',
+          timestamp: DateTime.now().subtract(const Duration(days: 2, hours: 1)),
+          isRead: true,
+        ),
+        ChatMessage(
+          id: 4,
+          senderId: otherUserId,
+          receiverId: currentUserId,
+          message: 'Cảm ơn bạn đã sử dụng dịch vụ',
+          timestamp: DateTime.now().subtract(const Duration(days: 2)),
+          messageType: 'text',
+          isRead: true,
+        ),
+      ];
     }
   }
 }
