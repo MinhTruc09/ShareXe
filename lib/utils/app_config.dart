@@ -4,8 +4,7 @@ class AppConfig {
   AppConfig._internal();
 
   // API Base URL - URL ngrok đang hoạt động
-  String apiBaseUrl =
-      'https://209b-2405-4803-c83c-6d40-8464-c5f5-c484-d512.ngrok-free.app';
+  String apiBaseUrl = 'https://0479-1-54-152-77.ngrok-free.app';
 
   // API Base Path - Đường dẫn API cơ sở
   String apiBasePath = '/api';

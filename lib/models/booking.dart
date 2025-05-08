@@ -4,8 +4,10 @@ class Booking {
   final int passengerId;
   final int seatsBooked;
   final String passengerName;
-  final String status;
+  final String status; // PENDING, ACCEPTED, REJECTED, COMPLETED
   final String createdAt;
+  final String? passengerAvatar;
+  final double? totalPrice;
 
   Booking({
     required this.id,
@@ -15,6 +17,8 @@ class Booking {
     required this.passengerName,
     required this.status,
     required this.createdAt,
+    this.passengerAvatar,
+    this.totalPrice,
   });
 
   factory Booking.fromJson(Map<String, dynamic> json) {
@@ -23,9 +27,11 @@ class Booking {
       rideId: json['rideId'],
       passengerId: json['passengerId'],
       seatsBooked: json['seatsBooked'],
-      passengerName: json['passengerName'] ?? '',
-      status: json['status'] ?? 'PENDING',
-      createdAt: json['createdAt'] ?? DateTime.now().toIso8601String(),
+      passengerName: json['passengerName'] ?? 'Hành khách',
+      status: json['status'],
+      createdAt: json['createdAt'],
+      passengerAvatar: json['passengerAvatar'],
+      totalPrice: json['totalPrice']?.toDouble(),
     );
   }
 
@@ -38,6 +44,32 @@ class Booking {
       'passengerName': passengerName,
       'status': status,
       'createdAt': createdAt,
+      'passengerAvatar': passengerAvatar,
+      'totalPrice': totalPrice,
     };
   }
-} 
+
+  Booking copyWith({
+    int? id,
+    int? rideId,
+    int? passengerId,
+    int? seatsBooked,
+    String? passengerName,
+    String? status,
+    String? createdAt,
+    String? passengerAvatar,
+    double? totalPrice,
+  }) {
+    return Booking(
+      id: id ?? this.id,
+      rideId: rideId ?? this.rideId,
+      passengerId: passengerId ?? this.passengerId,
+      seatsBooked: seatsBooked ?? this.seatsBooked,
+      passengerName: passengerName ?? this.passengerName,
+      status: status ?? this.status,
+      createdAt: createdAt ?? this.createdAt,
+      passengerAvatar: passengerAvatar ?? this.passengerAvatar,
+      totalPrice: totalPrice ?? this.totalPrice,
+    );
+  }
+}

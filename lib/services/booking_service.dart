@@ -60,61 +60,28 @@ class BookingService {
   // Get bookings for a passenger
   Future<List<Booking>> getPassengerBookings() async {
     try {
-      final response = await _apiClient.get('/passenger/bookings');
+      print('🔍 Lấy danh sách booking cho hành khách');
+
+      final response = await _apiClient.get(
+        '/passenger/bookings',
+        requireAuth: true,
+      );
 
       if (response.statusCode == 200) {
-        try {
-          final Map<String, dynamic> responseData = json.decode(response.body);
+        final responseData = json.decode(response.body);
 
-          if (responseData['success'] == true && responseData['data'] != null) {
-            if (responseData['data'] is List) {
-              final List<dynamic> bookingsData = responseData['data'];
-              return bookingsData
-                  .map((json) => Booking.fromJson(json))
-                  .toList();
-            }
-          }
-
-          // Return mock bookings if no data or wrong format
-          return _getMockBookings();
-        } catch (e) {
-          print('Error parsing bookings: $e');
-          return _getMockBookings();
+        if (responseData['success'] == true && responseData['data'] != null) {
+          final List<dynamic> bookingsData = responseData['data'];
+          return bookingsData.map((json) => Booking.fromJson(json)).toList();
         }
-      } else {
-        print('Failed to load bookings: ${response.statusCode}');
-        return _getMockBookings();
       }
-    } catch (e) {
-      print('Error fetching bookings: $e');
-      return _getMockBookings();
-    }
-  }
 
-  // Creates mock bookings for demo purposes
-  List<Booking> _getMockBookings() {
-    return [
-      Booking(
-        id: 1,
-        rideId: 1,
-        passengerId: 108,
-        seatsBooked: 1,
-        passengerName: "Tao la Khach",
-        status: "APPROVED",
-        createdAt:
-            DateTime.now().subtract(const Duration(days: 2)).toIso8601String(),
-      ),
-      Booking(
-        id: 2,
-        rideId: 2,
-        passengerId: 108,
-        seatsBooked: 2,
-        passengerName: "Tao la Khach",
-        status: "PENDING",
-        createdAt:
-            DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
-      ),
-    ];
+      print('❌ Lỗi khi lấy danh sách booking: ${response.statusCode}');
+      return [];
+    } catch (e) {
+      print('❌ Exception khi lấy danh sách booking: $e');
+      return [];
+    }
   }
 
   // Get driver's pending bookings
@@ -177,5 +144,101 @@ class BookingService {
                 .toIso8601String(),
       ),
     ];
+  }
+
+  // Lấy danh sách booking cho tài xế
+  Future<List<Booking>> getDriverBookings() async {
+    try {
+      print('🔍 Lấy danh sách booking cho tài xế');
+
+      final response = await _apiClient.get(
+        '/driver/bookings',
+        requireAuth: true,
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+
+        if (responseData['success'] == true && responseData['data'] != null) {
+          final List<dynamic> bookingsData = responseData['data'];
+          return bookingsData.map((json) => Booking.fromJson(json)).toList();
+        }
+      }
+
+      print('❌ Lỗi khi lấy danh sách booking: ${response.statusCode}');
+      return [];
+    } catch (e) {
+      print('❌ Exception khi lấy danh sách booking: $e');
+      return [];
+    }
+  }
+
+  // Chấp nhận booking
+  Future<bool> acceptBooking(int bookingId) async {
+    try {
+      print('✅ Chấp nhận booking #$bookingId');
+
+      final response = await _apiClient.put(
+        '/driver/accept/$bookingId',
+        requireAuth: true,
+      );
+
+      if (response.statusCode == 200) {
+        print('✅ Chấp nhận booking thành công');
+        return true;
+      } else {
+        print('❌ Lỗi khi chấp nhận booking: ${response.statusCode}');
+        return false;
+      }
+    } catch (e) {
+      print('❌ Exception khi chấp nhận booking: $e');
+      return false;
+    }
+  }
+
+  // Từ chối booking
+  Future<bool> rejectBooking(int bookingId) async {
+    try {
+      print('❌ Từ chối booking #$bookingId');
+
+      final response = await _apiClient.put(
+        '/driver/reject/$bookingId',
+        requireAuth: true,
+      );
+
+      if (response.statusCode == 200) {
+        print('✅ Từ chối booking thành công');
+        return true;
+      } else {
+        print('❌ Lỗi khi từ chối booking: ${response.statusCode}');
+        return false;
+      }
+    } catch (e) {
+      print('❌ Exception khi từ chối booking: $e');
+      return false;
+    }
+  }
+
+  // Hoàn thành chuyến đi
+  Future<bool> completeRide(int rideId) async {
+    try {
+      print('🏁 Hoàn thành chuyến đi #$rideId');
+
+      final response = await _apiClient.put(
+        '/driver/complete/$rideId',
+        requireAuth: true,
+      );
+
+      if (response.statusCode == 200) {
+        print('✅ Đã đánh dấu chuyến đi hoàn thành');
+        return true;
+      } else {
+        print('❌ Lỗi khi hoàn thành chuyến đi: ${response.statusCode}');
+        return false;
+      }
+    } catch (e) {
+      print('❌ Exception khi hoàn thành chuyến đi: $e');
+      return false;
+    }
   }
 }

@@ -8,7 +8,11 @@ class RegisterPassengerStep1 extends StatefulWidget {
   final String role;
   final Function(RegistrationData) onNext;
 
-  const RegisterPassengerStep1({super.key, required this.role, required this.onNext});
+  const RegisterPassengerStep1({
+    super.key,
+    required this.role,
+    required this.onNext,
+  });
 
   @override
   State<RegisterPassengerStep1> createState() => _RegisterPassengerStep1State();
@@ -28,7 +32,7 @@ class _RegisterPassengerStep1State extends State<RegisterPassengerStep1> {
       final data = RegistrationData(
         email: _emailController.text,
         password: _passwordController.text,
-        fullName: _fullNameController.text, 
+        fullName: _fullNameController.text,
         phone: _phoneController.text,
       );
       widget.onNext(data);
@@ -37,8 +41,8 @@ class _RegisterPassengerStep1State extends State<RegisterPassengerStep1> {
 
   void _navigateToLogin() {
     Navigator.pushReplacementNamed(
-      context, 
-      widget.role == 'DRIVER' ? AppRoute.loginDriver : AppRoute.loginPassenger
+      context,
+      widget.role == 'DRIVER' ? DriverRoutes.login : PassengerRoutes.login,
     );
   }
 
@@ -46,10 +50,13 @@ class _RegisterPassengerStep1State extends State<RegisterPassengerStep1> {
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
-    
+
     // Determine title based on role
-    String title = widget.role == 'DRIVER' ? 'Đăng ký tài khoản tài xế' : 'Đăng ký tài khoản hành khách';
-    
+    String title =
+        widget.role == 'DRIVER'
+            ? 'Đăng ký tài khoản tài xế'
+            : 'Đăng ký tài khoản hành khách';
+
     return SharexeBackground1(
       child: SafeArea(
         child: SingleChildScrollView(

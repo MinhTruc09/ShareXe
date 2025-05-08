@@ -1,5 +1,6 @@
 import 'dart:convert';
 import '../models/ride.dart';
+import '../models/booking.dart';
 import '../utils/http_client.dart';
 import '../services/auth_manager.dart';
 import 'package:http/http.dart' as http;
@@ -294,6 +295,154 @@ class RideService {
     } catch (e) {
       print('❌ Error searching rides: $e');
       return [];
+    }
+  }
+
+  // Creates mock pending bookings for demo purposes
+  List<Booking> _getMockPendingBookings() {
+    return [
+      Booking(
+        id: 101,
+        rideId: 1,
+        passengerId: 201,
+        seatsBooked: 2,
+        passengerName: "Nguyễn Văn A",
+        status: "PENDING",
+        createdAt:
+            DateTime.now().subtract(const Duration(hours: 1)).toIso8601String(),
+      ),
+      Booking(
+        id: 102,
+        rideId: 1,
+        passengerId: 202,
+        seatsBooked: 1,
+        passengerName: "Trần Thị B",
+        status: "PENDING",
+        createdAt:
+            DateTime.now()
+                .subtract(const Duration(minutes: 30))
+                .toIso8601String(),
+      ),
+    ];
+  }
+
+  // Tạo chuyến đi mới (cho tài xế)
+  Future<bool> createRide(Map<String, dynamic> rideData) async {
+    try {
+      print('📝 Tạo chuyến đi mới với dữ liệu: $rideData');
+
+      final response = await _apiClient.post(
+        '/ride',
+        body: rideData,
+        requireAuth: true,
+      );
+
+      if (response.statusCode == 201) {
+        print('✅ Tạo chuyến đi thành công');
+        return true;
+      } else {
+        print('❌ Lỗi khi tạo chuyến đi: ${response.statusCode}');
+        return false;
+      }
+    } catch (e) {
+      print('❌ Exception khi tạo chuyến đi: $e');
+      return false;
+    }
+  }
+
+  // Cập nhật chuyến đi (cho tài xế)
+  Future<bool> updateRide(int rideId, Map<String, dynamic> rideData) async {
+    try {
+      print('📝 Cập nhật chuyến đi #$rideId với dữ liệu: $rideData');
+
+      final response = await _apiClient.put(
+        '/ride/update/$rideId',
+        body: rideData,
+        requireAuth: true,
+      );
+
+      if (response.statusCode == 200) {
+        print('✅ Cập nhật chuyến đi thành công');
+        return true;
+      } else {
+        print('❌ Lỗi khi cập nhật chuyến đi: ${response.statusCode}');
+        return false;
+      }
+    } catch (e) {
+      print('❌ Exception khi cập nhật chuyến đi: $e');
+      return false;
+    }
+  }
+
+  // Hủy chuyến đi (cho tài xế)
+  Future<bool> cancelRide(int rideId) async {
+    try {
+      print('🚫 Hủy chuyến đi #$rideId');
+
+      final response = await _apiClient.put('/ride/$rideId', requireAuth: true);
+
+      if (response.statusCode == 200) {
+        print('✅ Hủy chuyến đi thành công');
+        return true;
+      } else {
+        print('❌ Lỗi khi hủy chuyến đi: ${response.statusCode}');
+        return false;
+      }
+    } catch (e) {
+      print('❌ Exception khi hủy chuyến đi: $e');
+      return false;
+    }
+  }
+
+  // Lấy danh sách chuyến đi của tài xế
+  Future<List<Ride>> getDriverRides() async {
+    try {
+      print('🔍 Lấy danh sách chuyến đi của tài xế');
+
+      final response = await _apiClient.get(
+        '/driver/my-rides',
+        requireAuth: true,
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+
+        if (responseData['success'] == true && responseData['data'] != null) {
+          final List<dynamic> rideData = responseData['data'];
+          return rideData.map((json) => Ride.fromJson(json)).toList();
+        }
+      }
+
+      print(
+        '❌ Lỗi khi lấy danh sách chuyến đi của tài xế: ${response.statusCode}',
+      );
+      return [];
+    } catch (e) {
+      print('❌ Exception khi lấy danh sách chuyến đi của tài xế: $e');
+      return [];
+    }
+  }
+
+  // Hoàn thành chuyến đi (cho tài xế)
+  Future<bool> completeRide(int rideId) async {
+    try {
+      print('✅ Đánh dấu chuyến đi #$rideId là đã hoàn thành');
+
+      final response = await _apiClient.put(
+        '/ride/complete/$rideId',
+        requireAuth: true,
+      );
+
+      if (response.statusCode == 200) {
+        print('✅ Hoàn thành chuyến đi thành công');
+        return true;
+      } else {
+        print('❌ Lỗi khi hoàn thành chuyến đi: ${response.statusCode}');
+        return false;
+      }
+    } catch (e) {
+      print('❌ Exception khi hoàn thành chuyến đi: $e');
+      return false;
     }
   }
 }

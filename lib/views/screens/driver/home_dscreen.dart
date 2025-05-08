@@ -180,6 +180,19 @@ class _HomeDscreenState extends State<HomeDscreen> {
     }
   }
 
+  void _onBottomNavTap(int index) {
+    if (index == 3) {
+      // Profile tab
+      Navigator.pushNamed(context, AppRoute.profileDriver);
+    } else if (index == 2) {
+      // Chat tab
+      Navigator.pushNamed(context, AppRoute.chatList);
+    } else if (index == 1) {
+      // Rides tab
+      Navigator.pushNamed(context, AppRoute.myRides);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return SharexeBackground1(
@@ -226,10 +239,28 @@ class _HomeDscreenState extends State<HomeDscreen> {
               ),
               ListTile(
                 leading: const Icon(Icons.directions_car),
-                title: const Text('Chuyến đi của tôi'),
+                title: const Text('Quản lý chuyến đi'),
                 onTap: () {
                   Navigator.pop(context);
-                  // Navigate to my rides screen
+                  // Mở màn hình quản lý chuyến đi
+                  Navigator.pushNamed(context, AppRoute.myRides);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.add_road),
+                title: const Text('Tạo chuyến đi mới'),
+                onTap: () {
+                  Navigator.pop(context);
+                  // Mở màn hình tạo chuyến đi mới
+                  Navigator.pushNamed(context, AppRoute.createRide);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.book_online),
+                title: const Text('Yêu cầu đặt chỗ'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, AppRoute.driverBookings);
                 },
               ),
               ListTile(
@@ -267,63 +298,66 @@ class _HomeDscreenState extends State<HomeDscreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Card(
+                        Card(
                           elevation: 4,
                           child: Padding(
-                            padding: EdgeInsets.all(16.0),
+                            padding: const EdgeInsets.all(16.0),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
+                                const Text(
                                   'Chào mừng bạn đến với ShareXE',
                                   style: TextStyle(
                                     fontSize: 20,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                                SizedBox(height: 8),
-                                Text(
+                                const SizedBox(height: 8),
+                                const Text(
                                   'Bạn đã đăng nhập với tư cách tài xế. Bạn có thể quản lý các chuyến đi và xem yêu cầu từ khách hàng.',
                                   style: TextStyle(fontSize: 16),
+                                ),
+                                const SizedBox(height: 16),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceEvenly,
+                                  children: [
+                                    _buildActionButton(
+                                      'Tạo chuyến đi',
+                                      Icons.add_road,
+                                      () {
+                                        Navigator.pushNamed(
+                                          context,
+                                          AppRoute.createRide,
+                                        );
+                                      },
+                                    ),
+                                    _buildActionButton(
+                                      'Chuyến đi của tôi',
+                                      Icons.directions_car,
+                                      () {
+                                        Navigator.pushNamed(
+                                          context,
+                                          AppRoute.myRides,
+                                        );
+                                      },
+                                    ),
+                                    _buildActionButton(
+                                      'Yêu cầu đặt chỗ',
+                                      Icons.supervised_user_circle,
+                                      () {
+                                        Navigator.pushNamed(
+                                          context,
+                                          AppRoute.driverBookings,
+                                        );
+                                      },
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
                           ),
                         ),
-                        const SizedBox(height: 20),
-                        const Text(
-                          'Các chuyến đi sắp tới',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        ListView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount:
-                              0, // Sẽ được cập nhật khi có dữ liệu thực tế
-                          itemBuilder: (context, index) {
-                            return const Card(
-                              margin: EdgeInsets.only(bottom: 10),
-                              child: ListTile(
-                                title: Text('Chuyến đi #...'),
-                                subtitle: Text('Chưa có dữ liệu'),
-                                trailing: Icon(Icons.arrow_forward),
-                              ),
-                            );
-                          },
-                        ),
-                        if (0 == 0) // Nếu không có chuyến đi nào
-                          const Card(
-                            margin: EdgeInsets.only(bottom: 10),
-                            child: Padding(
-                              padding: EdgeInsets.all(16.0),
-                              child: Text('Chưa có chuyến đi nào'),
-                            ),
-                          ),
                         const SizedBox(height: 20),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -435,12 +469,7 @@ class _HomeDscreenState extends State<HomeDscreen> {
         bottomNavigationBar: BottomNavigationBar(
           type: BottomNavigationBarType.fixed,
           currentIndex: 0, // Home tab
-          onTap: (index) {
-            if (index == 3) {
-              // Profile tab
-              Navigator.pushNamed(context, AppRoute.profileDriver);
-            }
-          },
+          onTap: _onBottomNavTap,
           items: const [
             BottomNavigationBarItem(
               icon: Icon(Icons.home_outlined),
@@ -457,6 +486,39 @@ class _HomeDscreenState extends State<HomeDscreen> {
             BottomNavigationBarItem(
               icon: Icon(Icons.person_outline),
               label: 'Cá nhân',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton(String label, IconData icon, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF00AEEF),
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: Colors.white, size: 30),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ],
         ),

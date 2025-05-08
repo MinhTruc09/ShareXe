@@ -53,7 +53,7 @@ class _LoginPassengerState extends State<LoginPassenger> {
   }
 
   void _navigateToRegister() {
-    Navigator.pushNamed(context, AppRoute.registerPassengerStep1);
+    Navigator.pushNamed(context, PassengerRoutes.registerStep1);
   }
 
   @override

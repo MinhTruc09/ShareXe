@@ -178,7 +178,10 @@ class _HomePscreenState extends State<HomePscreen> {
   void _onBottomNavTap(int index) {
     if (index == 3) {
       // Profile tab
-      Navigator.pushNamed(context, AppRoute.profilePassenger);
+      Navigator.pushNamed(context, PassengerRoutes.profile);
+    } else if (index == 2) {
+      // Chat tab
+      Navigator.pushNamed(context, AppRoute.chatList);
     }
   }
 
@@ -227,7 +230,7 @@ class _HomePscreenState extends State<HomePscreen> {
                                           // Navigate to profile
                                           Navigator.pushNamed(
                                             context,
-                                            AppRoute.profilePassenger,
+                                            PassengerRoutes.profile,
                                           );
                                         },
                                       ),

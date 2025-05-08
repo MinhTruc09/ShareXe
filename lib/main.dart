@@ -7,6 +7,8 @@ import 'utils/token_tester.dart';
 import 'services/notification_service.dart';
 import 'firebase_options.dart';
 import 'utils/app_config.dart';
+import 'views/screens/chat/user_list_screen.dart';
+import 'views/screens/chat/chat_room_screen.dart';
 
 // Required for handling background messages
 @pragma('vm:entry-point')
