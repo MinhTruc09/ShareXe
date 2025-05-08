@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'dart:async';
+import 'package:firebase_database/firebase_database.dart';
 import '../../models/ride.dart';
-import '../../models/booking.dart';
 import '../../services/booking_service.dart';
 import '../../services/notification_service.dart';
-import 'package:firebase_database/firebase_database.dart';
-import 'dart:async';
+import '../../models/booking.dart';
 import '../../services/chat_service.dart';
-import '../screens/chat/chat_room_screen.dart';
+import 'chat/chat_room_screen.dart';
+import 'package:flutter/foundation.dart';
+import '../widgets/custom_button.dart';
+import '../../services/ride_service.dart';
+import '../../services/auth_manager.dart';
+import '../../utils/alerts.dart';
 
 class RideDetailScreen extends StatefulWidget {
   final dynamic ride;
@@ -21,11 +26,14 @@ class RideDetailScreen extends StatefulWidget {
 class _RideDetailScreenState extends State<RideDetailScreen> {
   final BookingService _bookingService = BookingService();
   final NotificationService _notificationService = NotificationService();
+  final ChatService _chatService = ChatService();
   bool _isBooking = false;
   bool _isBooked = false;
   Booking? _booking;
   int _selectedSeats = 1;
   StreamSubscription<DatabaseEvent>? _bookingStatusSubscription;
+  String _bookingError = '';
+  String _bookingSuccess = '';
 
   @override
   void dispose() {
@@ -246,397 +254,428 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
     );
   }
 
+  Future<void> _startChatWithDriver() async {
+    try {
+      // Lấy thông tin chuyến đi
+      final rideData = widget.ride;
+      final driverEmail = rideData.driverEmail;
+      final driverName = rideData.driverName;
+
+      if (driverEmail.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Không tìm thấy thông tin tài xế')),
+        );
+        return;
+      }
+
+      // Hiển thị loading
+      setState(() {
+        _isBooking = true;
+      });
+
+      // Tạo phòng chat hoặc lấy phòng chat hiện có
+      final roomId = await _chatService.createOrGetChatRoom(driverEmail);
+
+      // Ẩn loading
+      setState(() {
+        _isBooking = false;
+      });
+
+      if (roomId != null) {
+        if (mounted) {
+          // Chuyển đến màn hình chat
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder:
+                  (context) => ChatRoomScreen(
+                    roomId: roomId,
+                    partnerName: driverName,
+                    partnerEmail: driverEmail,
+                  ),
+            ),
+          );
+        }
+      } else {
+        throw Exception('Không thể tạo phòng chat');
+      }
+    } catch (e) {
+      setState(() {
+        _isBooking = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Không thể kết nối với tài xế: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
     final Ride rideData = widget.ride as Ride;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Chi tiết chuyến đi'),
-        backgroundColor: const Color(0xFF00AEEF),
-        elevation: 0,
-      ),
-      backgroundColor: Colors.white,
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Blue header section with basic ride info
-            Container(
-              color: const Color(0xFF00AEEF),
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Route info
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.circle_outlined,
-                        color: Colors.white,
-                        size: 20,
+      appBar: AppBar(title: const Text('Chi tiết chuyến đi')),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child:
+            _isBooking
+                ? const Center(child: CircularProgressIndicator())
+                : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Từ ${rideData.departure} đến ${rideData.destination}',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          rideData.departure,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildDetailItem(
+                      'Thời gian khởi hành:',
+                      _formatTime(rideData.startTime),
+                    ),
+                    _buildDetailItem('Tài xế:', rideData.driverName),
+                    _buildDetailItem(
+                      'Ghế trống:',
+                      '${rideData.availableSeats}/${rideData.totalSeat}',
+                    ),
+                    if (rideData.pricePerSeat != null)
+                      _buildDetailItem(
+                        'Giá:',
+                        '${NumberFormat.currency(locale: 'vi-VN', symbol: '₫').format(rideData.pricePerSeat)}/ghế',
                       ),
-                    ],
-                  ),
-                  // Connecting line
-                  Padding(
-                    padding: const EdgeInsets.only(left: 10),
-                    child: Container(height: 30, width: 2, color: Colors.white),
-                  ),
-                  // Destination
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.location_on,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          rideData.destination,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  // Time and status
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
+                    _buildDetailItem('Trạng thái:', rideData.status),
+
+                    if (!_isBooked &&
+                        rideData.availableSeats > 0 &&
+                        rideData.status == 'ACTIVE')
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          const SizedBox(height: 20),
                           const Text(
-                            'Thời gian khởi hành',
+                            'Số ghế bạn muốn đặt:',
                             style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 14,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _formatTime(rideData.startTime),
-                            style: const TextStyle(
-                              color: Colors.white,
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                        ],
-                      ),
-                      _buildStatusIndicator(rideData.status),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            // Details section
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Driver info
-                  const Text(
-                    'Thông tin tài xế',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 12),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: CircleAvatar(
-                      backgroundColor: Colors.blue.shade100,
-                      child: const Icon(Icons.person, color: Color(0xFF00AEEF)),
-                    ),
-                    title: Text(
-                      rideData.driverName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    subtitle: Text(rideData.driverEmail),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(
-                            Icons.message,
-                            color: Color(0xFF00AEEF),
-                          ),
-                          onPressed: () async {
-                            final chatService = ChatService();
-
-                            try {
-                              // Lấy hoặc tạo phòng chat với tài xế
-                              final roomId = await chatService
-                                  .createOrGetChatRoom(rideData.driverEmail);
-
-                              if (roomId != null && context.mounted) {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder:
-                                        (context) => ChatRoomScreen(
-                                          roomId: roomId,
-                                          partnerName: rideData.driverName,
-                                          partnerEmail: rideData.driverEmail,
-                                        ),
-                                  ),
-                                );
-                              } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Không thể tạo phòng chat, vui lòng thử lại sau',
-                                    ),
-                                  ),
-                                );
-                              }
-                            } catch (e) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Lỗi: $e')),
-                              );
-                            }
-                          },
-                        ),
-                        IconButton(
-                          icon: const Icon(
-                            Icons.phone,
-                            color: Color(0xFF00AEEF),
-                          ),
-                          onPressed: () {
-                            // Implement call driver
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Tính năng đang phát triển'),
+                          const SizedBox(height: 8),
+                          DropdownButtonFormField<int>(
+                            value: _selectedSeats,
+                            items: List.generate(
+                              rideData.availableSeats,
+                              (index) => DropdownMenuItem(
+                                value: index + 1,
+                                child: Text('${index + 1}'),
                               ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const Divider(height: 32),
-
-                  // Ride details
-                  const Text(
-                    'Chi tiết chuyến đi',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildDetailRow(
-                    'Số ghế trống:',
-                    '${rideData.availableSeats}/${rideData.totalSeat} người',
-                  ),
-                  const SizedBox(height: 8),
-                  _buildDetailRow(
-                    'Giá mỗi ghế:',
-                    rideData.pricePerSeat != null
-                        ? currencyFormat.format(rideData.pricePerSeat)
-                        : 'Miễn phí',
-                  ),
-
-                  if (!_isBooked && rideData.availableSeats > 0) ...[
-                    const SizedBox(height: 24),
-
-                    // Seat selection
-                    const Text(
-                      'Chọn số ghế:',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                            ),
+                            onChanged: (value) {
+                              setState(() {
+                                _selectedSeats = value!;
+                              });
+                            },
+                            decoration: const InputDecoration(
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 8),
+
+                    const SizedBox(height: 20),
+
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        IconButton(
-                          icon: const Icon(Icons.remove_circle_outline),
-                          onPressed:
-                              _selectedSeats > 1
-                                  ? () {
-                                    setState(() {
-                                      _selectedSeats--;
-                                    });
-                                  }
-                                  : null,
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
+                        if (!_isBooked &&
+                            rideData.availableSeats > 0 &&
+                            rideData.status == 'ACTIVE')
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: _isBooking ? null : _bookRide,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF002D62),
+                                foregroundColor: Colors.white,
+                              ),
+                              child:
+                                  _isBooking
+                                      ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          color: Colors.white,
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                      : const Text('Đặt chỗ'),
+                            ),
                           ),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey),
-                            borderRadius: BorderRadius.circular(4),
+                        if (!_isBooked &&
+                            rideData.availableSeats > 0 &&
+                            rideData.status == 'ACTIVE')
+                          const SizedBox(width: 10),
+                        // Nút chat với tài xế hoặc hành khách
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () => _openChatWithPartner(rideData),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                              foregroundColor: Colors.white,
+                            ),
+                            child: const Text('Nhắn tin'),
                           ),
-                          child: Text(
-                            '$_selectedSeats',
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.add_circle_outline),
-                          onPressed:
-                              _selectedSeats < rideData.availableSeats
-                                  ? () {
-                                    setState(() {
-                                      _selectedSeats++;
-                                    });
-                                  }
-                                  : null,
                         ),
                       ],
                     ),
 
-                    const SizedBox(height: 32),
-
-                    // Book button
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _isBooking ? null : _bookRide,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF002D62),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          disabledBackgroundColor: Colors.grey[300],
+                    if (_isBooked) ...[
+                      const SizedBox(height: 20),
+                      const Text(
+                        'Thông tin đặt chỗ',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
                         ),
-                        child:
-                            _isBooking
-                                ? const Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        color: Colors.white,
-                                        strokeWidth: 2,
-                                      ),
-                                    ),
-                                    SizedBox(width: 12),
-                                    Text(
-                                      'Đang đặt chuyến...',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                )
-                                : const Text(
-                                  'Đặt chỗ ngay',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
                       ),
-                    ),
-                  ] else if (_isBooked && _booking != null) ...[
-                    const SizedBox(height: 24),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.green.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.green.shade200),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Đã đặt chỗ thành công!',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.green,
-                            ),
+                      const SizedBox(height: 10),
+                      _booking != null
+                          ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildDetailItem(
+                                'Mã đặt chỗ:',
+                                '#${_booking!.id}',
+                              ),
+                              _buildDetailItem(
+                                'Số ghế đã đặt:',
+                                '${_booking!.seatsBooked}',
+                              ),
+                              _buildDetailItem('Trạng thái:', _booking!.status),
+                              _buildDetailItem(
+                                'Thời gian đặt:',
+                                _formatTime(_booking!.createdAt),
+                              ),
+                            ],
+                          )
+                          : const Text('Đang tải thông tin...'),
+                    ],
+
+                    if (_bookingError.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 16.0),
+                        child: Text(
+                          _bookingError,
+                          style: const TextStyle(
+                            color: Colors.red,
+                            fontWeight: FontWeight.bold,
                           ),
-                          const SizedBox(height: 8),
-                          Text('Số ghế đã đặt: ${_booking!.seatsBooked}'),
-                          const SizedBox(height: 4),
-                          const Text('Trạng thái: Chờ tài xế duyệt'),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Cảm ơn bạn đã đặt chuyến! Hãy chờ tài xế xác nhận đặt chỗ của bạn.',
-                            style: TextStyle(fontSize: 14),
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
-                  ] else if (rideData.availableSeats <= 0) ...[
-                    const SizedBox(height: 24),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.red.shade200),
-                      ),
-                      child: const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Hết chỗ',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.red,
-                            ),
+
+                    if (_bookingSuccess.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 16.0),
+                        child: Text(
+                          _bookingSuccess,
+                          style: const TextStyle(
+                            color: Colors.green,
+                            fontWeight: FontWeight.bold,
                           ),
-                          SizedBox(height: 8),
-                          Text(
-                            'Chuyến đi này đã hết chỗ. Vui lòng chọn chuyến khác.',
-                            style: TextStyle(fontSize: 14),
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
                   ],
-                ],
-              ),
-            ),
-          ],
-        ),
+                ),
       ),
     );
   }
 
-  Widget _buildDetailRow(String label, String value) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 16)),
-        Text(
-          value,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        ),
-      ],
-    );
+  // Mở chat với đối tác (tài xế hoặc hành khách)
+  Future<void> _openChatWithPartner(Ride rideData) async {
+    try {
+      final userRole = await AuthManager().getUserRole();
+      final ChatService chatService = ChatService();
+      String partnerEmail;
+      String partnerName;
+
+      // Lấy thông tin đối tác dựa vào vai trò người dùng
+      if (userRole == 'DRIVER') {
+        // Tài xế muốn nhắn tin với hành khách
+        if (_booking == null) {
+          AlertUtils.showErrorDialog(
+            context,
+            'Thông báo',
+            'Không có thông tin hành khách để nhắn tin',
+          );
+          return;
+        }
+        // Lưu ý: Booking có thể không có passengerEmail
+        // Sử dụng một email mặc định hoặc suy ra từ thông tin khác
+        partnerEmail = 'passenger${_booking!.passengerId}@example.com';
+        partnerName = _booking!.passengerName;
+      } else {
+        // Hành khách muốn nhắn tin với tài xế
+        partnerEmail = rideData.driverEmail;
+        partnerName = rideData.driverName;
+      }
+
+      if (kDebugMode) {
+        print('Bắt đầu chat với $partnerName ($partnerEmail)');
+      }
+
+      // Hiển thị đang xử lý
+      setState(() {
+        _isBooking = true;
+      });
+
+      // Tạo phòng chat
+      final roomId = await chatService.createOrGetChatRoom(partnerEmail);
+
+      setState(() {
+        _isBooking = false;
+      });
+
+      if (roomId == null) {
+        if (mounted) {
+          AlertUtils.showErrorDialog(
+            context,
+            'Thông báo',
+            'Không thể tạo phòng chat với $partnerName',
+          );
+        }
+        return;
+      }
+
+      // Nếu roomId bắt đầu bằng "mock_", hiển thị thông báo thông tin cho người dùng
+      if (roomId.startsWith('mock_')) {
+        if (mounted) {
+          AlertUtils.showSnackBar(
+            context,
+            'Đang sử dụng chế độ chat ngoại tuyến. Tin nhắn sẽ được lưu cục bộ.',
+            backgroundColor: Colors.orange.shade800,
+            duration: const Duration(seconds: 5),
+          );
+        }
+      }
+
+      // Mở màn hình chat
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder:
+                (context) => ChatRoomScreen(
+                  roomId: roomId,
+                  partnerName: partnerName,
+                  partnerEmail: partnerEmail,
+                ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Lỗi khi mở chat: $e');
+      }
+
+      setState(() {
+        _isBooking = false;
+      });
+
+      if (mounted) {
+        // Tạo phòng chat mô phỏng khi có lỗi
+        _createMockChatAndNavigate(rideData);
+      }
+    }
+  }
+
+  // Tạo phòng chat mô phỏng và chuyển hướng
+  Future<void> _createMockChatAndNavigate(Ride rideData) async {
+    try {
+      final userRole = await AuthManager().getUserRole();
+      final userEmail = await AuthManager().getUserEmail();
+
+      if (userEmail == null) {
+        AlertUtils.showErrorDialog(
+          context,
+          'Lỗi',
+          'Không thể xác thực người dùng. Vui lòng đăng nhập lại.',
+        );
+        return;
+      }
+
+      String partnerEmail;
+      String partnerName;
+
+      // Xác định đối tác chat dựa vào vai trò
+      if (userRole == 'DRIVER') {
+        if (_booking == null) {
+          AlertUtils.showErrorDialog(
+            context,
+            'Thông báo',
+            'Không có thông tin hành khách để nhắn tin',
+          );
+          return;
+        }
+        partnerEmail = 'passenger${_booking!.passengerId}@example.com';
+        partnerName = _booking!.passengerName;
+      } else {
+        partnerEmail = rideData.driverEmail;
+        partnerName = rideData.driverName;
+      }
+
+      // Tạo ID phòng chat mô phỏng
+      List<String> emails = [userEmail, partnerEmail];
+      emails.sort(); // Sắp xếp để đảm bảo thứ tự không đổi
+      String roomId = 'mock_${emails[0]}_${emails[1]}';
+
+      if (kDebugMode) {
+        print('Tạo phòng chat mô phỏng với ID: $roomId');
+      }
+
+      // Thông báo cho người dùng
+      if (mounted) {
+        AlertUtils.showSnackBar(
+          context,
+          'Đang sử dụng chế độ chat ngoại tuyến. Tin nhắn sẽ được lưu cục bộ.',
+          backgroundColor: Colors.orange.shade800,
+          duration: const Duration(seconds: 5),
+        );
+      }
+
+      // Mở phòng chat
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder:
+                (context) => ChatRoomScreen(
+                  roomId: roomId,
+                  partnerName: partnerName,
+                  partnerEmail: partnerEmail,
+                ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Lỗi khi tạo phòng chat mô phỏng: $e');
+      }
+
+      if (mounted) {
+        AlertUtils.showErrorDialog(
+          context,
+          'Lỗi',
+          'Không thể tạo phòng chat: ${e.toString()}',
+        );
+      }
+    }
   }
 }

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import '../utils/http_client.dart';
 import '../models/booking.dart';
+import 'package:http/http.dart' as http;
 
 class BookingService {
   final ApiClient _apiClient;
@@ -57,7 +58,7 @@ class BookingService {
     );
   }
 
-  // Get bookings for a passenger
+  // Get passenger's bookings
   Future<List<Booking>> getPassengerBookings() async {
     try {
       final response = await _apiClient.get('/passenger/bookings');
@@ -65,116 +66,127 @@ class BookingService {
       if (response.statusCode == 200) {
         try {
           final Map<String, dynamic> responseData = json.decode(response.body);
-
           if (responseData['success'] == true && responseData['data'] != null) {
-            if (responseData['data'] is List) {
-              final List<dynamic> bookingsData = responseData['data'];
-              return bookingsData
-                  .map((json) => Booking.fromJson(json))
-                  .toList();
-            }
+            final List<dynamic> bookingsData = responseData['data'];
+            return bookingsData.map((json) => Booking.fromJson(json)).toList();
+          } else {
+            print('❌ API Response format not as expected');
+            return _getMockPassengerBookings();
           }
-
-          // Return mock bookings if no data or wrong format
-          return _getMockBookings();
         } catch (e) {
-          print('Error parsing bookings: $e');
-          return _getMockBookings();
+          print('❌ Error parsing booking data: $e');
+          return _getMockPassengerBookings();
         }
       } else {
-        print('Failed to load bookings: ${response.statusCode}');
-        return _getMockBookings();
+        print('❌ Failed to load bookings: ${response.statusCode}');
+        return _getMockPassengerBookings();
       }
     } catch (e) {
-      print('Error fetching bookings: $e');
-      return _getMockBookings();
+      print('❌ Error fetching passenger bookings: $e');
+      return _getMockPassengerBookings();
     }
   }
 
-  // Creates mock bookings for demo purposes
-  List<Booking> _getMockBookings() {
+  // Sample data for passenger bookings
+  List<Booking> _getMockPassengerBookings() {
     return [
       Booking(
-        id: 1,
-        rideId: 1,
-        passengerId: 108,
+        id: 201,
+        rideId: 101,
+        passengerId: 301,
         seatsBooked: 1,
-        passengerName: "Tao la Khach",
-        status: "APPROVED",
-        createdAt:
-            DateTime.now().subtract(const Duration(days: 2)).toIso8601String(),
-      ),
-      Booking(
-        id: 2,
-        rideId: 2,
-        passengerId: 108,
-        seatsBooked: 2,
-        passengerName: "Tao la Khach",
-        status: "PENDING",
+        passengerName: "Lê Thị D",
+        status: "CONFIRMED",
         createdAt:
             DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
+      ),
+      Booking(
+        id: 202,
+        rideId: 102,
+        passengerId: 301,
+        seatsBooked: 2,
+        passengerName: "Lê Thị D",
+        status: "PENDING",
+        createdAt: DateTime.now().toIso8601String(),
       ),
     ];
   }
 
-  // Get driver's pending bookings
-  Future<List<Booking>> getDriverPendingBookings() async {
+  // Lấy danh sách booking đang chờ xác nhận cho tài xế
+  Future<List<Booking>> fetchPendingBookingsForDriver() async {
+    print('🔍 Đang lấy các đặt chỗ đang chờ xác nhận cho tài xế...');
     try {
-      final response = await _apiClient.get('/driver/bookings/pending');
+      final response = await _apiClient.get('/driver/bookings');
 
       if (response.statusCode == 200) {
         try {
           final Map<String, dynamic> responseData = json.decode(response.body);
-
           if (responseData['success'] == true && responseData['data'] != null) {
-            if (responseData['data'] is List) {
-              final List<dynamic> bookingsData = responseData['data'];
-              return bookingsData
-                  .map((json) => Booking.fromJson(json))
-                  .toList();
-            }
+            final List<dynamic> bookingsData = responseData['data'];
+            print('✅ Tìm thấy ${bookingsData.length} đơn đặt chỗ đang chờ');
+            return bookingsData.map((data) => Booking.fromJson(data)).toList();
+          } else {
+            print('❌ Định dạng không hợp lệ: ${responseData['message']}');
+            return _getMockPendingBookings();
           }
-
-          // Return mock bookings if no data or wrong format
-          return _getMockPendingBookings();
         } catch (e) {
-          print('Error parsing driver bookings: $e');
+          print('❌ Lỗi phân tích dữ liệu JSON: $e');
           return _getMockPendingBookings();
         }
       } else {
-        print('Failed to load driver bookings: ${response.statusCode}');
+        print('❌ Status code không thành công: ${response.statusCode}');
         return _getMockPendingBookings();
       }
+    } on http.ClientException catch (e) {
+      print('❌ Lỗi khi lấy danh sách đặt chỗ: $e');
+
+      // Thông báo lỗi cụ thể
+      if (e.toString().contains('Connection refused') ||
+          e.toString().contains('Failed host lookup') ||
+          e.toString().contains('Connection timed out')) {
+        print('⚠️ Đang sử dụng dữ liệu giả cho demo');
+      }
+
+      return _getMockPendingBookings();
     } catch (e) {
-      print('Error fetching driver bookings: $e');
+      print('❌ Lỗi khi lấy danh sách đặt chỗ: $e');
+      print('⚠️ Đang sử dụng dữ liệu giả cho demo');
       return _getMockPendingBookings();
     }
   }
 
-  // Creates mock pending bookings for demo purposes
+  // Sample data mẫu cho các booking đang chờ xác nhận
   List<Booking> _getMockPendingBookings() {
     return [
       Booking(
-        id: 101,
-        rideId: 1,
+        id: 1001,
+        rideId: 501,
         passengerId: 201,
         seatsBooked: 2,
         passengerName: "Nguyễn Văn A",
         status: "PENDING",
         createdAt:
-            DateTime.now().subtract(const Duration(hours: 1)).toIso8601String(),
+            DateTime.now().subtract(const Duration(hours: 2)).toIso8601String(),
       ),
       Booking(
-        id: 102,
-        rideId: 1,
+        id: 1002,
+        rideId: 502,
         passengerId: 202,
         seatsBooked: 1,
         passengerName: "Trần Thị B",
         status: "PENDING",
         createdAt:
-            DateTime.now()
-                .subtract(const Duration(minutes: 30))
-                .toIso8601String(),
+            DateTime.now().subtract(const Duration(hours: 3)).toIso8601String(),
+      ),
+      Booking(
+        id: 1003,
+        rideId: 503,
+        passengerId: 203,
+        seatsBooked: 3,
+        passengerName: "Lê Văn C",
+        status: "PENDING",
+        createdAt:
+            DateTime.now().subtract(const Duration(hours: 1)).toIso8601String(),
       ),
     ];
   }

@@ -296,4 +296,116 @@ class RideService {
       return [];
     }
   }
+
+  // Tạo chuyến đi mới (dành cho tài xế)
+  Future<Map<String, dynamic>> createRide({
+    required String departure,
+    required String destination,
+    required DateTime startTime,
+    required double pricePerSeat,
+    required int totalSeat,
+  }) async {
+    try {
+      print('🚗 Tạo chuyến đi mới...');
+
+      // Chuẩn bị dữ liệu chuyến đi
+      final Map<String, dynamic> rideRequest = {
+        'departure': departure,
+        'destination': destination,
+        'startTime': startTime.toIso8601String(),
+        'pricePerSeat': pricePerSeat,
+        'totalSeat': totalSeat,
+      };
+
+      print('📦 Request body: ${jsonEncode(rideRequest)}');
+
+      // Gọi API tạo chuyến đi
+      try {
+        final response = await _apiClient.post('/ride', body: rideRequest);
+
+        if (response.statusCode == 201 || response.statusCode == 200) {
+          print('✅ Tạo chuyến đi thành công');
+          return {'success': true, 'message': 'Tạo chuyến đi thành công'};
+        } else {
+          print('❌ Tạo chuyến đi thất bại: ${response.statusCode}');
+          print('📄 Response: ${response.body}');
+          return {
+            'success': false,
+            'message': 'Mã lỗi: ${response.statusCode}',
+          };
+        }
+      } on http.ClientException catch (e) {
+        print('❌ Lỗi kết nối khi tạo chuyến đi: $e');
+
+        // Kiểm tra lỗi kết nối
+        if (e.toString().contains('Connection refused') ||
+            e.toString().contains('Failed host lookup') ||
+            e.toString().contains('Connection timed out')) {
+          // Trả về thông báo lỗi kết nối thân thiện hơn
+          return {
+            'success': false,
+            'message':
+                'Không thể kết nối tới máy chủ. Vui lòng kiểm tra kết nối mạng và thử lại sau.',
+            'connectionError': true,
+          };
+        }
+
+        return {'success': false, 'message': 'Lỗi kết nối: ${e.toString()}'};
+      }
+    } catch (e) {
+      print('❌ Lỗi khi tạo chuyến đi: $e');
+      return {'success': false, 'message': 'Đã xảy ra lỗi: ${e.toString()}'};
+    }
+  }
+
+  // Lấy danh sách các chuyến đi của tài xế hiện tại
+  Future<List<Ride>> getDriverRides() async {
+    try {
+      print('🔍 Đang lấy danh sách chuyến đi của tài xế...');
+      final response = await _apiClient.get('/driver/my-rides');
+
+      print('📡 Response Status: ${response.statusCode}');
+      if (response.headers.containsKey('content-type')) {
+        print('📡 Content-Type: ${response.headers['content-type']}');
+      }
+
+      // Debug response body
+      if (response.body.isNotEmpty) {
+        print(
+          '📡 Response Body: ${response.body.substring(0, min(500, response.body.length))}${response.body.length > 500 ? "..." : ""}',
+        );
+      }
+
+      if (response.statusCode == 200) {
+        try {
+          final Map<String, dynamic> responseData = json.decode(response.body);
+          print('✅ Đã nhận dữ liệu chuyến đi của tài xế');
+
+          if (responseData['success'] == true && responseData['data'] != null) {
+            if (responseData['data'] is List) {
+              final List<dynamic> rideData = responseData['data'];
+              print('📊 Số lượng chuyến đi: ${rideData.length}');
+              return rideData.map((json) => Ride.fromJson(json)).toList();
+            }
+          }
+          print(
+            '❌ Định dạng phản hồi không như mong đợi, trả về danh sách trống',
+          );
+          return [];
+        } catch (e) {
+          print('❌ Lỗi phân tích dữ liệu chuyến đi: $e');
+          return []; // Trả về danh sách trống thay vì dữ liệu mẫu
+        }
+      } else if (response.statusCode == 403) {
+        print('❌ Lỗi quyền truy cập API (403)');
+        return []; // Trả về danh sách trống
+      } else {
+        print('❌ Không thể lấy danh sách chuyến đi: ${response.statusCode}');
+        return []; // Trả về danh sách trống
+      }
+    } catch (e) {
+      print('❌ Lỗi khi lấy danh sách chuyến đi: $e');
+      return []; // Trả về danh sách trống
+    }
+  }
 }

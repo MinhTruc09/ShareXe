@@ -4,8 +4,7 @@ class AppConfig {
   AppConfig._internal();
 
   // API Base URL - URL ngrok đang hoạt động
-  String apiBaseUrl =
-      'https://209b-2405-4803-c83c-6d40-8464-c5f5-c484-d512.ngrok-free.app';
+  String apiBaseUrl = 'https://0479-1-54-152-77.ngrok-free.app';
 
   // API Base Path - Đường dẫn API cơ sở
   String apiBasePath = '/api';
@@ -25,8 +24,14 @@ class AppConfig {
     }
   }
 
-  // FCM server key
-  String fcmServerKey = 'YOUR_FCM_SERVER_KEY';
+  // FCM server key - Được sử dụng để gửi thông báo đẩy từ backend
+  // Lấy từ Firebase Console > Project Settings > Cloud Messaging > Server key
+  // Lưu ý: Để triển khai thực tế, không nên hardcode key này trong ứng dụng
+  // mà server nên lưu trữ và sử dụng nó
+  //
+  // QUAN TRỌNG: Thay 'YOUR_FCM_SERVER_KEY' bằng khóa thực từ Firebase Console
+  // Nếu sử dụng cho mục đích test, có thể dùng bất kỳ chuỗi không trống nào
+  String fcmServerKey = 'AIzaSyB_fuH4AsXn1fqxjfAH4LLxkUUex9I7JJo';
 
   // FCM topics
   String fcmTopicAllUsers = 'all_users';

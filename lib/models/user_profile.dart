@@ -42,11 +42,13 @@ class ProfileResponse {
   final String message;
   final UserProfile data;
   final bool success;
+  final bool isOffline;
 
   ProfileResponse({
     required this.message,
     required this.data,
     required this.success,
+    this.isOffline = false,
   });
 
   factory ProfileResponse.fromJson(Map<String, dynamic> json) {
@@ -54,6 +56,7 @@ class ProfileResponse {
       message: json['message'] ?? '',
       data: UserProfile.fromJson(json['data'] ?? {}),
       success: json['success'] ?? false,
+      isOffline: json['isOffline'] ?? false,
     );
   }
-} 
+}

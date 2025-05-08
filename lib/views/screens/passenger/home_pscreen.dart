@@ -179,12 +179,95 @@ class _HomePscreenState extends State<HomePscreen> {
     if (index == 3) {
       // Profile tab
       Navigator.pushNamed(context, AppRoute.profilePassenger);
+    } else if (index == 2) {
+      // Chat tab
+      Navigator.pushNamed(context, AppRoute.chatList);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          'Tìm chuyến đi',
+          style: TextStyle(color: Colors.white),
+        ),
+        backgroundColor: Colors.blue.shade600,
+        iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_outlined),
+            onPressed: () {
+              // TODO: Navigate to notifications
+            },
+          ),
+        ],
+      ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            DrawerHeader(
+              decoration: BoxDecoration(color: Colors.blue.shade600),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const CircleAvatar(
+                    backgroundColor: Colors.white,
+                    radius: 30,
+                    child: Icon(Icons.person, size: 48, color: Colors.blue),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Thông tin cá nhân',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  const Text(
+                    'ShareXe App',
+                    style: TextStyle(color: Colors.white, fontSize: 14),
+                  ),
+                ],
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.person),
+              title: const Text('Hồ sơ'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, AppRoute.profilePassenger);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.history),
+              title: const Text('Lịch sử đặt xe'),
+              onTap: () {
+                Navigator.pop(context);
+                // TODO: Navigate to booking history
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.chat),
+              title: const Text('Tin nhắn'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, AppRoute.chatList);
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.logout),
+              title: const Text('Đăng xuất'),
+              onTap: _logout,
+            ),
+          ],
+        ),
+      ),
       backgroundColor: const Color(0xFF00AEEF),
       body: SafeArea(
         child: RefreshIndicator(

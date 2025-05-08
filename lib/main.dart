@@ -37,7 +37,8 @@ Future<void> main() async {
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
     // Get FCM token
-    await FirebaseMessaging.instance.getToken();
+    String? token = await FirebaseMessaging.instance.getToken();
+    print("FCM Token: $token");
   } catch (e) {
     print("Error initializing Firebase: $e");
     // Continue without Firebase if initialization fails
@@ -74,8 +75,10 @@ class _MyAppState extends State<MyApp> {
         appConfig.apiBaseUrl,
       );
     } catch (e) {
+      // Xử lý lỗi bằng cách ghi nhật ký và tiếp tục - không hiển thị lỗi cho người dùng
       print("Error initializing notifications: $e");
-      // Continue without notifications if initialization fails
+      print("App will continue without notification features");
+      // Không hiển thị lỗi này cho người dùng vì nó không ảnh hưởng đến chức năng chính
     }
   }
 

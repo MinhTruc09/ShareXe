@@ -18,11 +18,14 @@ import 'views/screens/ride_details.dart';
 import 'views/screens/passenger/edit_profile_screen.dart';
 import 'views/screens/driver/edit_profile_screen.dart';
 import 'views/screens/driver/profile_screen.dart';
+import 'views/screens/driver/create_ride_screen.dart';
+import 'views/screens/chat/chat_list_screen.dart';
+import 'views/screens/chat/user_list_screen.dart';
 
 class AppRoute {
   static const String splash = '/splash';
   static const String role = '/role';
-  
+
   // Passenger routes
   static const String splashPassenger = '/splash-passenger';
   static const String loginPassenger = '/login-passenger';
@@ -32,7 +35,7 @@ class AppRoute {
   static const String profilePassenger = '/profile-passenger';
   static const String rideDetails = '/ride-details';
   static const String editProfilePassenger = '/edit-profile-passenger';
-  
+
   // Driver routes
   static const String splashDriver = '/splash-driver';
   static const String loginDriver = '/login-driver';
@@ -41,6 +44,11 @@ class AppRoute {
   static const String registerDriverStep2 = '/register-driver-step2';
   static const String profileDriver = '/profile-driver';
   static const String editProfileDriver = '/edit-profile-driver';
+  static const String createRide = '/create-ride';
+
+  // Chat routes
+  static const String chatList = '/chat-list';
+  static const String userList = '/user-list';
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -48,7 +56,7 @@ class AppRoute {
         return MaterialPageRoute(builder: (_) => const SplashScreen());
       case role:
         return MaterialPageRoute(builder: (_) => const RoleScreen());
-      
+
       // Passenger routes
       case splashPassenger:
         return MaterialPageRoute(builder: (_) => const SplashPscreen());
@@ -58,40 +66,42 @@ class AppRoute {
         return MaterialPageRoute(builder: (_) => const HomePscreen());
       case registerPassengerStep1:
         return MaterialPageRoute(
-          builder: (context) => RegisterPassengerStep1(
-            role: 'PASSENGER',
-            onNext: (data) => Navigator.pushNamed(
-              context,
-              registerUserStep2,
-              arguments: data,
-            ),
-          ),
+          builder:
+              (context) => RegisterPassengerStep1(
+                role: 'PASSENGER',
+                onNext:
+                    (data) => Navigator.pushNamed(
+                      context,
+                      registerUserStep2,
+                      arguments: data,
+                    ),
+              ),
         );
       case registerUserStep2:
         final data = settings.arguments as RegistrationData;
         return MaterialPageRoute(
-          builder: (context) => RegisterUserStep2(
-            role: 'PASSENGER',
-            data: data,
-          ),
+          builder:
+              (context) => RegisterUserStep2(role: 'PASSENGER', data: data),
         );
-      
+
       case profilePassenger:
         return MaterialPageRoute(builder: (_) => const ProfileScreen());
-      
+
       case rideDetails:
         final ride = settings.arguments;
         return MaterialPageRoute(
           builder: (context) => RideDetailScreen(ride: ride),
         );
-      
+
       case editProfilePassenger:
         return MaterialPageRoute(
-          builder: (context) => EditProfileScreen(
-            userProfile: ModalRoute.of(context)!.settings.arguments as UserProfile,
-          ),
+          builder:
+              (context) => EditProfileScreen(
+                userProfile:
+                    ModalRoute.of(context)!.settings.arguments as UserProfile,
+              ),
         );
-      
+
       // Driver routes
       case splashDriver:
         return MaterialPageRoute(builder: (_) => const SplashDscreen());
@@ -101,39 +111,51 @@ class AppRoute {
         return MaterialPageRoute(builder: (_) => const HomeDscreen());
       case registerDriverStep1:
         return MaterialPageRoute(
-          builder: (context) => RegisterDriverStep1(
-            onNext: (data) => Navigator.pushNamed(
-              context,
-              registerDriverStep2,
-              arguments: data,
-            ),
-          ),
+          builder:
+              (context) => RegisterDriverStep1(
+                onNext:
+                    (data) => Navigator.pushNamed(
+                      context,
+                      registerDriverStep2,
+                      arguments: data,
+                    ),
+              ),
         );
       case registerDriverStep2:
         final data = settings.arguments as RegistrationData;
         return MaterialPageRoute(
-          builder: (context) => RegisterDriverStep2(
-            data: data,
-          ),
+          builder: (context) => RegisterDriverStep2(data: data),
         );
-      
+
       case profileDriver:
         return MaterialPageRoute(builder: (_) => const DriverProfileScreen());
-      
+
       case editProfileDriver:
         return MaterialPageRoute(
-          builder: (context) => DriverEditProfileScreen(
-            userProfile: ModalRoute.of(context)!.settings.arguments as UserProfile,
-          ),
+          builder:
+              (context) => DriverEditProfileScreen(
+                userProfile:
+                    ModalRoute.of(context)!.settings.arguments as UserProfile,
+              ),
         );
-        
+
+      case createRide:
+        return MaterialPageRoute(builder: (_) => const CreateRideScreen());
+
+      // Chat routes
+      case chatList:
+        return MaterialPageRoute(builder: (_) => const ChatListScreen());
+      case userList:
+        return MaterialPageRoute(builder: (_) => const UserListScreen());
+
       default:
         return MaterialPageRoute(
-          builder: (_) => Scaffold(
-            body: Center(
-              child: Text('No route defined for ${settings.name}'),
-            ),
-          ),
+          builder:
+              (_) => Scaffold(
+                body: Center(
+                  child: Text('No route defined for ${settings.name}'),
+                ),
+              ),
         );
     }
   }

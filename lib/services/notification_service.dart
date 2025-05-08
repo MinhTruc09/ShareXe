@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
@@ -27,64 +28,105 @@ class NotificationService {
 
   // Initialize Firebase Cloud Messaging
   Future<void> initialize(BuildContext? context, String baseUrl) async {
-    if (baseUrl.isNotEmpty) {
-      _appConfig.updateBaseUrl(baseUrl);
-    }
+    try {
+      if (baseUrl.isNotEmpty) {
+        _appConfig.updateBaseUrl(baseUrl);
+      }
 
-    // Request permission for notifications (iOS)
-    NotificationSettings settings = await _firebaseMessaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
+      // Request permission for notifications (iOS)
+      NotificationSettings settings = await _firebaseMessaging
+          .requestPermission(alert: true, badge: true, sound: true);
 
-    if (kDebugMode) {
-      print(
-        'User granted notification permission: ${settings.authorizationStatus}',
-      );
-    }
-
-    // Listen for FCM token refreshes
-    FirebaseMessaging.instance.onTokenRefresh.listen((fcmToken) {
       if (kDebugMode) {
-        print('FCM Token: $fcmToken');
+        print(
+          'User granted notification permission: ${settings.authorizationStatus}',
+        );
       }
-      _updateFcmToken(fcmToken);
-    });
 
-    // Hàm xử lý thông báo khi ứng dụng đang chạy
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      // Xử lý lỗi APNS token trên iOS
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        try {
+          final apnsToken = await FirebaseMessaging.instance.getAPNSToken();
+          if (kDebugMode) {
+            print('APNS Token: $apnsToken');
+          }
+
+          // Nếu APNS token là null, đợi và thử lại sau
+          if (apnsToken == null) {
+            if (kDebugMode) {
+              print(
+                'APNS token is null, will try to initialize FCM without it',
+              );
+            }
+          }
+        } catch (e) {
+          if (kDebugMode) {
+            print('Error getting APNS token: $e');
+            print('Will continue without APNS token');
+          }
+        }
+      }
+
+      // Listen for FCM token refreshes
+      FirebaseMessaging.instance.onTokenRefresh.listen((fcmToken) {
+        if (kDebugMode) {
+          print('FCM Token refreshed: $fcmToken');
+        }
+        _updateFcmToken(fcmToken);
+      });
+
+      // Hàm xử lý thông báo khi ứng dụng đang chạy
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        if (kDebugMode) {
+          print('Got a message whilst in the foreground!');
+          print('Message data: ${message.data}');
+        }
+
+        if (message.notification != null) {
+          // Xử lý hiển thị thông báo
+          _handleForegroundMessage(message);
+        }
+      });
+
+      // Handle notification clicks when the app is in the background or terminated
+      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+        print('A new onMessageOpenedApp event was published!');
+        // Handle the notification click, e.g., navigate to a specific screen
+        if (message.data['bookingId'] != null) {
+          // This would be handled in your app's routing logic
+          print('Navigate to booking detail: ${message.data['bookingId']}');
+        }
+      });
+
+      // Khởi tạo local notifications
+      await _setupLocalNotifications();
+
+      // Get FCM token with error handling
+      try {
+        String? token = await FirebaseMessaging.instance.getToken();
+        if (token != null) {
+          if (kDebugMode) {
+            print('FCM Token: $token');
+          }
+          _updateFcmToken(token);
+        } else {
+          if (kDebugMode) {
+            print(
+              'FCM Token is null, notification features may not work correctly',
+            );
+          }
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print('Error getting FCM token: $e');
+          print('App will continue without remote notifications');
+        }
+      }
+    } catch (e) {
       if (kDebugMode) {
-        print('Got a message whilst in the foreground!');
-        print('Message data: ${message.data}');
+        print('Error initializing notification service: $e');
+        print('App will continue without notification features');
       }
-
-      if (message.notification != null) {
-        // Xử lý hiển thị thông báo
-        _handleForegroundMessage(message);
-      }
-    });
-
-    // Handle notification clicks when the app is in the background or terminated
-    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      print('A new onMessageOpenedApp event was published!');
-      // Handle the notification click, e.g., navigate to a specific screen
-      if (message.data['bookingId'] != null) {
-        // This would be handled in your app's routing logic
-        print('Navigate to booking detail: ${message.data['bookingId']}');
-      }
-    });
-
-    // Khởi tạo local notifications
-    await _setupLocalNotifications();
-
-    // Get FCM token
-    String? token = await FirebaseMessaging.instance.getToken();
-    if (token != null) {
-      if (kDebugMode) {
-        print('FCM Token: $token');
-      }
-      _updateFcmToken(token);
     }
   }
 
@@ -188,7 +230,7 @@ class NotificationService {
   Future<bool> acceptBooking(int bookingId) async {
     try {
       final response = await _apiClient.post(
-        '/driver/accept/$bookingId',
+        '/driver/booking/$bookingId/accept',
         requireAuth: true,
       );
 
