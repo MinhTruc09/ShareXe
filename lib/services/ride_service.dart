@@ -379,13 +379,39 @@ class RideService {
     try {
       print('🚫 Hủy chuyến đi #$rideId');
 
-      final response = await _apiClient.put('/ride/$rideId', requireAuth: true);
+      // Sử dụng endpoint đúng để hủy chuyến đi
+      final response = await _apiClient.put(
+        '/ride/cancel/$rideId', // Sửa endpoint để đảm bảo API đúng
+        requireAuth: true,
+      );
+
+      print('📝 Response cancel code: ${response.statusCode}');
+      print('📝 Response cancel body: ${response.body}');
 
       if (response.statusCode == 200) {
         print('✅ Hủy chuyến đi thành công');
+
+        // Kiểm tra trạng thái mới (nếu có)
+        try {
+          final rideResponse = await _apiClient.get(
+            '/ride/$rideId',
+            requireAuth: true,
+          );
+          if (rideResponse.statusCode == 200) {
+            final rideData = json.decode(rideResponse.body);
+            if (rideData['success'] == true && rideData['data'] != null) {
+              final updatedRide = Ride.fromJson(rideData['data']);
+              print('🔄 Trạng thái sau khi hủy: ${updatedRide.status}');
+            }
+          }
+        } catch (e) {
+          print('⚠️ Không thể kiểm tra trạng thái sau khi hủy: $e');
+        }
+
         return true;
       } else {
         print('❌ Lỗi khi hủy chuyến đi: ${response.statusCode}');
+        print('❌ Chi tiết lỗi: ${response.body}');
         return false;
       }
     } catch (e) {

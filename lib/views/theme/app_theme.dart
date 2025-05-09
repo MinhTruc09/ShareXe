@@ -9,15 +9,15 @@ final ThemeData appTheme = ThemeData(
     secondary: Colors.white,
   ),
   textTheme: const TextTheme(
-    bodyLarge: TextStyle(color: Colors.white),
-    bodyMedium: TextStyle(color: Colors.white),
-    bodySmall: TextStyle(color: Colors.white),
-    titleLarge: TextStyle(color: Colors.white),
-    titleMedium: TextStyle(color: Colors.white),
-    titleSmall: TextStyle(color: Colors.white),
+    bodyLarge: TextStyle(color: Color(0xFF002D62)),
+    bodyMedium: TextStyle(color: Color(0xFF002D62)),
+    bodySmall: TextStyle(color: Color(0xFF002D62)),
+    titleLarge: TextStyle(color: Color(0xFF002D62)),
+    titleMedium: TextStyle(color: Color(0xFF002D62)),
+    titleSmall: TextStyle(color: Color(0xFF002D62)),
   ),
   appBarTheme: const AppBarTheme(
     backgroundColor: Color(0xFF00AEEF),
     foregroundColor: Colors.white,
   ),
-); 
+);

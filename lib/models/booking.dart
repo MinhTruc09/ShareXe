@@ -8,6 +8,10 @@ class Booking {
   final String createdAt;
   final String? passengerAvatar;
   final double? totalPrice;
+  final String? departure;
+  final String? destination;
+  final String? startTime;
+  final double? pricePerSeat;
 
   Booking({
     required this.id,
@@ -19,6 +23,10 @@ class Booking {
     required this.createdAt,
     this.passengerAvatar,
     this.totalPrice,
+    this.departure,
+    this.destination,
+    this.startTime,
+    this.pricePerSeat,
   });
 
   factory Booking.fromJson(Map<String, dynamic> json) {
@@ -32,6 +40,10 @@ class Booking {
       createdAt: json['createdAt'],
       passengerAvatar: json['passengerAvatar'],
       totalPrice: json['totalPrice']?.toDouble(),
+      departure: json['departure'],
+      destination: json['destination'],
+      startTime: json['startTime'],
+      pricePerSeat: json['pricePerSeat']?.toDouble(),
     );
   }
 
@@ -46,6 +58,10 @@ class Booking {
       'createdAt': createdAt,
       'passengerAvatar': passengerAvatar,
       'totalPrice': totalPrice,
+      'departure': departure,
+      'destination': destination,
+      'startTime': startTime,
+      'pricePerSeat': pricePerSeat,
     };
   }
 
@@ -59,6 +75,10 @@ class Booking {
     String? createdAt,
     String? passengerAvatar,
     double? totalPrice,
+    String? departure,
+    String? destination,
+    String? startTime,
+    double? pricePerSeat,
   }) {
     return Booking(
       id: id ?? this.id,
@@ -70,6 +90,10 @@ class Booking {
       createdAt: createdAt ?? this.createdAt,
       passengerAvatar: passengerAvatar ?? this.passengerAvatar,
       totalPrice: totalPrice ?? this.totalPrice,
+      departure: departure ?? this.departure,
+      destination: destination ?? this.destination,
+      startTime: startTime ?? this.startTime,
+      pricePerSeat: pricePerSeat ?? this.pricePerSeat,
     );
   }
 }

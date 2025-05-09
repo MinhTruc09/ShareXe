@@ -31,6 +31,11 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> {
       final bookings = await _bookingService.getDriverBookings();
 
       if (mounted) {
+        // Log thông tin trạng thái của các booking để debug
+        for (var booking in bookings) {
+          print('📋 Booking #${booking.id}: Status = ${booking.status}');
+        }
+
         setState(() {
           _bookings = bookings;
           _isLoading = false;
@@ -164,6 +169,11 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> {
   }
 
   String _getStatusText(String status) {
+    // Debug log để kiểm tra giá trị trạng thái thực tế
+    print(
+      '🔍 [Status Check] Raw booking status: $status (${status.toUpperCase()})',
+    );
+
     switch (status.toUpperCase()) {
       case 'PENDING':
         return 'Chờ xác nhận';
@@ -254,6 +264,61 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> {
                                       ],
                                     ),
                                     const SizedBox(height: 8),
+
+                                    // Phần thông tin chi tiết chuyến đi
+                                    if (booking.departure != null &&
+                                        booking.destination != null)
+                                      Container(
+                                        padding: const EdgeInsets.all(12),
+                                        margin: const EdgeInsets.only(
+                                          bottom: 12,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.blue.shade50,
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            const Text(
+                                              'CHI TIẾT CHUYẾN ĐI',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 14,
+                                                color: Color(0xFF002D72),
+                                              ),
+                                            ),
+                                            const Divider(height: 16),
+                                            _buildInfoRow(
+                                              'Điểm đi:',
+                                              booking.departure!,
+                                              icon: Icons.location_on,
+                                            ),
+                                            _buildInfoRow(
+                                              'Điểm đến:',
+                                              booking.destination!,
+                                              icon: Icons.location_on,
+                                            ),
+                                            _buildInfoRow(
+                                              'Thời gian:',
+                                              _formatDateTime(
+                                                booking.startTime ?? '',
+                                              ),
+                                              icon: Icons.access_time,
+                                            ),
+                                            if (booking.pricePerSeat != null)
+                                              _buildInfoRow(
+                                                'Giá/ghế:',
+                                                '${NumberFormat.currency(locale: 'vi_VN', symbol: '₫').format(booking.pricePerSeat)}',
+                                                icon: Icons.attach_money,
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+
                                     _buildInfoRow(
                                       'Người đặt:',
                                       booking.passengerName,
@@ -343,19 +408,25 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> {
     );
   }
 
-  Widget _buildInfoRow(String label, String value) {
+  Widget _buildInfoRow(String label, String value, {IconData? icon}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: Row(
         children: [
+          if (icon != null) ...[
+            Icon(icon, size: 16, color: Colors.grey.shade700),
+            const SizedBox(width: 4),
+          ],
           Text(
             label,
             style: TextStyle(color: Colors.grey.shade700, fontSize: 14),
           ),
           const SizedBox(width: 8),
-          Text(
-            value,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+            ),
           ),
         ],
       ),

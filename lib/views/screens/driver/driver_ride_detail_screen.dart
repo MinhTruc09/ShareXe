@@ -156,7 +156,11 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Chuyến đi đã được đánh dấu hoàn thành'),
+            content: Text(
+              'Chuyến đi đã được đánh dấu hoàn thành',
+              style: TextStyle(color: Colors.white),
+            ),
+            backgroundColor: Colors.green,
           ),
         );
 
@@ -183,14 +187,21 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Không thể hoàn thành chuyến đi. Vui lòng thử lại.'),
+            content: Text(
+              'Không thể hoàn thành chuyến đi. Vui lòng thử lại.',
+              style: TextStyle(color: Colors.white),
+            ),
+            backgroundColor: Colors.red,
           ),
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Lỗi: $e', style: const TextStyle(color: Colors.white)),
+          backgroundColor: Colors.red,
+        ),
+      );
     } finally {
       setState(() {
         _isCompleting = false;
@@ -234,7 +245,10 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Đã huỷ chuyến đi thành công'),
+            content: Text(
+              'Đã huỷ chuyến đi thành công',
+              style: TextStyle(color: Colors.white),
+            ),
             backgroundColor: Colors.green,
           ),
         );
@@ -248,15 +262,21 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Không thể huỷ chuyến đi. Vui lòng thử lại.'),
+            content: Text(
+              'Không thể huỷ chuyến đi. Vui lòng thử lại.',
+              style: TextStyle(color: Colors.white),
+            ),
             backgroundColor: Colors.red,
           ),
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Lỗi: $e', style: const TextStyle(color: Colors.white)),
+          backgroundColor: Colors.red,
+        ),
+      );
     } finally {
       setState(() {
         _isLoading = false;
@@ -592,6 +612,9 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
                                             'Từ chối',
                                             style: TextStyle(color: Colors.red),
                                           ),
+                                          style: TextButton.styleFrom(
+                                            backgroundColor: Colors.white,
+                                          ),
                                         ),
                                         const SizedBox(width: 8),
                                         ElevatedButton.icon(
@@ -607,7 +630,11 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
                                                 const SnackBar(
                                                   content: Text(
                                                     'Đã chấp nhận yêu cầu',
+                                                    style: TextStyle(
+                                                      color: Colors.white,
+                                                    ),
                                                   ),
+                                                  backgroundColor: Colors.green,
                                                 ),
                                               );
                                               _loadBookings();
@@ -617,6 +644,7 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
                                           label: const Text('Chấp nhận'),
                                           style: ElevatedButton.styleFrom(
                                             backgroundColor: Colors.green,
+                                            foregroundColor: Colors.white,
                                           ),
                                         ),
                                       ],

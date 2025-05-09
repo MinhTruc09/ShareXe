@@ -1,176 +1,558 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import '../models/user_profile.dart';
+import '../utils/app_config.dart';
 import 'auth_manager.dart';
 
 class ProfileService {
-  final String baseUrl = 'https://209b-2405-4803-c83c-6d40-8464-c5f5-c484-d512.ngrok-free.app/api';
   final AuthManager _authManager = AuthManager();
+  final AppConfig _appConfig = AppConfig();
 
-  // Fetch user profile information
+  // Phương thức lấy thông tin người dùng
   Future<ProfileResponse> getUserProfile() async {
     try {
       final token = await _authManager.getToken();
-      final role = await _authManager.getUserRole();
-      
       if (token == null) {
         return ProfileResponse(
-          message: 'Authentication token not found',
-          data: UserProfile(
-            id: 0,
-            fullName: '',
-            email: '',
-            phoneNumber: '',
-            role: '',
-          ),
           success: false,
+          message: 'Chưa đăng nhập',
+          data: null,
         );
       }
-      
-      // Determine the endpoint based on user role
-      final endpoint = role?.toUpperCase() == 'DRIVER' ? 'driver' : 'passenger';
-      
-      final response = await http.get(
-        Uri.parse('$baseUrl/$endpoint/profile'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
-      
-      if (response.statusCode == 200) {
-        final jsonResponse = jsonDecode(response.body);
-        return ProfileResponse.fromJson(jsonResponse);
+
+      // Lấy vai trò người dùng từ token
+      final userRole = await _authManager.getUserRole();
+
+      // Chọn endpoint phù hợp dựa vào vai trò
+      String endpoint;
+      if (userRole?.toUpperCase() == 'DRIVER') {
+        endpoint = '${_appConfig.fullApiUrl}/driver/profile';
       } else {
+        endpoint = '${_appConfig.fullApiUrl}/user/profile';
+      }
+
+      print('Đang gọi API: $endpoint');
+      final response = await http
+          .get(
+            Uri.parse(endpoint),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () {
+              throw Exception('Kết nối máy chủ quá hạn. Vui lòng thử lại sau.');
+            },
+          );
+
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
+
+      if (response.statusCode == 401 || response.statusCode == 403) {
         return ProfileResponse(
-          message: 'Failed to fetch profile: ${response.statusCode}',
-          data: UserProfile(
-            id: 0,
-            fullName: '',
-            email: '',
-            phoneNumber: '',
-            role: '',
-          ),
           success: false,
+          message: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+          data: null,
         );
       }
+
+      // Kiểm tra nếu response body rỗng hoặc không hợp lệ
+      if (response.body == null || response.body.isEmpty) {
+        return ProfileResponse(
+          success: false,
+          message: 'Máy chủ không trả về dữ liệu. Có thể URL ngrok đã hết hạn.',
+          data: null,
+        );
+      }
+
+      try {
+        // Parse JSON từ response body
+        final dynamic responseBody = json.decode(response.body);
+
+        // Kiểm tra cấu trúc response từ backend
+        if (responseBody is Map<String, dynamic>) {
+          // Kiểm tra nếu response có cấu trúc {success: true, message: "...", data: {...}}
+          if (responseBody.containsKey('success')) {
+            if (response.statusCode == 200 && responseBody['success'] == true) {
+              return ProfileResponse(
+                success: true,
+                message: responseBody['message'] ?? 'Thành công',
+                data: UserProfile.fromJson(responseBody['data'] ?? {}),
+              );
+            } else {
+              return ProfileResponse(
+                success: false,
+                message:
+                    responseBody['message'] ??
+                    'Không thể tải thông tin người dùng',
+                data: null,
+              );
+            }
+          }
+          // Nếu response là trực tiếp dữ liệu người dùng từ /api/driver/profile
+          else if (responseBody.containsKey('id') &&
+              (responseBody.containsKey('email') ||
+                  responseBody.containsKey('fullName'))) {
+            return ProfileResponse(
+              success: true,
+              message: 'Thành công',
+              data: UserProfile.fromJson(responseBody),
+            );
+          }
+          // Trường hợp khác
+          else {
+            return ProfileResponse(
+              success: false,
+              message: 'Định dạng dữ liệu không đúng',
+              data: null,
+            );
+          }
+        } else {
+          return ProfileResponse(
+            success: false,
+            message: 'Định dạng dữ liệu không đúng',
+            data: null,
+          );
+        }
+      } catch (parseError) {
+        print('Lỗi khi parse JSON: $parseError');
+        print('Response body: ${response.body}');
+        return ProfileResponse(
+          success: false,
+          message:
+              'Không thể hiển thị hồ sơ, máy chủ trả về dữ liệu không hợp lệ.',
+          data: null,
+        );
+      }
+    } on SocketException catch (_) {
+      return ProfileResponse(
+        success: false,
+        message:
+            'Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.',
+        data: null,
+      );
     } catch (e) {
       return ProfileResponse(
-        message: 'Error: $e',
-        data: UserProfile(
-          id: 0,
-          fullName: '',
-          email: '',
-          phoneNumber: '',
-          role: '',
-        ),
         success: false,
+        message: 'Lỗi: ${e.toString()}',
+        data: null,
       );
     }
   }
-  
-  // Update user profile with multipart request (for image uploads)
+
+  // Phương thức cập nhật thông tin cá nhân của hành khách
   Future<ProfileResponse> updateUserProfile({
+    required String fullName,
+    required String phoneNumber,
     File? avatarImage,
-    File? licenseImage,
-    File? vehicleImage,
-    String? fullName,
-    String? phoneNumber,
   }) async {
     try {
       final token = await _authManager.getToken();
-      final role = await _authManager.getUserRole();
-      
       if (token == null) {
         return ProfileResponse(
-          message: 'Authentication token not found',
-          data: UserProfile(
-            id: 0,
-            fullName: '',
-            email: '',
-            phoneNumber: '',
-            role: '',
-          ),
           success: false,
+          message: 'Chưa đăng nhập',
+          data: null,
         );
       }
-      
-      final uri = Uri.parse('$baseUrl/user/update-profile');
-      
-      var request = http.MultipartRequest('POST', uri);
-      
-      // Add authorization header
-      request.headers.addAll({
-        'Authorization': 'Bearer $token',
-      });
-      
-      // Add text fields if provided
-      if (fullName != null) {
-        request.fields['fullName'] = fullName;
-      }
-      
-      if (phoneNumber != null) {
-        request.fields['phone'] = phoneNumber;
-      }
-      
-      // Add files if provided
+
+      final uri = Uri.parse('${_appConfig.fullApiUrl}/user/update-profile');
+
+      var request = http.MultipartRequest('PUT', uri);
+      request.headers['Authorization'] = 'Bearer $token';
+
+      // Thêm các trường text
+      request.fields['fullName'] = fullName;
+      request.fields['phone'] = phoneNumber;
+
+      // Thêm ảnh đại diện nếu có
       if (avatarImage != null) {
-        request.files.add(await http.MultipartFile.fromPath(
-          'avatarImage', 
-          avatarImage.path,
-        ));
-      }
-      
-      // Only add these fields for driver role
-      if (role?.toUpperCase() == 'DRIVER') {
-        if (licenseImage != null) {
-          request.files.add(await http.MultipartFile.fromPath(
-            'licenseImage', 
-            licenseImage.path,
-          ));
-        }
-        
-        if (vehicleImage != null) {
-          request.files.add(await http.MultipartFile.fromPath(
-            'vehicleImage', 
-            vehicleImage.path,
-          ));
-        }
-      }
-      
-      // Send the request
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
-      
-      if (response.statusCode == 200) {
-        final jsonResponse = jsonDecode(response.body);
-        return ProfileResponse.fromJson(jsonResponse);
-      } else {
-        return ProfileResponse(
-          message: 'Failed to update profile: ${response.statusCode} - ${response.body}',
-          data: UserProfile(
-            id: 0,
-            fullName: '',
-            email: '',
-            phoneNumber: '',
-            role: '',
+        final fileExtension = avatarImage.path.split('.').last;
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'avatarImage',
+            avatarImage.path,
+            contentType: MediaType('image', fileExtension),
           ),
-          success: false,
         );
       }
-    } catch (e) {
-      return ProfileResponse(
-        message: 'Error updating profile: $e',
-        data: UserProfile(
-          id: 0,
-          fullName: '',
-          email: '',
-          phoneNumber: '',
-          role: '',
-        ),
-        success: false,
+
+      print('Đang gửi request cập nhật hồ sơ...');
+      final streamedResponse = await request.send().timeout(
+        const Duration(seconds: 15),
+        onTimeout: () {
+          throw Exception('Kết nối máy chủ quá hạn. Vui lòng thử lại sau.');
+        },
       );
+      final response = await http.Response.fromStream(streamedResponse);
+      print('Response status code: ${response.statusCode}');
+      print('Response body: ${response.body}');
+
+      // Xử lý lỗi xác thực nhưng KHÔNG trả về lỗi phiên đăng nhập hết hạn
+      // nếu cập nhật thành công
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        return ProfileResponse(
+          success: false,
+          message: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+          data: null,
+        );
+      }
+
+      try {
+        if (response.body.isEmpty) {
+          if (response.statusCode >= 200 && response.statusCode < 300) {
+            return ProfileResponse(
+              success: true,
+              message: 'Cập nhật thành công',
+              data: null,
+            );
+          } else {
+            return ProfileResponse(
+              success: false,
+              message: 'Lỗi không xác định (${response.statusCode})',
+              data: null,
+            );
+          }
+        }
+
+        final responseData = json.decode(response.body);
+        if (response.statusCode == 200) {
+          // Kiểm tra nếu response có trường success
+          if (responseData is Map<String, dynamic> &&
+              responseData.containsKey('success')) {
+            if (responseData['success'] == true) {
+              return ProfileResponse(
+                success: true,
+                message: responseData['message'] ?? 'Cập nhật thành công',
+                data: null,
+              );
+            } else {
+              return ProfileResponse(
+                success: false,
+                message: responseData['message'] ?? 'Lỗi không xác định',
+                data: null,
+              );
+            }
+          } else {
+            // Nếu response không có trường success nhưng status code là 200
+            // thì vẫn xem là thành công
+            return ProfileResponse(
+              success: true,
+              message: 'Cập nhật thành công',
+              data: null,
+            );
+          }
+        } else {
+          return ProfileResponse(
+            success: false,
+            message: responseData['message'] ?? 'Lỗi không xác định',
+            data: null,
+          );
+        }
+      } catch (parseError) {
+        print('Lỗi khi parse JSON: $parseError');
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          // Nếu status code thành công nhưng không parse được JSON
+          return ProfileResponse(
+            success: true,
+            message: 'Cập nhật thành công',
+            data: null,
+          );
+        }
+        return ProfileResponse(
+          success: false,
+          message: 'Lỗi định dạng dữ liệu: ${parseError.toString()}',
+          data: null,
+        );
+      }
+    } on SocketException catch (_) {
+      return ProfileResponse(
+        success: false,
+        message:
+            'Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.',
+        data: null,
+      );
+    } catch (e) {
+      return ProfileResponse(success: false, message: 'Lỗi: $e', data: null);
     }
   }
-} 
+
+  // Phương thức cập nhật thông tin cá nhân
+  Future<ProfileResponse> updateProfile({
+    required String fullName,
+    required String phone,
+    File? avatarImage,
+    File? licenseImage,
+    File? vehicleImage,
+  }) async {
+    try {
+      final token = await _authManager.getToken();
+      if (token == null) {
+        return ProfileResponse(
+          success: false,
+          message: 'Chưa đăng nhập',
+          data: null,
+        );
+      }
+
+      // Lấy vai trò người dùng từ token để log
+      final userRole = await _authManager.getUserRole();
+      print('Vai trò người dùng: $userRole');
+
+      // QUAN TRỌNG: Tất cả người dùng đều dùng cùng một endpoint để cập nhật
+      final endpoint = '${_appConfig.fullApiUrl}/user/update-profile';
+      print('Gửi request đến: $endpoint');
+
+      var request = http.MultipartRequest('PUT', Uri.parse(endpoint));
+      request.headers['Authorization'] = 'Bearer $token';
+
+      // Thêm các trường text (bắt buộc)
+      request.fields['fullName'] = fullName;
+      request.fields['phone'] = phone;
+
+      // Thêm các file nếu có (không bắt buộc) - CHÚ Ý: tên file phải khớp với @RequestParam trong Java
+      if (avatarImage != null) {
+        final fileExtension = avatarImage.path.split('.').last;
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'avatarImage', // Tên phải khớp với backend: @RequestParam(value = "avatarImage")
+            avatarImage.path,
+            contentType: MediaType('image', fileExtension),
+          ),
+        );
+      }
+
+      if (licenseImage != null) {
+        final fileExtension = licenseImage.path.split('.').last;
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'licenseImage', // Tên phải khớp với backend: @RequestParam(value = "licenseImage")
+            licenseImage.path,
+            contentType: MediaType('image', fileExtension),
+          ),
+        );
+      }
+
+      if (vehicleImage != null) {
+        final fileExtension = vehicleImage.path.split('.').last;
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'vehicleImage', // Tên phải khớp với backend: @RequestParam(value = "vehicleImage")
+            vehicleImage.path,
+            contentType: MediaType('image', fileExtension),
+          ),
+        );
+      }
+
+      // Kiểm tra tất cả fields và files trước khi gửi
+      print('Request fields: ${request.fields}');
+      print('Request files: ${request.files.map((f) => f.field).toList()}');
+
+      print('Đang gửi request cập nhật hồ sơ...');
+      final streamedResponse = await request.send().timeout(
+        const Duration(seconds: 15),
+        onTimeout: () {
+          throw Exception('Kết nối máy chủ quá hạn. Vui lòng thử lại sau.');
+        },
+      );
+      final response = await http.Response.fromStream(streamedResponse);
+      print('Response status code: ${response.statusCode}');
+      print('Response body: ${response.body}');
+
+      // Xử lý lỗi xác thực
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        String errorMsg =
+            'Phiên đăng nhập đã hết hạn hoặc không có quyền thực hiện. Vui lòng đăng nhập lại.';
+
+        // Hiển thị thêm chi tiết lỗi để debug
+        if (response.body.contains('@PutMapping') ||
+            response.body.contains('@RequestParam')) {
+          errorMsg =
+              'Lỗi: Server trả về mã nguồn thay vì xử lý request. Vui lòng kiểm tra URL hoặc cấu hình server.';
+        }
+
+        return ProfileResponse(success: false, message: errorMsg, data: null);
+      }
+
+      try {
+        if (response.body.isEmpty) {
+          if (response.statusCode >= 200 && response.statusCode < 300) {
+            return ProfileResponse(
+              success: true,
+              message: 'Cập nhật thành công',
+              data: null,
+            );
+          } else {
+            return ProfileResponse(
+              success: false,
+              message: 'Lỗi không xác định (${response.statusCode})',
+              data: null,
+            );
+          }
+        }
+
+        // Kiểm tra response có phải là JSON không
+        if (!response.body.startsWith('{') && !response.body.startsWith('[')) {
+          // Không phải JSON, có thể là HTML hoặc văn bản khác
+          if (response.statusCode >= 200 && response.statusCode < 300) {
+            return ProfileResponse(
+              success: true,
+              message: 'Cập nhật thành công',
+              data: null,
+            );
+          } else {
+            return ProfileResponse(
+              success: false,
+              message: 'Lỗi server: ${response.statusCode}',
+              data: null,
+            );
+          }
+        }
+
+        final responseData = json.decode(response.body);
+        if (response.statusCode == 200) {
+          // Kiểm tra nếu response có trường success
+          if (responseData is Map<String, dynamic> &&
+              responseData.containsKey('success')) {
+            if (responseData['success'] == true) {
+              return ProfileResponse(
+                success: true,
+                message: responseData['message'] ?? 'Cập nhật thành công',
+                data: null,
+              );
+            } else {
+              return ProfileResponse(
+                success: false,
+                message: responseData['message'] ?? 'Lỗi không xác định',
+                data: null,
+              );
+            }
+          } else {
+            // Nếu response không có trường success nhưng status code là 200
+            // thì vẫn xem là thành công
+            return ProfileResponse(
+              success: true,
+              message: 'Cập nhật thành công',
+              data: null,
+            );
+          }
+        } else {
+          return ProfileResponse(
+            success: false,
+            message: responseData['message'] ?? 'Lỗi không xác định',
+            data: null,
+          );
+        }
+      } catch (parseError) {
+        print('Lỗi khi parse JSON: $parseError');
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          // Nếu status code thành công nhưng không parse được JSON
+          return ProfileResponse(
+            success: true,
+            message: 'Cập nhật thành công',
+            data: null,
+          );
+        }
+        return ProfileResponse(
+          success: false,
+          message: 'Lỗi định dạng dữ liệu: ${parseError.toString()}',
+          data: null,
+        );
+      }
+    } on SocketException catch (_) {
+      return ProfileResponse(
+        success: false,
+        message:
+            'Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.',
+        data: null,
+      );
+    } catch (e) {
+      return ProfileResponse(success: false, message: 'Lỗi: $e', data: null);
+    }
+  }
+
+  // Phương thức đổi mật khẩu
+  Future<ProfileResponse> changePassword({
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    try {
+      final token = await _authManager.getToken();
+      if (token == null) {
+        return ProfileResponse(
+          success: false,
+          message: 'Chưa đăng nhập',
+          data: null,
+        );
+      }
+
+      final response = await http
+          .put(
+            Uri.parse('${_appConfig.fullApiUrl}/user/change-pass'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: json.encode({'oldPass': oldPassword, 'newPass': newPassword}),
+          )
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () {
+              throw Exception('Kết nối máy chủ quá hạn. Vui lòng thử lại sau.');
+            },
+          );
+
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        return ProfileResponse(
+          success: false,
+          message: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+          data: null,
+        );
+      }
+
+      if (response.statusCode == 200) {
+        return ProfileResponse(
+          success: true,
+          message: response.body, // Backend trả về message trực tiếp
+          data: null,
+        );
+      } else {
+        try {
+          final responseData = json.decode(response.body);
+          return ProfileResponse(
+            success: false,
+            message: responseData['message'] ?? 'Lỗi không xác định',
+            data: null,
+          );
+        } catch (parseError) {
+          return ProfileResponse(
+            success: false,
+            message: 'Lỗi khi đổi mật khẩu: ${response.body}',
+            data: null,
+          );
+        }
+      }
+    } on SocketException catch (_) {
+      return ProfileResponse(
+        success: false,
+        message:
+            'Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.',
+        data: null,
+      );
+    } catch (e) {
+      return ProfileResponse(success: false, message: 'Lỗi: $e', data: null);
+    }
+  }
+}
+
+class ProfileResponse {
+  final bool success;
+  final String message;
+  final UserProfile? data;
+
+  ProfileResponse({required this.success, required this.message, this.data});
+}

@@ -26,10 +26,15 @@ import 'views/screens/driver/create_ride_screen.dart';
 import 'views/screens/driver/my_rides_screen.dart';
 import 'views/screens/driver/driver_bookings_screen.dart';
 import 'views/screens/driver/driver_ride_detail_screen.dart';
+import 'views/screens/driver/driver_main_screen.dart';
 
 // Chat screens
 import 'views/screens/chat/user_list_screen.dart';
 import 'views/screens/chat/chat_room_screen.dart';
+
+// Notification screens
+import 'views/screens/notifications/notifications_screen.dart';
+import 'views/screens/notifications/notification_tabs_screen.dart';
 
 // Models
 import 'models/registration_data.dart';
@@ -67,6 +72,10 @@ class AppRoute {
   static const String role = '/role';
   static const String rideDetails = '/ride-details';
 
+  // Notification routes
+  static const String notifications = '/notifications';
+  static const String notificationTabs = '/notification-tabs';
+
   // Chat routes
   static const String chatRoom = '/chat_room';
   static const String chatList = '/chat_list';
@@ -100,6 +109,10 @@ class AppRoute {
       return MaterialPageRoute(
         builder: (context) => RideDetailScreen(ride: ride),
       );
+    } else if (routeName == notifications) {
+      return MaterialPageRoute(builder: (_) => const NotificationsScreen());
+    } else if (routeName == notificationTabs) {
+      return MaterialPageRoute(builder: (_) => const NotificationTabsScreen());
     }
     // Passenger routes
     else if (routeName == PassengerRoutes.splash) {
@@ -143,7 +156,7 @@ class AppRoute {
     } else if (routeName == DriverRoutes.login) {
       return MaterialPageRoute(builder: (_) => const LoginDriver());
     } else if (routeName == DriverRoutes.home) {
-      return MaterialPageRoute(builder: (_) => const HomeDscreen());
+      return MaterialPageRoute(builder: (_) => const DriverMainScreen());
     } else if (routeName == DriverRoutes.registerStep1) {
       return MaterialPageRoute(
         builder:
