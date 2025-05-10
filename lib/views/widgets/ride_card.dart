@@ -6,12 +6,14 @@ class RideCard extends StatelessWidget {
   final Ride ride;
   final Function()? onTap;
   final bool showFavorite;
+  final bool showStatus;
 
   const RideCard({
     Key? key,
     required this.ride,
     this.onTap,
     this.showFavorite = true,
+    this.showStatus = true,
   }) : super(key: key);
 
   String _formatTime(String timeString) {
@@ -251,10 +253,11 @@ class RideCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [_buildStatusIndicator(ride.status)],
-              ),
+              if (showStatus)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [_buildStatusIndicator(ride.status)],
+                ),
             ],
           ),
         ),

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'dart:developer' as developer;
 import '../../../models/ride.dart';
 import '../../../services/ride_service.dart';
+import '../../../utils/app_config.dart'; 
 import '../../widgets/ride_card.dart';
 import 'create_ride_screen.dart';
 import '../../../app_route.dart';
@@ -17,10 +19,16 @@ class MyRidesScreen extends StatefulWidget {
 class _MyRidesScreenState extends State<MyRidesScreen>
     with SingleTickerProviderStateMixin {
   final RideService _rideService = RideService();
+  final AppConfig _appConfig = AppConfig();
   List<Ride> _myRides = [];
   bool _isLoading = true;
   bool _isRefreshing = false;
   late TabController _tabController;
+  bool _isDebugMode = false;
+  String _apiResponse = '';
+  bool _isUsingMockData = false;
+  DateTime _lastRefreshTime = DateTime.now();
+  int _apiCallAttempts = 0;
 
   // Danh sách đã phân loại theo trạng thái
   List<Ride> get _activeRides =>
@@ -57,19 +65,111 @@ class _MyRidesScreenState extends State<MyRidesScreen>
     super.dispose();
   }
 
+  void _toggleDebugMode() {
+    setState(() {
+      _isDebugMode = !_isDebugMode;
+    });
+    
+    if (_isDebugMode) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Đã bật chế độ debug')),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Đã tắt chế độ debug')),
+      );
+    }
+  }
+
+  void _updateApiUrl() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cập nhật API URL'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('URL hiện tại: ${_appConfig.apiBaseUrl}'),
+            const SizedBox(height: 16),
+            TextField(
+              decoration: const InputDecoration(
+                labelText: 'Nhập URL mới',
+                hintText: 'https://your-ngrok-url.ngrok-free.app',
+                border: OutlineInputBorder(),
+              ),
+              onSubmitted: (value) {
+                if (value.isNotEmpty) {
+                  _appConfig.updateBaseUrl(value);
+                  Navigator.pop(context);
+                  
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Đã cập nhật API URL: $value')),
+                  );
+                  
+                  _loadRides();
+                }
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _appConfig.updateBaseUrl('https://6e3a-1-54-152-77.ngrok-free.app');
+              
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Đã cập nhật về URL mặc định')),
+              );
+              
+              _loadRides();
+            },
+            child: const Text('Khôi phục mặc định'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _loadRides() async {
     setState(() {
       _isLoading = true;
+      _apiResponse = '';
+      _apiCallAttempts++;
     });
 
     try {
+      developer.log('Bắt đầu tải danh sách chuyến đi của tài xế...', name: 'my_rides');
+      developer.log('API Base URL: ${_appConfig.fullApiUrl}', name: 'my_rides');
+      
+      final stopwatch = Stopwatch()..start();
       final rides = await _rideService.getDriverRides();
+      stopwatch.stop();
+      
+      // Kiểm tra xem đây có phải là dữ liệu mẫu hay không (dựa trên ID)
+      final isMockData = rides.isNotEmpty && 
+                      rides.every((ride) => ride.id >= 1000 && ride.id < 2000);
+      
+      if (_isDebugMode) {
+        setState(() {
+          _isUsingMockData = isMockData;
+          _apiResponse = isMockData 
+              ? 'Đang sử dụng dữ liệu mẫu. Không thể kết nối đến API thực. Đã cố gắng $_apiCallAttempts lần.'
+              : 'Đã lấy ${rides.length} chuyến đi từ API trong ${stopwatch.elapsedMilliseconds}ms';
+          _lastRefreshTime = DateTime.now();
+        });
+      }
 
       if (mounted) {
         // Kiểm tra trạng thái thực tế của chuyến đi
         for (var ride in rides) {
-          print(
-            '🚗 Ride #${ride.id}: Status = ${ride.status} (${ride.status.toUpperCase()})',
+          developer.log(
+            'Ride #${ride.id}: Status = ${ride.status} (${ride.status.toUpperCase()})',
+            name: 'my_rides'
           );
         }
 
@@ -79,24 +179,34 @@ class _MyRidesScreenState extends State<MyRidesScreen>
         });
 
         // Sau khi cập nhật state, log thống kê số lượng chuyến đi theo tab
-        print('📊 Phân loại chuyến đi:');
-        print('- Active rides: ${_activeRides.length}');
-        print('- Cancelled rides: ${_canceledRides.length}');
-        print('- Completed rides: ${_completedRides.length}');
+        developer.log('Phân loại chuyến đi:', name: 'my_rides');
+        developer.log('- Active rides: ${_activeRides.length}', name: 'my_rides');
+        developer.log('- Cancelled rides: ${_canceledRides.length}', name: 'my_rides');
+        developer.log('- Completed rides: ${_completedRides.length}', name: 'my_rides');
 
         // Log chi tiết các chuyến đã hủy để kiểm tra
         if (_canceledRides.isNotEmpty) {
-          print('🚫 Danh sách chuyến đã hủy:');
+          developer.log('Danh sách chuyến đã hủy:', name: 'my_rides');
           for (var ride in _canceledRides) {
-            print(
+            developer.log(
               '  - Ride #${ride.id}: ${ride.departure} → ${ride.destination} (${ride.status})',
+              name: 'my_rides'
             );
           }
         } else {
-          print('🚫 Không có chuyến đi nào đã hủy');
+          developer.log('Không có chuyến đi nào đã hủy', name: 'my_rides');
         }
       }
     } catch (e) {
+      developer.log('Lỗi khi tải danh sách chuyến đi: $e', name: 'my_rides', error: e);
+      
+      if (_isDebugMode) {
+        setState(() {
+          _apiResponse = 'Lỗi: $e';
+          _isUsingMockData = true;
+        });
+      }
+      
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -140,6 +250,85 @@ class _MyRidesScreenState extends State<MyRidesScreen>
         );
       }
     }
+  }
+
+  Widget _buildDebugPanel() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(8),
+      color: Colors.black87,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                _isUsingMockData ? Icons.warning : Icons.check_circle,
+                color: _isUsingMockData ? Colors.orange : Colors.green,
+                size: 16,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _isUsingMockData 
+                      ? 'Đang sử dụng dữ liệu mẫu' 
+                      : 'Đang sử dụng dữ liệu thực từ API',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              Text(
+                'Cập nhật: ${DateFormat('HH:mm:ss').format(_lastRefreshTime)}',
+                style: const TextStyle(
+                  color: Colors.grey,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'API URL: ${_appConfig.fullApiUrl}',
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+            ),
+          ),
+          if (_apiResponse.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                _apiResponse,
+                style: TextStyle(
+                  color: _isUsingMockData ? Colors.orange : Colors.green,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton.icon(
+                onPressed: _loadRides,
+                icon: const Icon(Icons.refresh, size: 14, color: Colors.white),
+                label: const Text(
+                  'Làm mới',
+                  style: TextStyle(color: Colors.white, fontSize: 12),
+                ),
+                style: TextButton.styleFrom(
+                  backgroundColor: Colors.blue.shade900,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: Size.zero,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _cancelRide(int rideId) async {
@@ -213,6 +402,18 @@ class _MyRidesScreenState extends State<MyRidesScreen>
   }
 
   Future<void> _editRide(Ride ride) async {
+    // Kiểm tra trạng thái của chuyến đi
+    if (ride.status.toUpperCase() == 'CANCELLED') {
+      // Hiển thị thông báo không thể chỉnh sửa chuyến đi đã hủy
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Không thể chỉnh sửa chuyến đi đã hủy'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return; // Ngừng thực hiện phương thức
+    }
+
     final Map<String, dynamic> rideData = {
       'id': ride.id,
       'departure': ride.departure,
@@ -263,84 +464,61 @@ class _MyRidesScreenState extends State<MyRidesScreen>
         backgroundColor: const Color(0xFF002D72),
         title: const Text('Chuyến đi của tôi'),
         actions: [
-          if (_isRefreshing)
-            const Center(
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2,
-                ),
-              ),
-            )
-          else
+          IconButton(
+            icon: const Icon(Icons.bug_report),
+            onPressed: _toggleDebugMode,
+          ),
+          if (_isDebugMode)
             IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: _refreshRides,
+              icon: const Icon(Icons.link),
+              onPressed: _updateApiUrl,
+              tooltip: 'Cập nhật API URL',
             ),
-          const SizedBox(width: 8),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _isRefreshing ? null : _refreshRides,
+          ),
         ],
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: Colors.white,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          tabs: const [
-            Tab(icon: Icon(Icons.directions_car), text: 'Đang có'),
-            Tab(icon: Icon(Icons.cancel_outlined), text: 'Đã hủy'),
-            Tab(icon: Icon(Icons.check_circle_outline), text: 'Hoàn thành'),
+          tabs: [
+            Tab(text: 'Đang hoạt động (${_activeRides.length})'),
+            Tab(text: 'Đã hủy (${_canceledRides.length})'),
+            Tab(text: 'Đã hoàn thành (${_completedRides.length})'),
           ],
         ),
       ),
-      body:
-          _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : TabBarView(
-                controller: _tabController,
-                children: [
-                  // Tab 1: Chuyến đi đang có
-                  RefreshIndicator(
-                    onRefresh: _refreshRides,
-                    child:
-                        _activeRides.isEmpty
-                            ? _buildEmptyState(
-                              'Bạn chưa có chuyến đi nào đang hoạt động',
-                            )
-                            : _buildRidesList(
-                              _activeRides,
-                              showActionButtons: true,
-                            ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+              children: [
+                if (_isDebugMode) _buildDebugPanel(),
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildRideList(_activeRides, 'ACTIVE'),
+                      _buildRideList(_canceledRides, 'CANCELLED'),
+                      _buildRideList(_completedRides, 'COMPLETED'),
+                    ],
                   ),
-                  // Tab 2: Chuyến đi đã hủy
-                  RefreshIndicator(
-                    onRefresh: _refreshRides,
-                    child:
-                        _canceledRides.isEmpty
-                            ? _buildEmptyState('Không có chuyến đi nào đã hủy')
-                            : _buildRidesList(
-                              _canceledRides,
-                              showActionButtons: false,
-                            ),
-                  ),
-                  // Tab 3: Chuyến đi đã hoàn thành
-                  RefreshIndicator(
-                    onRefresh: _refreshRides,
-                    child:
-                        _completedRides.isEmpty
-                            ? _buildEmptyState(
-                              'Chưa có chuyến đi nào hoàn thành',
-                            )
-                            : _buildRidesList(
-                              _completedRides,
-                              showActionButtons: false,
-                            ),
-                  ),
-                ],
-              ),
+                ),
+              ],
+            ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _createNewRide,
-        backgroundColor: const Color(0xFF00AEEF),
+        backgroundColor: const Color(0xFF002D72),
+        onPressed: () async {
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const CreateRideScreen(),
+            ),
+          );
+          
+          if (result == true) {
+            _loadRides();
+          }
+        },
         child: const Icon(Icons.add),
       ),
     );
@@ -383,6 +561,34 @@ class _MyRidesScreenState extends State<MyRidesScreen>
     );
   }
 
+  Widget _buildRideList(List<Ride> rides, String status) {
+    String emptyMessage;
+    
+    switch (status) {
+      case 'ACTIVE':
+        emptyMessage = 'Bạn chưa có chuyến đi nào đang hoạt động';
+        break;
+      case 'CANCELLED':
+        emptyMessage = 'Không có chuyến đi nào đã hủy';
+        break;
+      case 'COMPLETED':
+        emptyMessage = 'Chưa có chuyến đi nào hoàn thành';
+        break;
+      default:
+        emptyMessage = 'Không có chuyến đi nào trong danh sách này';
+    }
+    
+    return RefreshIndicator(
+      onRefresh: _refreshRides,
+      child: rides.isEmpty
+          ? _buildEmptyState(emptyMessage)
+          : _buildRidesList(
+              rides, 
+              showActionButtons: status == 'ACTIVE', // Chỉ hiển thị nút hành động cho chuyến đang hoạt động
+            ),
+    );
+  }
+
   Widget _buildRidesList(List<Ride> rides, {bool showActionButtons = true}) {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
@@ -396,6 +602,7 @@ class _MyRidesScreenState extends State<MyRidesScreen>
                 RideCard(
                   ride: ride,
                   showFavorite: false,
+                  showStatus: false,
                   onTap: () async {
                     // Sử dụng route riêng cho tài xế
                     Navigator.pushNamed(
@@ -427,14 +634,22 @@ class _MyRidesScreenState extends State<MyRidesScreen>
                   ),
                   const SizedBox(width: 8),
                   TextButton.icon(
-                    onPressed: () => _editRide(ride),
-                    icon: const Icon(
+                    onPressed: ride.status.toUpperCase() == 'CANCELLED' 
+                      ? null // Disable button if ride is cancelled
+                      : () => _editRide(ride),
+                    icon: Icon(
                       Icons.edit_outlined,
-                      color: Color(0xFF00AEEF),
+                      color: ride.status.toUpperCase() == 'CANCELLED'
+                        ? Colors.grey // Grey out the icon if disabled
+                        : const Color(0xFF00AEEF),
                     ),
-                    label: const Text(
+                    label: Text(
                       'Sửa',
-                      style: TextStyle(color: Color(0xFF00AEEF)),
+                      style: TextStyle(
+                        color: ride.status.toUpperCase() == 'CANCELLED'
+                          ? Colors.grey // Grey out the text if disabled
+                          : const Color(0xFF00AEEF),
+                      ),
                     ),
                   ),
                 ],

@@ -13,6 +13,8 @@ import 'views/screens/passenger/register_passenger_step1.dart';
 import 'views/screens/passenger/register_user_step2.dart';
 import 'views/screens/passenger/profile_screen.dart';
 import 'views/screens/passenger/edit_profile_screen.dart';
+import 'views/screens/passenger/passenger_main_screen.dart';
+import 'views/screens/passenger/passenger_bookings_screen.dart';
 
 // Driver screens
 import 'views/screens/driver/splash_dscreen.dart';
@@ -49,6 +51,7 @@ class PassengerRoutes {
   static const String registerStep2 = '/passenger/register-step2';
   static const String profile = '/passenger/profile';
   static const String editProfile = '/passenger/edit-profile';
+  static const String bookings = '/passenger/bookings';
 }
 
 // Driver routes namespace
@@ -95,12 +98,13 @@ class AppRoute {
   static const String homePassenger = PassengerRoutes.home;
   static const String loginPassenger = PassengerRoutes.login;
   static const String splashPassenger = PassengerRoutes.splash;
+  static const String passengerBookings = PassengerRoutes.bookings;
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     final String? routeName = settings.name;
 
-    // Common routes
-    if (routeName == splash) {
+    // Root route and common routes
+    if (routeName == '/' || routeName == splash) {
       return MaterialPageRoute(builder: (_) => const SplashScreen());
     } else if (routeName == role) {
       return MaterialPageRoute(builder: (_) => const RoleScreen());
@@ -120,7 +124,7 @@ class AppRoute {
     } else if (routeName == PassengerRoutes.login) {
       return MaterialPageRoute(builder: (_) => const LoginPassenger());
     } else if (routeName == PassengerRoutes.home) {
-      return MaterialPageRoute(builder: (_) => const HomePscreen());
+      return MaterialPageRoute(builder: (_) => const PassengerMainScreen());
     } else if (routeName == PassengerRoutes.registerStep1) {
       return MaterialPageRoute(
         builder:
@@ -149,6 +153,8 @@ class AppRoute {
                   ModalRoute.of(context)!.settings.arguments as UserProfile,
             ),
       );
+    } else if (routeName == PassengerRoutes.bookings) {
+      return MaterialPageRoute(builder: (_) => const PassengerBookingsScreen());
     }
     // Driver routes
     else if (routeName == DriverRoutes.splash) {

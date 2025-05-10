@@ -5,6 +5,7 @@ import '../../../services/auth_service.dart';
 import '../../../controllers/auth_controller.dart';
 import '../../../app_route.dart';
 import '../../../views/screens/passenger/edit_profile_screen.dart';
+import 'change_password_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -42,6 +43,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _userProfile = response.data;
         } else {
           _errorMessage = response.message;
+          
+          // Nếu phiên đăng nhập hết hạn, tự động đăng xuất và chuyển hướng về màn hình đăng nhập
+          if (response.message.contains('Phiên đăng nhập đã hết hạn')) {
+            _handleSessionExpired();
+          }
         }
       });
     } catch (e) {
@@ -54,36 +60,56 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _logout() async {
     try {
-      await _authController.logout();
+      await _authController.logout(context);
+      // NavigationHelper sẽ xử lý việc điều hướng, không cần NavigatorPushReplacement
+    } catch (e) {
       if (mounted) {
-        Navigator.pushReplacementNamed(context, AppRoute.role);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Logout failed: $e')),
+        );
+      }
+    }
+  }
+
+  // Xử lý phiên đăng nhập hết hạn
+  void _handleSessionExpired() async {
+    try {
+      // Đăng xuất
+      await _authController.logout(context);
+      
+      if (mounted) {
+        // Hiển thị dialog thông báo
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: const Text('Phiên đăng nhập hết hạn'),
+            content: const Text('Phiên đăng nhập của bạn đã hết hạn. Vui lòng đăng nhập lại để tiếp tục sử dụng ứng dụng.'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  // NavigationHelper sẽ xử lý việc điều hướng từ logout()
+                },
+                child: const Text('Đăng nhập lại'),
+              ),
+            ],
+          ),
+        );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Logout failed: $e')),
-      );
+      print('Lỗi khi xử lý phiên hết hạn: $e');
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF002D72),
+      backgroundColor: const Color(0xFF00AEEF),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text('Profile'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              // Edit profile functionality would go here
-            },
-            child: const Text(
-              'Drivers',
-              style: TextStyle(color: Colors.lightBlue),
-            ),
-          ),
-        ],
+        title: const Text('Hồ sơ hành khách'),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Colors.white))
@@ -99,7 +125,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const SizedBox(height: 20),
                       ElevatedButton(
                         onPressed: _loadUserProfile,
-                        child: const Text('Retry'),
+                        child: const Text('Thử lại'),
                       ),
                     ],
                   ),
@@ -121,9 +147,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   decoration: BoxDecoration(
                                     shape: BoxShape.rectangle,
                                     borderRadius: BorderRadius.circular(15),
-                                    color: Colors.yellow,
+                                    color: Colors.white,
                                     border: Border.all(
-                                      color: Colors.purple,
+                                      color: const Color(0xFF00AEEF),
                                       width: 4,
                                     ),
                                   ),
@@ -137,7 +163,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                               return const Icon(
                                                 Icons.person,
                                                 size: 60,
-                                                color: Colors.white,
+                                                color: Color(0xFF00AEEF),
                                               );
                                             },
                                           ),
@@ -145,18 +171,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       : ClipRRect(
                                           borderRadius: BorderRadius.circular(10),
                                           child: Container(
-                                            color: Colors.amber,
+                                            color: Colors.grey[200],
                                             child: const Icon(
                                               Icons.person,
                                               size: 60,
-                                              color: Colors.white,
+                                              color: Color(0xFF00AEEF),
                                             ),
                                           ),
                                         ),
                                 ),
                                 Container(
                                   decoration: BoxDecoration(
-                                    color: Colors.purple,
+                                    color: const Color(0xFF00AEEF),
                                     borderRadius: BorderRadius.circular(15),
                                   ),
                                   padding: const EdgeInsets.symmetric(
@@ -172,7 +198,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         size: 16,
                                       ),
                                       const SizedBox(width: 4),
-                                      Text(
+                                      const Text(
                                         '5.0',
                                         style: TextStyle(
                                           color: Colors.white,
@@ -193,7 +219,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       icon: const Icon(
                                         Icons.edit,
                                         size: 16,
-                                        color: Colors.blue,
+                                        color: Color(0xFF00AEEF),
                                       ),
                                       onPressed: () {
                                         // Edit avatar functionality
@@ -261,16 +287,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                             _buildMenuItem(
                               icon: Icons.history,
-                              title: 'Lịch sử',
+                              title: 'Lịch sử chuyến đi',
                               onTap: () {
-                                // Navigate to history screen
+                                Navigator.pushNamed(context, PassengerRoutes.bookings);
                               },
                             ),
                             _buildMenuItem(
-                              icon: Icons.support_agent,
-                              title: 'Dịch vụ liên lạc',
+                              icon: Icons.lock,
+                              title: 'Đổi mật khẩu',
                               onTap: () {
-                                // Navigate to support screen
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const ChangePasswordScreen(),
+                                  ),
+                                );
+                              },
+                            ),
+                            _buildMenuItem(
+                              icon: Icons.edit,
+                              title: 'Chỉnh sửa thông tin',
+                              onTap: () {
+                                if (_userProfile != null) {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => EditProfileScreen(
+                                        userProfile: _userProfile!,
+                                      ),
+                                    ),
+                                  ).then((updated) {
+                                    if (updated == true) {
+                                      // Reload profile if updated
+                                      _loadUserProfile();
+                                    }
+                                  });
+                                }
                               },
                             ),
                             _buildMenuItem(
@@ -282,7 +334,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                             _buildMenuItem(
                               icon: Icons.logout,
-                              title: 'Logout',
+                              title: 'Đăng xuất',
                               onTap: _logout,
                             ),
                           ],
@@ -344,35 +396,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ],
                   ),
                 ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        currentIndex: 3, // Profile tab
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            label: 'Trang chủ',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.star_border),
-            label: 'Đăng đi',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble_outline),
-            label: 'Liên hệ',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            label: 'Cá nhân',
-          ),
-        ],
-        onTap: (index) {
-          // Handle navigation
-          if (index != 3) { // Not the profile tab
-            Navigator.pop(context);
-            // Navigate to the selected tab
-          }
-        },
-      ),
     );
   }
 
@@ -387,7 +410,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
-            Icon(icon, size: 24, color: Colors.black54),
+            Icon(icon, size: 24, color: const Color(0xFF00AEEF)),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
@@ -398,7 +421,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
             ),
-            const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.black45),
+            const Icon(Icons.arrow_forward_ios, size: 16, color: Color(0xFF00AEEF)),
           ],
         ),
       ),

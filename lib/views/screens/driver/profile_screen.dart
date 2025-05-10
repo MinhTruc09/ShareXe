@@ -111,14 +111,13 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
 
   void _logout() async {
     try {
-      await _authController.logout();
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, AppRoute.role);
-      }
+      await _authController.logout(context);
+      // NavigationHelper sẽ xử lý việc điều hướng, không cần NavigatorPushReplacement
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Logout failed: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context
+        ).showSnackBar(SnackBar(content: Text('Logout failed: $e')));
+      }
     }
   }
 

@@ -17,12 +17,17 @@ class AuthService {
 
   Future<Passenger> login(String email, String password, String role) async {
     try {
+      print('📝 Login attempt: Email: $email, Role: $role');
+      
       final response = await http.post(
         Uri.parse('$baseUrl/auth/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': email, 'password': password, 'role': role}),
       );
-
+      
+      print('📝 Login response: Status ${response.statusCode}');
+      
+      // Kiểm tra response code cụ thể để trả về thông báo lỗi phù hợp
       if (response.statusCode == 200) {
         final jsonResponse = jsonDecode(response.body);
         final parsed = Passenger.fromJson(jsonResponse);
@@ -33,6 +38,15 @@ class AuthService {
           final userEmail = parsed.data!.email;
           final userRole = parsed.data!.role;
 
+          // Kiểm tra vai trò người dùng có khớp với vai trò đăng nhập không
+          if (userRole != null && role.toUpperCase() != userRole.toUpperCase()) {
+            return Passenger(
+              success: false,
+              message: 'Tài khoản này không phải là ${role.toLowerCase() == 'driver' ? 'tài xế' : 'hành khách'}. Vui lòng đăng nhập đúng vai trò.',
+              data: null,
+            );
+          }
+
           if (token != null && userEmail != null && userRole != null) {
             // Save auth data using AuthManager
             await _authManager.saveAuthData(token, userEmail, userRole);
@@ -40,17 +54,47 @@ class AuthService {
         }
 
         return parsed;
-      } else {
+      } else if (response.statusCode == 401) {
         return Passenger(
           success: false,
-          message: 'Login failed: ${response.statusCode}',
+          message: 'Sai email hoặc mật khẩu, vui lòng thử lại',
+          data: null,
+        );
+      } else if (response.statusCode == 403) {
+        return Passenger(
+          success: false,
+          message: 'Tài khoản của bạn không có quyền truy cập',
+          data: null,
+        );
+      } else if (response.statusCode == 404) {
+        return Passenger(
+          success: false,
+          message: 'Tài khoản không tồn tại, vui lòng đăng ký',
+          data: null,
+        );
+      } else {
+        // Cố gắng đọc thông báo từ response body nếu có
+        String errorMessage = 'Đăng nhập thất bại';
+        try {
+          final jsonResponse = jsonDecode(response.body);
+          if (jsonResponse['message'] != null) {
+            errorMessage = jsonResponse['message'];
+          }
+        } catch (e) {
+          // Không làm gì nếu không parse được JSON
+        }
+        
+        return Passenger(
+          success: false,
+          message: errorMessage,
           data: null,
         );
       }
     } catch (e) {
+      print('❌ Login error: $e');
       return Passenger(
         success: false,
-        message: 'Failed to connect to the server: $e',
+        message: 'Lỗi kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng và thử lại.',
         data: null,
       );
     }

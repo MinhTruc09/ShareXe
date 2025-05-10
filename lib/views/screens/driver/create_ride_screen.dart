@@ -40,6 +40,34 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
     if (widget.existingRide != null) {
       _isEditMode = true;
       _loadExistingRideData();
+      
+      // Kiểm tra trạng thái của chuyến đi
+      if (widget.existingRide?['status']?.toString().toUpperCase() == 'CANCELLED') {
+        // Sử dụng WidgetsBinding để đảm bảo dialog được hiển thị sau khi build hoàn tất
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (BuildContext context) {
+              return AlertDialog(
+                title: const Text('Chuyến đi đã bị hủy'),
+                content: const Text(
+                  'Không thể chỉnh sửa chuyến đi đã bị hủy. Vui lòng tạo chuyến đi mới.',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop(); // Đóng dialog
+                      Navigator.of(context).pop(); // Quay lại màn hình trước
+                    },
+                    child: const Text('Đã hiểu'),
+                  ),
+                ],
+              );
+            },
+          );
+        });
+      }
     }
   }
 
@@ -84,6 +112,20 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
         ),
       );
       return;
+    }
+    
+    // Kiểm tra trạng thái của chuyến đi nếu đang ở chế độ chỉnh sửa
+    if (_isEditMode && widget.existingRide != null) {
+      final rideStatus = widget.existingRide?['status']?.toString().toUpperCase();
+      if (rideStatus == 'CANCELLED') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Không thể cập nhật chuyến đi đã bị hủy'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
     }
 
     setState(() {
@@ -201,11 +243,13 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
                       const Divider(height: 16),
                       DatePickerField(
                         icon: Icons.access_time,
-                        hintText: 'Thời gian xuất phát',
+                        hintText: 'Thời gian xuất phát (ngày và giờ)',
                         initialDate: _departureDate,
+                        includeTime: true,
                         onDateSelected: (date) {
                           setState(() {
                             _departureDate = date;
+                            print('Đã chọn thời gian: ${DateFormat('dd/MM/yyyy HH:mm').format(date)}');
                           });
                         },
                       ),

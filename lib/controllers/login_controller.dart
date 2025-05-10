@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sharexe/services/auth_service.dart';
 import 'package:sharexe/app_route.dart';
+import 'package:sharexe/utils/navigation_helper.dart';
 
 class LoginController {
   final AuthService service;
@@ -18,6 +19,7 @@ class LoginController {
     onError(''); // Reset thông báo lỗi
 
     try {
+      print('🔑 Đang đăng nhập với vai trò: ${role ?? 'PASSENGER'}');
       final response = await service.login(email, password, role!);
       isLoading = false;
 
@@ -30,16 +32,26 @@ class LoginController {
         
         // Token is already saved in AuthService.login
         
-        // Điều hướng dựa vào vai trò
+        // Kiểm tra vai trò người dùng có khớp với màn hình đăng nhập không
+        if (role.toUpperCase() != data.role!.toUpperCase()) {
+          onError('Bạn đang đăng nhập vào sai vai trò. Vui lòng sử dụng tài khoản ${role.toLowerCase() == 'driver' ? 'tài xế' : 'hành khách'}.');
+          return;
+        }
+        
+        print('✅ Đăng nhập thành công với vai trò: ${data.role}');
+        
+        // Điều hướng dựa vào vai trò - sử dụng NavigationHelper để xóa stack
         if (data.role!.toUpperCase() == 'DRIVER') {
-          Navigator.pushReplacementNamed(context, AppRoute.homeDriver);
+          NavigationHelper.navigateAndClearStack(context, AppRoute.homeDriver);
         } else {
-          Navigator.pushReplacementNamed(context, AppRoute.homePassenger);
+          NavigationHelper.navigateAndClearStack(context, AppRoute.homePassenger);
         }
       } else {
+        print('❌ Đăng nhập thất bại: ${response.message}');
         onError(response.message);
       }
     } catch (e) {
+      print('❌ Lỗi đăng nhập: $e');
       isLoading = false;
       onError('Lỗi kết nối, vui lòng thử lại: $e');
     }

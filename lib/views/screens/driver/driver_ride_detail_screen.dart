@@ -12,8 +12,7 @@ import 'package:firebase_database/firebase_database.dart';
 class DriverRideDetailScreen extends StatefulWidget {
   final dynamic ride;
 
-  const DriverRideDetailScreen({Key? key, required this.ride})
-    : super(key: key);
+  const DriverRideDetailScreen({super.key, required this.ride});
 
   @override
   State<DriverRideDetailScreen> createState() => _DriverRideDetailScreenState();
@@ -26,12 +25,17 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
 
   bool _isLoading = false;
   bool _isCompleting = false;
+  bool _isConfirming = false;
   List<Booking> _bookings = [];
+  
+  // Theo dõi trạng thái xác nhận của tài xế
+  bool _driverConfirmed = false;
 
   @override
   void initState() {
     super.initState();
     _loadBookings();
+    _checkConfirmationStatus();
   }
 
   Future<void> _loadBookings() async {
@@ -41,7 +45,7 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
 
     try {
       // Tải danh sách các booking cho chuyến đi này
-      final bookings = await _bookingService.getDriverBookings();
+      final bookings = await _bookingService.getBookingsForDriver();
 
       // Lọc theo rideId của chuyến đi hiện tại
       final Ride rideData = widget.ride as Ride;
@@ -68,9 +72,10 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
     try {
       // Parse the date string in ISO format
       final dateTime = DateTime.parse(timeString);
-      // Format to display date and time
-      return DateFormat('HH:mm dd/MM/yyyy').format(dateTime);
+      // Format to display date and time với giờ được hiển thị trước 
+      return DateFormat('HH:mm - dd/MM/yyyy').format(dateTime);
     } catch (e) {
+      print('❌ Lỗi khi định dạng thời gian: $e, timeString: $timeString');
       return timeString;
     }
   }
@@ -119,11 +124,13 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
   }
 
   Future<void> _completeRide() async {
+    // Lưu trữ context hiện tại để sử dụng sau khi đóng dialog
+    final BuildContext currentContext = context;
     final Ride rideData = widget.ride as Ride;
 
     // Hiển thị dialog xác nhận
     final bool? confirmed = await showDialog<bool>(
-      context: context,
+      context: currentContext,
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Xác nhận hoàn thành'),
@@ -144,17 +151,36 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
       },
     );
 
-    if (confirmed != true) return;
+    if (confirmed != true || !mounted) return;
 
     setState(() {
       _isCompleting = true;
     });
 
     try {
-      final success = await _rideService.completeRide(rideData.id);
+      // Sử dụng API mới cho tài xế hoàn thành chuyến đi
+      final success = await _rideService.driverCompleteRide(rideData.id);
+
+      if (!mounted) return;
 
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        // Send notification to passengers about the completed ride
+        try {
+          await _notificationService.sendNotification(
+            'Chuyến đi hoàn thành',
+            'Chuyến đi đã được đánh dấu hoàn thành bởi tài xế',
+            'ride_completed',
+            {
+              'rideId': rideData.id,
+              'status': 'COMPLETED',
+            },
+          );
+        } catch (notifError) {
+          // Just log notification error, don't stop the process
+          print('Lỗi khi gửi thông báo: $notifError');
+        }
+
+        ScaffoldMessenger.of(currentContext).showSnackBar(
           const SnackBar(
             content: Text(
               'Chuyến đi đã được đánh dấu hoàn thành',
@@ -165,27 +191,19 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
         );
 
         // Cập nhật lại trạng thái của chuyến đi trong giao diện
+        if (!mounted) return;
         setState(() {
-          final updatedRide = Ride(
-            id: rideData.id,
-            availableSeats: rideData.availableSeats,
-            driverName: rideData.driverName,
-            driverEmail: rideData.driverEmail,
-            departure: rideData.departure,
-            destination: rideData.destination,
-            startTime: rideData.startTime,
-            pricePerSeat: rideData.pricePerSeat,
-            totalSeat: rideData.totalSeat,
-            status: 'COMPLETED',
-          );
-
-          // Cập nhật widget.ride
           if (widget.ride is Ride) {
             (widget.ride as dynamic).status = 'COMPLETED';
           }
         });
+        
+        // Quay về màn hình trước đó ngay lập tức sau khi hoàn thành thành công
+        if (!mounted) return;
+        Navigator.of(currentContext).pop(true); // Trả về true để báo hiệu hoàn thành thành công
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
+        if (!mounted) return;
+        ScaffoldMessenger.of(currentContext).showSnackBar(
           const SnackBar(
             content: Text(
               'Không thể hoàn thành chuyến đi. Vui lòng thử lại.',
@@ -196,29 +214,34 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      if (!mounted) return;
+      ScaffoldMessenger.of(currentContext).showSnackBar(
         SnackBar(
           content: Text('Lỗi: $e', style: const TextStyle(color: Colors.white)),
           backgroundColor: Colors.red,
         ),
       );
     } finally {
-      setState(() {
-        _isCompleting = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isCompleting = false;
+        });
+      }
     }
   }
 
   Future<void> _cancelRide() async {
+    // Lưu trữ context hiện tại để sử dụng sau khi đóng dialog
+    final BuildContext currentContext = context;
     final Ride rideData = widget.ride as Ride;
 
     // Hiển thị dialog xác nhận
     final bool? confirmed = await showDialog<bool>(
-      context: context,
+      context: currentContext,
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Xác nhận huỷ chuyến'),
-          content: const Text('Bạn có chắc chắn muốn huỷ chuyến đi này?'),
+          content: const Text('Bạn có chắc chắn muốn huỷ chuyến đi này? Hành động này không thể hoàn tác.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -226,24 +249,50 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Có, huỷ chuyến'),
+              child: const Text(
+                'Có, huỷ chuyến',
+                style: TextStyle(color: Colors.red),
+              ),
             ),
           ],
         );
       },
     );
 
-    if (confirmed != true) return;
+    if (confirmed != true || !mounted) return;
 
-    setState(() {
-      _isLoading = true;
-    });
+    // Hiển thị dialog loading
+    if (!mounted) return;
+    showDialog(
+      context: currentContext,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return const Dialog(
+          child: Padding(
+            padding: EdgeInsets.all(20.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 20),
+                Text('Đang hủy chuyến đi...'),
+              ],
+            ),
+          ),
+        );
+      },
+    );
 
     try {
       final success = await _rideService.cancelRide(rideData.id);
 
+      // Đóng dialog loading
+      if (!mounted) return;
+      Navigator.of(currentContext).pop();
+
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        if (!mounted) return;
+        ScaffoldMessenger.of(currentContext).showSnackBar(
           const SnackBar(
             content: Text(
               'Đã huỷ chuyến đi thành công',
@@ -254,33 +303,62 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
         );
 
         // Cập nhật lại trạng thái của chuyến đi trong giao diện
+        if (!mounted) return;
         setState(() {
           if (widget.ride is Ride) {
             (widget.ride as dynamic).status = 'CANCELLED';
           }
         });
+        
+        // Quay về màn hình trước đó ngay lập tức sau khi hủy thành công
+        if (!mounted) return;
+        Navigator.of(currentContext).pop(true); // Trả về true để báo hiệu hủy thành công
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Không thể huỷ chuyến đi. Vui lòng thử lại.',
-              style: TextStyle(color: Colors.white),
-            ),
-            backgroundColor: Colors.red,
-          ),
+        if (!mounted) return;
+        showDialog(
+          context: currentContext,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: const Text('Không thể huỷ chuyến đi'),
+              content: const Text(
+                'Không thể huỷ chuyến đi. Nguyên nhân có thể do:\n'
+                '- Chuyến đi đã bị hủy trước đó\n'
+                '- Chuyến đi đã có người đặt và được chấp nhận\n'
+                '- Lỗi kết nối mạng\n\n'
+                'Vui lòng thử lại sau hoặc liên hệ hỗ trợ.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Đóng'),
+                ),
+              ],
+            );
+          },
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      // Đóng dialog loading
+      if (!mounted) return;
+      Navigator.of(currentContext).pop();
+
+      if (!mounted) return;
+      final scaffoldMessenger = ScaffoldMessenger.of(currentContext);
+      scaffoldMessenger.showSnackBar(
         SnackBar(
           content: Text('Lỗi: $e', style: const TextStyle(color: Colors.white)),
           backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+          action: SnackBarAction(
+            label: 'Đóng',
+            textColor: Colors.white,
+            onPressed: () {
+              // Chỉ đóng snackbar, không gọi lại hàm
+              scaffoldMessenger.hideCurrentSnackBar();
+            },
+          ),
         ),
       );
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
     }
   }
 
@@ -297,6 +375,120 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
     );
   }
 
+  // Kiểm tra trạng thái xác nhận chuyến đi
+  Future<void> _checkConfirmationStatus() async {
+    try {
+      final Ride rideData = widget.ride as Ride;
+      
+      // Call API to check if driver already confirmed this ride
+      // For now, we rely on ride status
+      final inProgress = rideData.status.toUpperCase() == 'IN_PROGRESS';
+      
+      if (mounted) {
+        setState(() {
+          _driverConfirmed = inProgress;
+        });
+      }
+    } catch (e) {
+      print('❌ Lỗi khi kiểm tra trạng thái xác nhận: $e');
+      if (mounted) {
+        setState(() {
+          _driverConfirmed = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _confirmDeparture() async {
+    // Lưu trữ context hiện tại để sử dụng sau khi đóng dialog
+    final BuildContext currentContext = context;
+    final Ride rideData = widget.ride as Ride;
+
+    // Hiển thị dialog xác nhận
+    final bool? confirmed = await showDialog<bool>(
+      context: currentContext,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Xác nhận xuất phát'),
+          content: const Text(
+            'Bạn xác nhận đã đến thời điểm khởi hành chuyến đi này?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Huỷ'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Xác nhận'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() {
+      _isConfirming = true;
+    });
+
+    try {
+      // Đánh dấu chuyến đi đang diễn ra
+      await _rideService.markRideInProgress(rideData.id);
+      
+      // Tài xế xác nhận khởi hành
+      final success = await _rideService.driverConfirmDeparture(rideData.id);
+
+      if (success && mounted) {
+        setState(() {
+          _driverConfirmed = true;
+          _isConfirming = false;
+        });
+        
+        ScaffoldMessenger.of(currentContext).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Đã xác nhận khởi hành chuyến đi',
+              style: TextStyle(color: Colors.white),
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else if (mounted) {
+        setState(() {
+          _isConfirming = false;
+        });
+        
+        ScaffoldMessenger.of(currentContext).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Không thể xác nhận khởi hành. Vui lòng thử lại.',
+              style: TextStyle(color: Colors.white),
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isConfirming = false;
+        });
+        
+        ScaffoldMessenger.of(currentContext).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Lỗi: $e',
+              style: const TextStyle(color: Colors.white),
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
@@ -304,9 +496,14 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
     final bool isCompletedOrCancelled =
         rideData.status.toUpperCase() == 'COMPLETED' ||
         rideData.status.toUpperCase() == 'CANCELLED';
+        
+    // Kiểm tra nếu chuyến đi đã đến thời gian xuất phát
+    final bool isReadyForDeparture = _rideService.canConfirmRide(rideData);
+    final bool isInProgress = _rideService.isRideInProgress(rideData);
 
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: const Text('Quản lý chuyến đi'),
         backgroundColor: const Color(0xFF002D72),
         elevation: 0,
@@ -323,76 +520,73 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Route info
+                  Text(
+                    '${rideData.departure} → ${rideData.destination}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   Row(
                     children: [
                       const Icon(
-                        Icons.circle_outlined,
-                        color: Colors.white,
-                        size: 20,
+                        Icons.schedule,
+                        color: Colors.white70,
+                        size: 16,
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          rideData.departure,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  // Connecting line
-                  Padding(
-                    padding: const EdgeInsets.only(left: 10),
-                    child: Container(height: 30, width: 2, color: Colors.white),
-                  ),
-                  // Destination
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.location_on,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          rideData.destination,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                      const SizedBox(width: 4),
+                      Text(
+                        _formatTime(rideData.startTime),
+                        style: const TextStyle(color: Colors.white, fontSize: 16),
                       ),
                     ],
                   ),
                   const SizedBox(height: 16),
-                  // Time and status
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      Row(
                         children: [
-                          const Text(
-                            'Thời gian khởi hành',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 14,
-                            ),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.event_seat,
+                                color: Colors.white70,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${rideData.totalSeat} ghế',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _formatTime(rideData.startTime),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
+                          const SizedBox(width: 16),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.monetization_on,
+                                color: Colors.white70,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                rideData.pricePerSeat != null
+                                    ? currencyFormat.format(rideData.pricePerSeat)
+                                    : 'Miễn phí',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -435,13 +629,178 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
                         ? 'Đã hoàn thành'
                         : rideData.status.toUpperCase() == 'CANCELLED'
                         ? 'Đã hủy'
+                        : rideData.status.toUpperCase() == 'IN_PROGRESS'
+                        ? 'Đang diễn ra'
                         : rideData.status,
                   ),
 
                   const Divider(height: 32),
 
+                  // Xác nhận xuất phát
+                  if (isReadyForDeparture && !isCompletedOrCancelled && !isInProgress) ...[
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.amber.shade300),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.access_time,
+                                color: Colors.amber.shade800,
+                                size: 24,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Đã đến giờ khởi hành!',
+                                style: TextStyle(
+                                  color: Colors.amber.shade800,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _driverConfirmed
+                              ? 'Bạn đã xác nhận khởi hành chuyến đi này.'
+                              : 'Hãy xác nhận khi bạn đã sẵn sàng để khởi hành chuyến đi.',
+                            style: TextStyle(
+                              color: Colors.grey.shade800,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          if (!_driverConfirmed)
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: _isConfirming ? null : _confirmDeparture,
+                                icon: _isConfirming
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          color: Colors.white,
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Icon(Icons.directions_car),
+                                label: Text(
+                                  _isConfirming ? 'Đang xác nhận...' : 'Xác nhận xuất phát'
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.amber.shade700,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                ),
+                              ),
+                            ),
+                          if (_driverConfirmed)
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.green.shade100,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.check_circle,
+                                    color: Colors.green.shade700,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Đã xác nhận khởi hành',
+                                    style: TextStyle(
+                                      color: Colors.green.shade700,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+
+                  // Ride in progress UI
+                  if (isInProgress && !isCompletedOrCancelled) ...[
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.green.shade300),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.drive_eta,
+                                color: Colors.green.shade800,
+                                size: 24,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Chuyến đi đang diễn ra!',
+                                style: TextStyle(
+                                  color: Colors.green.shade800,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Hãy hoàn thành chuyến đi sau khi đã chở tất cả hành khách đến nơi.',
+                            style: TextStyle(
+                              color: Colors.grey.shade800,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: _isCompleting ? null : _completeRide,
+                              icon: _isCompleting
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.check_circle),
+                              label: Text(
+                                _isCompleting ? 'Đang xác nhận...' : 'Hoàn thành chuyến đi'
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green.shade700,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+
                   // Actions for the ride
-                  if (!isCompletedOrCancelled) ...[
+                  if (!isCompletedOrCancelled && !isInProgress) ...[
                     const Text(
                       'Quản lý chuyến đi',
                       style: TextStyle(

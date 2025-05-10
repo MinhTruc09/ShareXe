@@ -9,6 +9,7 @@ import 'firebase_options.dart';
 import 'utils/app_config.dart';
 import 'views/screens/chat/user_list_screen.dart';
 import 'views/screens/chat/chat_room_screen.dart';
+import 'views/screens/common/splash_screen.dart';
 
 // Required for handling background messages
 @pragma('vm:entry-point')
@@ -19,7 +20,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
     print("Handling a background message: ${message.messageId}");
-  } catch (e) {
+  } catch (e) { 
     print("Error handling background message: $e");
   }
 }
@@ -90,6 +91,9 @@ class _MyAppState extends State<MyApp> {
       theme: appTheme,
       initialRoute: AppRoute.splash,
       onGenerateRoute: AppRoute.onGenerateRoute,
+      routes: {
+        '/': (context) => const SplashScreen(),
+      },
     );
   }
 }

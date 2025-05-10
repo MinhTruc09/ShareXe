@@ -36,16 +36,27 @@ class Ride {
         return null;
       }
       
+      // Handle integer values safely
+      int parseIntSafely(dynamic value, int defaultValue) {
+        if (value == null) return defaultValue;
+        if (value is int) return value;
+        if (value is double) return value.toInt();
+        if (value is String) {
+          return int.tryParse(value) ?? defaultValue;
+        }
+        return defaultValue;
+      }
+      
       return Ride(
-        id: json['id'] ?? 0,
-        availableSeats: json['availableSeats'] ?? 0,
+        id: parseIntSafely(json['id'], 0),
+        availableSeats: parseIntSafely(json['availableSeats'], 0),
         driverName: json['driverName'] ?? 'Unknown Driver',
         driverEmail: json['driverEmail'] ?? 'no-email@example.com',
         departure: json['departure'] ?? 'Unknown',
         destination: json['destination'] ?? 'Unknown',
         startTime: json['startTime'] ?? DateTime.now().toIso8601String(),
         pricePerSeat: parsePrice(json['pricePerSeat']),
-        totalSeat: json['totalSeat'] ?? 0,
+        totalSeat: parseIntSafely(json['totalSeat'], 0),
         status: json['status'] ?? 'ACTIVE',
       );
     } catch (e) {

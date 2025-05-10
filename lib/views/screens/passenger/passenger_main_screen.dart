@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:sharexe/app_route.dart';
-import 'home_dscreen.dart';
+import 'new_home_pscreen.dart';
 import '../chat/user_list_screen.dart';
-import 'driver_profile_screen.dart';
+import 'profile_screen.dart';
 import '../../widgets/notification_badge.dart';
-import 'driver_bookings_screen.dart';
+import 'passenger_bookings_screen.dart';
 
 // InheritedWidget để cung cấp truy cập vào điều hướng bottom bar
 class TabNavigator extends InheritedWidget {
@@ -30,14 +30,14 @@ class TabNavigator extends InheritedWidget {
   }
 }
 
-class DriverMainScreen extends StatefulWidget {
-  const DriverMainScreen({Key? key}) : super(key: key);
+class PassengerMainScreen extends StatefulWidget {
+  const PassengerMainScreen({Key? key}) : super(key: key);
 
   @override
-  State<DriverMainScreen> createState() => _DriverMainScreenState();
+  State<PassengerMainScreen> createState() => _PassengerMainScreenState();
 }
 
-class _DriverMainScreenState extends State<DriverMainScreen>
+class _PassengerMainScreenState extends State<PassengerMainScreen>
     with SingleTickerProviderStateMixin {
   int _currentIndex = 0;
   final PageController _pageController = PageController();
@@ -45,10 +45,10 @@ class _DriverMainScreenState extends State<DriverMainScreen>
 
   // Danh sách các màn hình chính
   final List<Widget> _screens = [
-    const HomeDscreen(),
-    const DriverBookingsScreen(),
+    const NewHomePscreen(),
+    const PassengerBookingsScreen(),
     const UserListScreen(),
-    const DriverProfileScreen(),
+    const ProfileScreen(),
   ];
 
   // Các tùy chọn menu
@@ -57,13 +57,13 @@ class _DriverMainScreenState extends State<DriverMainScreen>
       'icon': Icons.home_outlined,
       'activeIcon': Icons.home,
       'label': 'Trang chủ',
-      'gradient': [const Color(0xFF002D72), const Color(0xFF0052CC)],
+      'gradient': [const Color(0xFF00AEEF), const Color(0xFF0078A8)],
     },
     {
       'icon': Icons.history_outlined,
       'activeIcon': Icons.history,
-      'label': 'Chuyến đi',
-      'gradient': [const Color(0xFF00AEEF), const Color(0xFF0078A8)],
+      'label': 'Đặt chỗ',
+      'gradient': [const Color(0xFF002D72), const Color(0xFF0052CC)],
     },
     {
       'icon': Icons.chat_bubble_outline,
@@ -143,6 +143,7 @@ class _DriverMainScreenState extends State<DriverMainScreen>
       currentIndex: _currentIndex,
       navigateTo: _navigateTo,
       child: Scaffold(
+        appBar: _buildAppBar(),
         body: PageView(
           controller: _pageController,
           onPageChanged: _onPageChanged,
@@ -197,41 +198,35 @@ class _DriverMainScreenState extends State<DriverMainScreen>
                                     color: _navItems[index]['gradient'][0]
                                         .withOpacity(0.3),
                                     blurRadius: 8,
-                                    spreadRadius: 1,
-                                    offset: const Offset(0, 2),
+                                    offset: const Offset(0, 4),
                                   ),
                                 ],
                               )
                               : null,
-                      child: Transform.scale(
-                        scale: scale,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Transform.scale(
+                            scale: scale,
+                            child: Icon(
                               isSelected
                                   ? _navItems[index]['activeIcon']
                                   : _navItems[index]['icon'],
-                              color: isSelected
-                                  ? Colors.white
-                                  : Colors.grey.shade600,
-                              size: 24,
+                              color: isSelected ? Colors.white : Colors.grey,
+                              size: isSelected ? 24 : 22,
                             ),
-                            const SizedBox(height: 4),
+                          ),
+                          if (isSelected) const SizedBox(height: 4),
+                          if (isSelected)
                             Text(
                               _navItems[index]['label'],
-                              style: TextStyle(
-                                color: isSelected
-                                    ? Colors.white
-                                    : Colors.grey.shade600,
-                                fontSize: 10,
-                                fontWeight: isSelected
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
-                          ],
-                        ),
+                        ],
                       ),
                     ),
                   );
@@ -240,17 +235,42 @@ class _DriverMainScreenState extends State<DriverMainScreen>
             );
           },
         ),
-        floatingActionButton: _currentIndex == 0
-            ? FloatingActionButton(
-                backgroundColor: const Color(0xFF002D72),
-                elevation: 8,
-                onPressed: () {
-                  Navigator.pushNamed(context, DriverRoutes.createRide);
-                },
-                child: const Icon(Icons.add),
-              )
-            : null,
       ),
     );
   }
-}
+
+  // Xây dựng thanh AppBar với NotificationBadge
+  PreferredSizeWidget? _buildAppBar() {
+    if (_currentIndex == 0) {
+      // Chỉ hiển thị AppBar ở màn hình chính
+      return AppBar(
+        automaticallyImplyLeading: false,
+        backgroundColor: const Color(0xFF00AEEF),
+        title: const Row(
+          children: [
+            Icon(Icons.directions_car_rounded, color: Colors.white, size: 32),
+            SizedBox(width: 8),
+            Text(
+              'ShareXE',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          NotificationBadge(
+            iconColor: Colors.white,
+            onPressed: () {
+              // Điều hướng đến màn hình thông báo tab
+              Navigator.pushNamed(context, AppRoute.notificationTabs);
+            },
+          ),
+          const SizedBox(width: 8),
+        ],
+      );
+    }
+    return null; // Không hiển thị AppBar ở các tab khác
+  }
+} 

@@ -26,11 +26,25 @@ class UserProfile {
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     final appConfig = AppConfig();
 
+    print('DEBUG: UserProfile.fromJson - Raw JSON: $json');
+    
     // Hàm tiện ích để chuyển đổi URL hình ảnh từ localhost thành baseUrl
     String? convertImageUrl(String? url) {
+      print('DEBUG: Converting URL: $url');
       if (url == null) return null;
-      return url.replaceFirst('http://localhost:8080', appConfig.apiBaseUrl);
+      
+      String convertedUrl = url.replaceFirst('http://localhost:8080', appConfig.apiBaseUrl);
+      print('DEBUG: Converted URL: $convertedUrl');
+      return convertedUrl;
     }
+
+    // Kiểm tra các field liên quan đến avatar
+    print('DEBUG: avatarUrl field: ${json['avatarUrl']}');
+    print('DEBUG: avatarImage field: ${json['avatarImage']}');
+    
+    // Giá trị cuối cùng của avatarUrl
+    String? finalAvatarUrl = convertImageUrl(json['avatarUrl'] ?? json['avatarImage']);
+    print('DEBUG: Final avatarUrl after conversion: $finalAvatarUrl');
 
     return UserProfile(
       id: json['id'] ?? 0,
@@ -40,7 +54,7 @@ class UserProfile {
       phoneNumber: json['phoneNumber'] ?? json['phone'] ?? '',
       role: json['role'] ?? '',
       // Hỗ trợ cả avatarUrl và avatarImage
-      avatarUrl: convertImageUrl(json['avatarUrl'] ?? json['avatarImage']),
+      avatarUrl: finalAvatarUrl,
       licenseImageUrl: convertImageUrl(json['licenseImageUrl']),
       vehicleImageUrl: convertImageUrl(json['vehicleImageUrl']),
       status: json['status'],

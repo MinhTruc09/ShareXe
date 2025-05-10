@@ -147,12 +147,39 @@ class AuthManager {
 
   // Validate current session
   Future<bool> validateSession() async {
-    if (!await isLoggedIn()) return false;
+    if (!await isLoggedIn()) {
+      print('AuthManager: User is not logged in');
+      return false;
+    }
 
     final token = await getToken();
-    if (token == null) return false;
+    if (token == null) {
+      print('AuthManager: No token found');
+      return false;
+    }
 
-    return !isTokenExpired(token);
+    bool valid = !isTokenExpired(token);
+    
+    if (!valid) {
+      print('AuthManager: Token is expired');
+      
+      // Print token details for debugging
+      final claims = parseJwt(token);
+      if (claims != null && claims['exp'] != null) {
+        final exp = claims['exp'];
+        final expiryDateTime = DateTime.fromMillisecondsSinceEpoch(exp * 1000);
+        final now = DateTime.now();
+        final difference = expiryDateTime.difference(now);
+        
+        print('AuthManager: Token expired at: $expiryDateTime');
+        print('AuthManager: Current time: $now');
+        print('AuthManager: Token expired ${-difference.inHours}h ${-difference.inMinutes % 60}m ago');
+      }
+    } else {
+      print('AuthManager: Token is valid');
+    }
+    
+    return valid;
   }
 
   // Check and print if token is valid

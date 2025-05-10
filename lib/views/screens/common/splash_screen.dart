@@ -37,6 +37,16 @@ class _SplashScreenState extends State<SplashScreen> {
             _debugMessage = 'Is logged in: $isLoggedIn';
           });
         }
+        
+        // Kiểm tra thêm nếu token hợp lệ
+        if (isLoggedIn) {
+          final token = await _authService.getAuthToken();
+          if (token == null) {
+            print('SplashScreen: Token is null despite isLoggedIn being true');
+            isLoggedIn = false;
+            await _authService.logout();
+          }
+        }
       } catch (e) {
         if (kDebugMode) {
           setState(() {
@@ -137,18 +147,6 @@ class _SplashScreenState extends State<SplashScreen> {
                   _checkLoginStatus();
                 },
                 child: const Text('Retry'),
-              ),
-            if (kDebugMode && _debugMessage.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Container(
-                  padding: const EdgeInsets.all(8.0),
-                  color: Colors.black54,
-                  child: Text(
-                    _debugMessage,
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                ),
               ),
           ],
         ),

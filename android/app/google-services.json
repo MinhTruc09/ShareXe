@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "581146190372",
+    "firebase_url": "https://sharexe-c2071-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "sharexe-c2071",
+    "storage_bucket": "sharexe-c2071.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:581146190372:android:5f6ed167100e809a2d6eb1",
+        "android_client_info": {
+          "package_name": "com.example.sharexe"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyArYxYxbwQjks5fIuuY-5ZyDUOuUnL1jxo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

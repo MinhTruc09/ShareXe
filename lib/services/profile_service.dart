@@ -15,9 +15,21 @@ class ProfileService {
     try {
       final token = await _authManager.getToken();
       if (token == null) {
+        print('ProfileService: Không có token đăng nhập');
         return ProfileResponse(
           success: false,
           message: 'Chưa đăng nhập',
+          data: null,
+        );
+      }
+      
+      // Kiểm tra session có hợp lệ không trước khi gọi API
+      final bool isSessionValid = await _authManager.validateSession();
+      if (!isSessionValid) {
+        print('ProfileService: Phiên đăng nhập đã hết hạn (phát hiện trước khi gọi API)');
+        return ProfileResponse(
+          success: false,
+          message: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
           data: null,
         );
       }
@@ -30,10 +42,11 @@ class ProfileService {
       if (userRole?.toUpperCase() == 'DRIVER') {
         endpoint = '${_appConfig.fullApiUrl}/driver/profile';
       } else {
-        endpoint = '${_appConfig.fullApiUrl}/user/profile';
+        endpoint = '${_appConfig.fullApiUrl}/passenger/profile';
       }
 
       print('Đang gọi API: $endpoint');
+
       final response = await http
           .get(
             Uri.parse(endpoint),
@@ -53,6 +66,11 @@ class ProfileService {
       print('Response body: ${response.body}');
 
       if (response.statusCode == 401 || response.statusCode == 403) {
+        print('ProfileService: Phiên đăng nhập đã hết hạn (phát hiện từ response API)');
+        
+        // Nếu API trả về lỗi xác thực, đảm bảo đăng xuất khỏi phiên hiện tại
+        await _authManager.logout();
+        
         return ProfileResponse(
           success: false,
           message: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
@@ -72,16 +90,32 @@ class ProfileService {
       try {
         // Parse JSON từ response body
         final dynamic responseBody = json.decode(response.body);
+        
+        // Debug: In ra toàn bộ response body
+        print('DEBUG: Parsed response body: $responseBody');
 
         // Kiểm tra cấu trúc response từ backend
         if (responseBody is Map<String, dynamic>) {
           // Kiểm tra nếu response có cấu trúc {success: true, message: "...", data: {...}}
           if (responseBody.containsKey('success')) {
             if (response.statusCode == 200 && responseBody['success'] == true) {
+              // Debug: In ra data trước khi parse
+              print('DEBUG: Profile data before parsing: ${responseBody['data']}');
+              
+              // Thêm debug cho URL avatar
+              if (responseBody['data'] != null && responseBody['data'] is Map) {
+                print('DEBUG: Avatar URL from API: ${responseBody['data']['avatarUrl']}');
+              }
+              
+              final profile = UserProfile.fromJson(responseBody['data'] ?? {});
+              
+              // Debug: In ra profile sau khi parse
+              print('DEBUG: Profile after parsing - avatarUrl: ${profile.avatarUrl}');
+              
               return ProfileResponse(
                 success: true,
                 message: responseBody['message'] ?? 'Thành công',
-                data: UserProfile.fromJson(responseBody['data'] ?? {}),
+                data: profile,
               );
             } else {
               return ProfileResponse(
@@ -303,49 +337,62 @@ class ProfileService {
       final userRole = await _authManager.getUserRole();
       print('Vai trò người dùng: $userRole');
 
-      // QUAN TRỌNG: Tất cả người dùng đều dùng cùng một endpoint để cập nhật
+      // Endpoint chung cho mọi người dùng
       final endpoint = '${_appConfig.fullApiUrl}/user/update-profile';
+      
       print('Gửi request đến: $endpoint');
 
       var request = http.MultipartRequest('PUT', Uri.parse(endpoint));
       request.headers['Authorization'] = 'Bearer $token';
 
-      // Thêm các trường text (bắt buộc)
+      // Thêm các trường text
       request.fields['fullName'] = fullName;
       request.fields['phone'] = phone;
+      
+      print('Đang gửi fields: fullName=$fullName, phone=$phone');
 
-      // Thêm các file nếu có (không bắt buộc) - CHÚ Ý: tên file phải khớp với @RequestParam trong Java
+      // Thêm ảnh đại diện nếu có
       if (avatarImage != null) {
         final fileExtension = avatarImage.path.split('.').last;
         request.files.add(
           await http.MultipartFile.fromPath(
-            'avatarImage', // Tên phải khớp với backend: @RequestParam(value = "avatarImage")
+            'avatarImage',
             avatarImage.path,
             contentType: MediaType('image', fileExtension),
           ),
         );
+        print('Đang gửi avatar image: ${avatarImage.path}');
+      } else {
+        print('Không có avatar image để gửi');
       }
 
-      if (licenseImage != null) {
-        final fileExtension = licenseImage.path.split('.').last;
-        request.files.add(
-          await http.MultipartFile.fromPath(
-            'licenseImage', // Tên phải khớp với backend: @RequestParam(value = "licenseImage")
-            licenseImage.path,
-            contentType: MediaType('image', fileExtension),
-          ),
-        );
-      }
+      // Nếu là Driver, thêm ảnh giấy phép và xe
+      if (userRole?.toUpperCase() == 'DRIVER') {
+        // Thêm ảnh giấy phép lái xe nếu có
+        if (licenseImage != null) {
+          final licenseExtension = licenseImage.path.split('.').last;
+          request.files.add(
+            await http.MultipartFile.fromPath(
+              'licenseImage',
+              licenseImage.path,
+              contentType: MediaType('image', licenseExtension),
+            ),
+          );
+          print('Đang gửi license image: ${licenseImage.path}');
+        }
 
-      if (vehicleImage != null) {
-        final fileExtension = vehicleImage.path.split('.').last;
-        request.files.add(
-          await http.MultipartFile.fromPath(
-            'vehicleImage', // Tên phải khớp với backend: @RequestParam(value = "vehicleImage")
-            vehicleImage.path,
-            contentType: MediaType('image', fileExtension),
-          ),
-        );
+        // Thêm ảnh xe nếu có
+        if (vehicleImage != null) {
+          final vehicleExtension = vehicleImage.path.split('.').last;
+          request.files.add(
+            await http.MultipartFile.fromPath(
+              'vehicleImage',
+              vehicleImage.path,
+              contentType: MediaType('image', vehicleExtension),
+            ),
+          );
+          print('Đang gửi vehicle image: ${vehicleImage.path}');
+        }
       }
 
       // Kiểm tra tất cả fields và files trước khi gửi
@@ -490,9 +537,13 @@ class ProfileService {
         );
       }
 
+      // Endpoint chung cho mọi người dùng
+      final endpoint = '${_appConfig.fullApiUrl}/user/change-pass';
+      print('Gửi request đổi mật khẩu đến: $endpoint');
+
       final response = await http
           .put(
-            Uri.parse('${_appConfig.fullApiUrl}/user/change-pass'),
+            Uri.parse(endpoint),
             headers: {
               'Content-Type': 'application/json',
               'Authorization': 'Bearer $token',

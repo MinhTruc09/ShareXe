@@ -66,10 +66,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     });
     
     try {
-      final response = await _profileService.updateUserProfile(
+      final response = await _profileService.updateProfile(
         avatarImage: _avatarImage,
         fullName: _fullNameController.text,
-        phoneNumber: _phoneController.text,
+        phone: _phoneController.text,
       );
       
       setState(() {
@@ -101,7 +101,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF002D72),
+        backgroundColor: const Color(0xFF00AEEF),
         title: const Text('Chỉnh sửa hồ sơ'),
         centerTitle: true,
       ),
@@ -136,9 +136,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           decoration: BoxDecoration(
                             shape: BoxShape.rectangle,
                             borderRadius: BorderRadius.circular(15),
-                            color: Colors.yellow,
+                            color: Colors.white,
                             border: Border.all(
-                              color: Colors.purple,
+                              color: const Color(0xFF00AEEF),
                               width: 4,
                             ),
                           ),
@@ -160,7 +160,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                       return const Icon(
                                         Icons.person,
                                         size: 60,
-                                        color: Colors.white,
+                                        color: Color(0xFF00AEEF),
                                       );
                                     },
                                   ),
@@ -168,11 +168,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               : ClipRRect(
                                   borderRadius: BorderRadius.circular(10),
                                   child: Container(
-                                    color: Colors.amber,
+                                    color: Colors.grey[200],
                                     child: const Icon(
                                       Icons.person,
                                       size: 60,
-                                      color: Colors.white,
+                                      color: Color(0xFF00AEEF),
                                     ),
                                   ),
                                 ),
@@ -188,7 +188,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               icon: const Icon(
                                 Icons.add_a_photo,
                                 size: 18,
-                                color: Colors.blue,
+                                color: Color(0xFF00AEEF),
                               ),
                               onPressed: _pickImage,
                             ),
@@ -294,7 +294,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ElevatedButton(
                       onPressed: _updateProfile,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF002D72),
+                        backgroundColor: const Color(0xFF00AEEF),
                         padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 24),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),

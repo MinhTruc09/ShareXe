@@ -166,11 +166,7 @@ class _HomePscreenState extends State<HomePscreen> {
   Future<void> _logout() async {
     await _authService.logout();
     if (mounted) {
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        AppRoute.splash,
-        (route) => false,
-      );
+      Navigator.pushReplacementNamed(context, AppRoute.role);
     }
   }
 
@@ -412,12 +408,18 @@ class _HomePscreenState extends State<HomePscreen> {
               final rideDetails = await _rideService.getRideDetails(rideId);
 
               if (mounted && rideDetails != null) {
-                // Show ride details (you'd have a screen for this)
-                Navigator.pushNamed(
+                // Navigate to ride details screen and expect a result
+                final result = await Navigator.pushNamed(
                   context,
                   AppRoute.rideDetails,
                   arguments: rideDetails,
                 );
+                
+                // Refresh rides list if booking was canceled
+                if (result == true && mounted) {
+                  print('🔄 Booking đã hủy, làm mới danh sách chuyến đi');
+                  _fetchAvailableRides();
+                }
               }
             },
           );

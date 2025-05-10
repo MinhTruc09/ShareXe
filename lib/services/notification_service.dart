@@ -1217,4 +1217,66 @@ class NotificationService {
       }
     }
   }
+
+  // Add this method to the NotificationService class
+  Future<bool> sendNotification(
+    String title,
+    String message,
+    String type,
+    Map<String, dynamic> data
+  ) async {
+    try {
+      if (kDebugMode) {
+        print('Sending notification: $title, $message, $type');
+      }
+      
+      // Option 1: Use API to send notification
+      final token = await _authManager.getToken();
+      if (token == null) return false;
+      
+      // Check the ApiClient implementation to use the correct parameters
+      final response = await _apiClient.post(
+        '/api/notifications/send',
+        body: {
+          'title': title,
+          'message': message,
+          'type': type,
+          'data': data,
+        },
+        requireAuth: true,
+      );
+      
+      if (response.statusCode == 200) {
+        if (kDebugMode) {
+          print('Notification sent successfully via API');
+        }
+        return true;
+      }
+      
+      // If API failed, try local notification
+      final notification = NotificationModel(
+        id: DateTime.now().millisecondsSinceEpoch,
+        userEmail: 'system',
+        title: title,
+        content: message,
+        type: type,
+        referenceId: data['rideId'] ?? 0,
+        read: false,
+        createdAt: DateTime.now(),
+      );
+      
+      // Show local notification
+      await showLocalNotification(notification);
+      
+      // Broadcast to streams
+      _broadcastNotification(notification);
+      
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error sending notification: $e');
+      }
+      return false;
+    }
+  }
 }
