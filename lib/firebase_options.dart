@@ -21,10 +21,7 @@ class DefaultFirebaseOptions {
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for android - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return android;
       case TargetPlatform.iOS:
         return ios;
       case TargetPlatform.macOS:
@@ -43,13 +40,24 @@ class DefaultFirebaseOptions {
     }
   }
 
+  static const FirebaseOptions android = FirebaseOptions(
+    apiKey: 'AIzaSyArYxYxbwQjks5fIuuY-5ZyDUOuUnL1jxo',
+    appId: '1:581146190372:android:5f6ed167100e809a2d6eb1',
+    messagingSenderId: '581146190372',
+    projectId: 'sharexe-c2071',
+    databaseURL: 'https://sharexe-c2071-default-rtdb.asia-southeast1.firebasedatabase.app',
+    storageBucket: 'sharexe-c2071.firebasestorage.app',
+  );
+
   static const FirebaseOptions web = FirebaseOptions(
     apiKey: 'AIzaSyDHPaITZkBNPmusF6Its8-kvSdxZM3fKFw',
     appId: '1:581146190372:web:4237d01dcc5ed7f12d6eb1',
     messagingSenderId: '581146190372',
     projectId: 'sharexe-c2071',
     authDomain: 'sharexe-c2071.firebaseapp.com',
+    databaseURL: 'https://sharexe-c2071-default-rtdb.asia-southeast1.firebasedatabase.app',
     storageBucket: 'sharexe-c2071.firebasestorage.app',
+    measurementId: 'G-J7HVV9WBJ3',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
@@ -57,6 +65,7 @@ class DefaultFirebaseOptions {
     appId: '1:581146190372:ios:26a40fc6d56e45982d6eb1',
     messagingSenderId: '581146190372',
     projectId: 'sharexe-c2071',
+    databaseURL: 'https://sharexe-c2071-default-rtdb.asia-southeast1.firebasedatabase.app',
     storageBucket: 'sharexe-c2071.firebasestorage.app',
     iosBundleId: 'com.example.sharexe',
   );
@@ -66,17 +75,19 @@ class DefaultFirebaseOptions {
     appId: '1:581146190372:ios:26a40fc6d56e45982d6eb1',
     messagingSenderId: '581146190372',
     projectId: 'sharexe-c2071',
+    databaseURL: 'https://sharexe-c2071-default-rtdb.asia-southeast1.firebasedatabase.app',
     storageBucket: 'sharexe-c2071.firebasestorage.app',
     iosBundleId: 'com.example.sharexe',
   );
-
-  static const FirebaseOptions windows = FirebaseOptions(
+static const FirebaseOptions windows = FirebaseOptions(
     apiKey: 'AIzaSyDHPaITZkBNPmusF6Its8-kvSdxZM3fKFw',
     appId: '1:581146190372:web:2ad86b5364405f622d6eb1',
     messagingSenderId: '581146190372',
     projectId: 'sharexe-c2071',
     authDomain: 'sharexe-c2071.firebaseapp.com',
+    databaseURL: 'https://sharexe-c2071-default-rtdb.asia-southeast1.firebasedatabase.app',
     storageBucket: 'sharexe-c2071.firebasestorage.app',
+    measurementId: 'G-F77ZEFXMPH',
   );
 
 }

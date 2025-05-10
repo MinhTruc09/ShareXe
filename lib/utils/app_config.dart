@@ -35,7 +35,7 @@ class AppConfig {
   }
 
   // FCM server key
-  String fcmServerKey = 'YOUR_FCM_SERVER_KEY';
+  String fcmServerKey = 'f84dnNFrSI68W3fy2FHeiH:APA91bHX1mXlG0xMshd59YCqQ5OIXKd__3kbAeKqR0y_UGw5saAfQZ3OvzILUziHHguNI9Ntsdzg-8uT5U0BAzXH_VPMurCIUrcLB-5zJwrAFcn9xEBGAEI';
 
   // FCM topics
   String fcmTopicAllUsers = 'all_users';
