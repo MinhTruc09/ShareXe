@@ -87,6 +87,25 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
   }
 
   void _logout() async {
+    // Hiển thị dialog xác nhận trước khi đăng xuất
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Xác nhận đăng xuất'),
+          content: const Text('Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng không?'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Đóng dialog
+              },
+              child: const Text('Hủy'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.of(context).pop(); // Đóng dialog
+                
+                // Tiến hành đăng xuất
     try {
       await _authController.logout(context);
     } catch (e) {
@@ -96,6 +115,16 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
         );
       }
     }
+              },
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.red,
+              ),
+              child: const Text('Đăng xuất'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   String _getVerificationStatusText(String? status) {

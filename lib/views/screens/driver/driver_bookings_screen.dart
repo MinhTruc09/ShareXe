@@ -6,6 +6,7 @@ import '../../../models/booking.dart';
 import '../../../services/booking_service.dart';
 import '../../../utils/app_config.dart';
 import '../../../utils/api_debug_helper.dart';
+import '../../../views/widgets/skeleton_loader.dart';
 
 class DriverBookingsScreen extends StatefulWidget {
   const DriverBookingsScreen({Key? key}) : super(key: key);
@@ -27,6 +28,7 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
   List<Booking> _cancelledBookings = [];
   
   bool _isLoading = false;
+  bool _isInitialLoad = true; // Track initial load to show skeleton
   bool _isUsingMockData = false;
   bool _isDebugMode = false;
   String _apiResponse = '';
@@ -88,8 +90,14 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
   }
 
   Future<void> _loadBookings() async {
+    // Don't set isLoading if it's initial load to show skeletons instead
+    if (!_isInitialLoad) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
+    
     setState(() {
-      _isLoading = true;
       _apiResponse = '';
       _apiCallAttempts++;
     });
@@ -132,13 +140,15 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
       }
       
       // Cập nhật trạng thái dữ liệu mẫu
-      setState(() {
-        _isUsingMockData = !isRealData;
-        _apiResponse = !isRealData 
-            ? 'Đang sử dụng dữ liệu mẫu. Không thể kết nối đến API thực. Đã cố gắng $_apiCallAttempts lần.'
-            : 'Đã lấy ${bookings.length} booking từ API trong ${stopwatch.elapsedMilliseconds}ms';
-        _lastRefreshTime = DateTime.now();
-      });
+      if (mounted) {
+        setState(() {
+          _isUsingMockData = !isRealData;
+          _apiResponse = !isRealData 
+              ? 'Đang sử dụng dữ liệu mẫu. Không thể kết nối đến API thực. Đã cố gắng $_apiCallAttempts lần.'
+              : 'Đã lấy ${bookings.length} booking từ API trong ${stopwatch.elapsedMilliseconds}ms';
+          _lastRefreshTime = DateTime.now();
+        });
+      }
       
       // Log thêm thông tin để debug
       if (bookings.isNotEmpty) {
@@ -183,6 +193,7 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
           _completedBookings = completed;
           _cancelledBookings = cancelled;
           _isLoading = false;
+          _isInitialLoad = false; // Initial load completed
         });
 
         developer.log('Phân loại booking:', name: 'driver_bookings');
@@ -195,13 +206,14 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
     } catch (e) {
       developer.log('Lỗi khi tải danh sách booking: $e', name: 'driver_bookings', error: e);
       
-      setState(() {
-        _apiResponse = 'Lỗi: $e';
-        _isUsingMockData = true;
-        _isLoading = false;
-      });
-      
       if (mounted) {
+        setState(() {
+          _apiResponse = 'Lỗi: $e';
+          _isUsingMockData = true;
+          _isLoading = false;
+          _isInitialLoad = false; // Initial load completed
+        });
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Không thể tải danh sách booking: $e')),
         );
@@ -427,7 +439,7 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
           ],
         ),
       ),
-      body: _isLoading
+      body: _isLoading && !_isInitialLoad
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
@@ -519,6 +531,15 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
   }
   
   Widget _buildBookingsList(List<Booking> bookings, BookingStatus status) {
+    // Show skeleton loader during initial loading
+    if (_isInitialLoad) {
+      return ListView.builder(
+        itemCount: 3, // Show 3 skeleton items
+        padding: const EdgeInsets.all(8),
+        itemBuilder: (context, index) => const BookingCardSkeleton(),
+      );
+    }
+    
     if (bookings.isEmpty) {
       return Center(
         child: Column(
@@ -811,12 +832,73 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
   }
   
   Future<void> _acceptBooking(Booking booking) async {
+    // Lưu trữ dữ liệu booking hiện tại để đề phòng bị mất
+    final Booking currentBooking = booking;
+    
     setState(() {
       _isLoading = true;
     });
     
     try {
       developer.log('Accepting booking #${booking.id}...', name: 'driver_bookings');
+      
+      // Hiển thị dialog xác nhận
+      final bool? confirmResult = await showDialog<bool>(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('Xác nhận duyệt yêu cầu'),
+            content: const Text('Bạn có chắc chắn muốn duyệt yêu cầu đặt chỗ này không?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Hủy'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Duyệt'),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.green,
+                ),
+              ),
+            ],
+          );
+        },
+      );
+      
+      if (confirmResult != true) {
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
+      
+      // Tạm thời cập nhật UI trước để tránh mất dữ liệu nếu refresh thất bại
+      setState(() {
+        // Cập nhật booking trong danh sách hiện tại (tránh mất dữ liệu)
+        final index = _pendingBookings.indexWhere((b) => b.id == booking.id);
+        if (index != -1) {
+          _pendingBookings.removeAt(index);
+          
+          // Cập nhật trạng thái booking
+          final updatedBooking = Booking(
+            id: currentBooking.id,
+            rideId: currentBooking.rideId,
+            passengerId: currentBooking.passengerId,
+            seatsBooked: currentBooking.seatsBooked,
+            passengerName: currentBooking.passengerName,
+            status: "APPROVED", // Cập nhật trạng thái mới
+            createdAt: currentBooking.createdAt,
+            departure: currentBooking.departure,
+            destination: currentBooking.destination,
+            pricePerSeat: currentBooking.pricePerSeat,
+            totalPrice: currentBooking.totalPrice,
+          );
+          
+          // Thêm vào danh sách đã duyệt
+          _acceptedBookings.add(updatedBooking);
+        }
+      });
       
       // Use the booking service to accept the booking
       final success = await _bookingService.driverAcceptBookingDTO(booking.id);
@@ -830,7 +912,12 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
         );
         
         // Reload data after action
-        _loadBookings();
+        try {
+          await _loadBookings();
+        } catch (loadError) {
+          developer.log('Error reloading bookings: $loadError', name: 'driver_bookings', error: loadError);
+          // Không làm gì, vì đã cập nhật UI ở trên
+        }
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

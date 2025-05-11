@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../app_route.dart';
 
 class NavigationHelper {
   /// Điều hướng đến màn hình mới và xóa tất cả màn hình trước đó
@@ -56,5 +57,10 @@ class NavigationHelper {
   /// Pop cho đến một route nhất định
   static void popUntil(BuildContext context, String routeName) {
     Navigator.popUntil(context, (route) => route.settings.name == routeName);
+  }
+
+  // Điều hướng đến trang tạo chuyến đi mới
+  static void navigateToCreateRide(BuildContext context) {
+    Navigator.pushNamed(context, DriverRoutes.createRide);
   }
 } 

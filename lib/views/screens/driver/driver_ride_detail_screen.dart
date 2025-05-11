@@ -434,9 +434,6 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
     });
 
     try {
-      // Đánh dấu chuyến đi đang diễn ra
-      await _rideService.markRideInProgress(rideData.id);
-      
       // Tài xế xác nhận khởi hành
       final success = await _rideService.driverConfirmDeparture(rideData.id);
 

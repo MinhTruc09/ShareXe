@@ -184,8 +184,37 @@ class _NewHomePscreenState extends State<NewHomePscreen> {
   }
 
   void _logout() async {
-    await _authController.logout(context);
-    // NavigationHelper sẽ xử lý việc điều hướng
+    // Hiển thị dialog xác nhận trước khi đăng xuất
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Xác nhận đăng xuất'),
+          content: const Text('Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng không?'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Đóng dialog
+              },
+              child: const Text('Hủy'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.of(context).pop(); // Đóng dialog
+                
+                // Tiến hành đăng xuất
+                await _authController.logout(context);
+                // NavigationHelper sẽ xử lý việc điều hướng
+              },
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.red,
+              ),
+              child: const Text('Đăng xuất'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _navigateToScreen(BuildContext context, String routeName) {

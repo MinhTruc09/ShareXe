@@ -133,6 +133,24 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
     });
 
     try {
+      // Kiểm tra ngày giờ xuất phát
+      final now = DateTime.now();
+      if (_departureDate!.isBefore(now)) {
+        setState(() {
+          _isSubmitting = false;
+        });
+        
+        // Hiển thị cảnh báo nếu thời gian đã qua
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Thời gian xuất phát không thể trong quá khứ'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+      
+      // Chuẩn bị dữ liệu chuyến đi
       final rideData = {
         'departure': _departure,
         'destination': _destination,
@@ -141,6 +159,31 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
         'pricePerSeat': _pricePerSeat,
         'status': 'ACTIVE',
       };
+
+      print('📝 Đang gửi dữ liệu chuyến đi: $rideData');
+      
+      // Hiển thị dialog để người dùng biết đang xử lý
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return Dialog(
+            child: Container(
+              padding: EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 20),
+                  Text('Đang xử lý, vui lòng đợi...',
+                    style: TextStyle(fontSize: 16),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
 
       bool success;
 
@@ -152,45 +195,75 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
         success = await _rideService.createRide(rideData);
       }
 
-      if (success && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              _isEditMode
-                  ? 'Cập nhật chuyến đi thành công'
-                  : 'Tạo chuyến đi thành công',
-            ),
-            backgroundColor: Colors.green,
-          ),
+      // Đóng dialog xử lý
+      Navigator.of(context).pop();
+
+      setState(() {
+        _isSubmitting = false;
+      });
+
+      if (success) {
+        // Hiển thị thông báo thành công
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: Text(_isEditMode ? 'Cập nhật thành công' : 'Tạo chuyến đi thành công'),
+              content: Text(_isEditMode 
+                  ? 'Thông tin chuyến đi đã được cập nhật.'
+                  : 'Chuyến đi mới đã được tạo thành công và đã có trong danh sách chuyến đi của bạn.'),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop(); // Đóng dialog
+                    Navigator.of(context).pop(true); // Quay lại màn hình trước với kết quả thành công
+                  },
+                  child: Text('OK'),
+                ),
+              ],
+            );
+          },
         );
-        Navigator.pop(
-          context,
-          true,
-        ); // Quay lại màn hình trước với kết quả thành công
-      } else if (mounted) {
+      } else {
+        // Hiển thị thông báo lỗi
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              _isEditMode
-                  ? 'Không thể cập nhật chuyến đi'
-                  : 'Không thể tạo chuyến đi',
-            ),
+            content: Text(_isEditMode 
+                ? 'Không thể cập nhật chuyến đi. Vui lòng kiểm tra kết nối mạng và thử lại.'
+                : 'Không thể tạo chuyến đi. Vui lòng kiểm tra kết nối mạng và thử lại.'),
             backgroundColor: Colors.red,
+            duration: Duration(seconds: 4),
+            action: SnackBarAction(
+              label: 'Thử lại',
+              onPressed: _submitRide,
+            ),
           ),
         );
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
+      setState(() {
+        _isSubmitting = false;
+      });
+      
+      // Đóng dialog xử lý nếu đang hiển thị
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
       }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
+
+      print('❌ Exception trong _submitRide: $e');
+      
+      // Hiển thị thông báo lỗi chi tiết
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Đã xảy ra lỗi: ${e.toString()}'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 5),
+          action: SnackBarAction(
+            label: 'Thử lại',
+            onPressed: _submitRide,
+          ),
+        ),
+      );
     }
   }
 

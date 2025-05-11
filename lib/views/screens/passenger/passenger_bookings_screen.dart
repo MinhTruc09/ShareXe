@@ -8,7 +8,8 @@ import 'package:sharexe/services/ride_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:sharexe/models/ride.dart';
 import 'package:sharexe/services/notification_service.dart';
-import '../common/ride_details.dart';
+import 'package:sharexe/views/screens/common/ride_details.dart';
+import 'package:sharexe/views/widgets/ride_card.dart';
 
 class PassengerBookingsScreen extends StatefulWidget {
   const PassengerBookingsScreen({Key? key}) : super(key: key);
@@ -48,104 +49,166 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen> with 
   // Kiểm tra xem booking có hết hạn hay không (quá ngày đi mà chưa được chấp nhận)
   bool _isBookingExpired(BookingDTO booking) {
     final DateTime now = DateTime.now();
-
-    // Booking đã quá ngày xuất phát và vẫn ở trạng thái PENDING
-    return now.isAfter(booking.startTime) && booking.status.toUpperCase() == 'PENDING';
-  }
-
-  // Kiểm tra xem booking có đang diễn ra hay không
-  bool _isBookingInProgress(BookingDTO booking) {
-    if (booking.status.toUpperCase() != 'ACCEPTED' && 
-        booking.status.toUpperCase() != 'DRIVER_CONFIRMED' && 
-        booking.status.toUpperCase() != 'PASSENGER_CONFIRMED') return false;
-
-    final DateTime now = DateTime.now();
-
-    // Ngày hiện tại là ngày xuất phát hoặc sau đó tối đa 1 ngày
-    // và booking đã được chấp nhận
-    final DateTime endTime = booking.startTime.add(const Duration(days: 1));
-    return (now.isAfter(booking.startTime) || _isSameDay(now, booking.startTime)) && 
-           now.isBefore(endTime);
-  }
-
-  // Kiểm tra hai ngày có cùng ngày không (bỏ qua giờ)
-  bool _isSameDay(DateTime date1, DateTime date2) {
-    return date1.year == date2.year && 
-           date1.month == date2.month && 
-           date1.day == date2.day;
-  }
-
-  // Kiểm tra xem có thể hủy booking không (còn ít nhất 15 phút trước giờ khởi hành)
-  bool _canCancelBooking(BookingDTO booking) {
-    if (booking.status.toUpperCase() != 'PENDING' && booking.status.toUpperCase() != 'ACCEPTED') {
-      return false;
-    }
+    final DateTime startTime = booking.startTime;
     
-    final DateTime now = DateTime.now();
-    
-    // Còn ít nhất 15 phút trước giờ khởi hành
-    return booking.startTime.difference(now).inMinutes >= 15;
+    // Nếu startTime đã qua và booking vẫn PENDING, thì coi như đã hết hạn
+    return now.isAfter(startTime) && booking.status == 'PENDING';
   }
 
   Future<void> _loadBookings() async {
-    print('🔄 Bắt đầu tải danh sách bookings của hành khách');
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
+
+    try {
+      print('🔍 Đang tải danh sách bookings của hành khách...');
+
+      // Gọi API để lấy danh sách bookings
+      final bookings = await _bookingService.getPassengerBookingsDTO();
+      
+      if (bookings.isEmpty) {
+        print('ℹ️ Không có bookings nào được tìm thấy');
+      } else {
+        print('✅ Đã tải ${bookings.length} bookings');
+      }
+
+      // Phân loại bookings
+      final List<BookingDTO> upcoming = [];
+      final List<BookingDTO> inProgress = [];
+      final List<BookingDTO> completed = [];
+      final List<BookingDTO> cancelledOrExpired = [];
+
+      for (var booking in bookings) {
+        // Check if we need to refresh ride details (like available seats) from the API
+        final needsRideDetailRefresh = booking.status == 'ACCEPTED';
+        
+        print('Phân loại booking #${booking.id}: ${booking.status}, ngày đi: ${booking.startTime}');
+        
+        if (booking.status == 'CANCELLED' || booking.status == 'REJECTED' || _isBookingExpired(booking)) {
+          cancelledOrExpired.add(booking);
+        } else if (booking.status == 'COMPLETED' || booking.status == 'PASSENGER_CONFIRMED' || booking.status == 'DRIVER_CONFIRMED') {
+          completed.add(booking);
+        } else if (booking.status == 'ACCEPTED') {
+          // Kiểm tra xem chuyến đi đã đến thời điểm khởi hành hay chưa
+          final now = DateTime.now();
+          final startTime = booking.startTime;
+          
+          if (now.isAfter(startTime)) {
+            // Đã đến giờ khởi hành, chuyến đang diễn ra
+            inProgress.add(booking);
+          } else {
+            // Chưa đến giờ khởi hành, chuyến sắp tới
+            upcoming.add(booking);
+          }
+        } else {
+          // PENDING bookings go to upcoming
+          upcoming.add(booking);
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _upcomingBookings = upcoming;
+          _inProgressBookings = inProgress; 
+          _completedBookings = completed;
+          _cancelledOrExpiredBookings = cancelledOrExpired;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('❌ Lỗi khi tải bookings: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  // Xử lý khi người dùng hủy booking
+  Future<void> _handleCancelBooking(BookingDTO booking) async {
+    // Hiển thị dialog xác nhận
+    bool? confirmCancel = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Xác nhận hủy'),
+        content: const Text(
+          'Bạn có chắc chắn muốn hủy booking này không? Hành động này không thể hoàn tác.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Không'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Có, hủy booking'),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmCancel != true) return;
+
+    // Hiển thị loading
     setState(() {
       _isLoading = true;
     });
 
     try {
-      // Lấy tất cả booking của hành khách sử dụng API mới
-      final bookings = await _bookingService.getPassengerBookingsDTO();
-      print('📦 Nhận được ${bookings.length} bookings từ API');
-      
-      // Log các booking nhận được để kiểm tra
-      for (var booking in bookings) {
-        print('📋 Booking #${booking.id} - Ride #${booking.rideId} - Status: ${booking.status}');
-      }
-      
-      // Phân loại bookings theo trạng thái
-      final upcomingList = <BookingDTO>[];
-      final inProgressList = <BookingDTO>[];
-      final completedList = <BookingDTO>[];
-      final cancelledOrExpiredList = <BookingDTO>[];
+      // Gọi API để hủy booking
+      final success = await _bookingService.cancelBooking(booking.id);
 
-      for (var booking in bookings) {
-        if (booking.status.toUpperCase() == 'COMPLETED') {
-          completedList.add(booking);
-        } else if (booking.status.toUpperCase() == 'CANCELLED' || 
-                  booking.status.toUpperCase() == 'REJECTED') {
-          cancelledOrExpiredList.add(booking);
-        } else if (_isBookingExpired(booking)) {
-          // Booking đã hết hạn (quá ngày mà không được chấp nhận)
-          cancelledOrExpiredList.add(booking);
-        } else if (_isBookingInProgress(booking)) {
-          // Booking đang diễn ra (ngày hiện tại là ngày xuất phát và đã được chấp nhận)
-          inProgressList.add(booking);
-        } else {
-          // Các booking còn lại: chờ duyệt hoặc đã được chấp nhận nhưng chưa đến ngày
-          upcomingList.add(booking);
+      if (success) {
+        // Gửi thông báo cho tài xế
+        await _notificationService.sendNotification(
+          'Booking đã bị hủy',
+          'Hành khách ${booking.passengerName} đã hủy booking cho chuyến đi của bạn',
+          'booking_cancelled',
+          {
+            'bookingId': booking.id,
+            'rideId': booking.rideId,
+          },
+        );
+
+        // Làm mới danh sách bookings
+        await _loadBookings();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Đã hủy booking thành công'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Không thể hủy booking. Vui lòng thử lại sau.'),
+              backgroundColor: Colors.red,
+            ),
+          );
         }
       }
-
-      print('📊 Phân loại bookings: ${upcomingList.length} sắp tới, ${inProgressList.length} đang diễn ra, ${completedList.length} hoàn thành, ${cancelledOrExpiredList.length} đã hủy/hết hạn');
-
-      setState(() {
-        _upcomingBookings = upcomingList;
-        _inProgressBookings = inProgressList;
-        _completedBookings = completedList;
-        _cancelledOrExpiredBookings = cancelledOrExpiredList;
-        _isLoading = false;
-      });
     } catch (e) {
-      print('❌ Lỗi khi tải danh sách bookings: $e');
-      setState(() {
-        _isLoading = false;
-      });
-      
+      print('❌ Lỗi khi hủy booking: $e');
       if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Không thể tải danh sách đặt chỗ: $e'),
+            content: Text('Đã xảy ra lỗi: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -153,64 +216,166 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen> with 
     }
   }
 
-  // Phương thức để được gọi từ bên ngoài khi cần làm mới danh sách
-  void refreshBookings() {
-    print('🔄 Yêu cầu làm mới danh sách bookings từ bên ngoài');
-    _loadBookings();
-  }
+  // Xác nhận hoàn thành chuyến đi
+  Future<void> _confirmRideCompletion(BookingDTO booking) async {
+    // Hiển thị dialog xác nhận
+    bool? confirmComplete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Xác nhận hoàn thành'),
+        content: const Text(
+          'Bạn xác nhận đã hoàn thành chuyến đi này? Hành động này không thể hoàn tác.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Không'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Xác nhận hoàn thành'),
+            style: TextButton.styleFrom(foregroundColor: Colors.green),
+          ),
+        ],
+      ),
+    );
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Kiểm tra nếu màn hình được mở lại từ màn hình chi tiết
-    print('🔄 didChangeDependencies: Làm mới danh sách bookings');
-    _loadBookings();
-  }
+    if (confirmComplete != true) return;
 
-  // Toggle expanded state for a booking card
-  void _toggleExpanded(int bookingId) {
+    // Hiển thị loading
     setState(() {
-      _expandedState[bookingId] = !(_expandedState[bookingId] ?? false);
+      _isLoading = true;
     });
+
+    try {
+      // Gọi API để xác nhận hoàn thành chuyến đi
+      final success = await _rideService.passengerConfirmCompletion(booking.rideId);
+
+      if (success) {
+        // Gửi thông báo cho tài xế
+        await _notificationService.sendNotification(
+          'Hành khách đã xác nhận hoàn thành',
+          'Hành khách ${booking.passengerName} đã xác nhận hoàn thành chuyến đi',
+          'passenger_confirmed',
+          {
+            'bookingId': booking.id,
+            'rideId': booking.rideId,
+          },
+        );
+
+        // Làm mới danh sách bookings
+        await _loadBookings();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Đã xác nhận hoàn thành chuyến đi'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Không thể xác nhận hoàn thành. Vui lòng thử lại sau.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('❌ Lỗi khi xác nhận hoàn thành: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Đã xảy ra lỗi: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // Xem chi tiết booking
+  void _viewBookingDetails(BookingDTO booking) async {
+    // Tạo đối tượng Ride từ thông tin trong BookingDTO
+    final ride = Ride(
+      id: booking.rideId,
+      driverName: booking.driverName,
+      driverEmail: booking.driverEmail,
+      departure: booking.departure,
+      destination: booking.destination,
+      startTime: booking.startTime.toIso8601String(),
+      pricePerSeat: booking.pricePerSeat,
+      availableSeats: booking.availableSeats,
+      totalSeat: booking.totalSeats,
+      status: booking.rideStatus,
+    );
+
+    // Convert BookingDTO to Booking for compatibility
+    final bookingObj = booking.toBooking();
+
+    // Navigate to RideDetailsScreen with both ride and booking
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => RideDetailScreen(
+          ride: ride,
+        ),
+      ),
+    );
+
+    // Refresh bookings list after returning
+    _loadBookings();
   }
 
   @override
   Widget build(BuildContext context) {
-    return SharexeBackground1(
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          automaticallyImplyLeading: false,
-          backgroundColor: const Color(0xFF00AEEF),
-          title: const Text('Chuyến đi của tôi'),
-          elevation: 0,
-          bottom: TabBar(
-            controller: _tabController,
-            indicatorColor: Colors.white,
-            labelColor: Colors.white,
-            unselectedLabelColor: Colors.white70,
-            tabs: const [
-              Tab(text: 'Sắp tới'),
-              Tab(text: 'Đang đi'),
-              Tab(text: 'Hoàn thành'),
-              Tab(text: 'Đã hủy'),
-            ],
-          ),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          'Lịch sử Booking',
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        body: _isLoading
-            ? const Center(
-                child: CircularProgressIndicator(color: Colors.white),
-              )
+        bottom: TabBar(
+          controller: _tabController,
+          labelStyle: const TextStyle(fontWeight: FontWeight.bold),
+          tabs: const [
+            Tab(text: 'Sắp tới'),
+            Tab(text: 'Đang đi'),
+            Tab(text: 'Hoàn thành'),
+            Tab(text: 'Đã hủy'),
+          ],
+        ),
+      ),
+      body: SharexeBackground1(
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
             : RefreshIndicator(
                 onRefresh: _loadBookings,
-                color: const Color(0xFF00AEEF),
                 child: TabBarView(
                   controller: _tabController,
                   children: [
-                    _buildBookingListView(_upcomingBookings, 'upcoming'),
-                    _buildBookingListView(_inProgressBookings, 'in-progress'),
-                    _buildBookingListView(_completedBookings, 'completed'),
-                    _buildBookingListView(_cancelledOrExpiredBookings, 'cancelled'),
+                    // Sắp tới
+                    _buildBookingsList(_upcomingBookings, true, false),
+                    
+                    // Đang đi
+                    _buildBookingsList(_inProgressBookings, false, true),
+                    
+                    // Hoàn thành
+                    _buildBookingsList(_completedBookings, false, false),
+                    
+                    // Đã hủy
+                    _buildBookingsList(_cancelledOrExpiredBookings, false, false),
                   ],
                 ),
               ),
@@ -218,444 +383,96 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen> with 
     );
   }
 
-  Widget _buildBookingListView(List<BookingDTO> bookings, String type) {
-    if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
-    }
-
+  Widget _buildBookingsList(List<BookingDTO> bookings, bool showCancelButton, bool showConfirmButton) {
     if (bookings.isEmpty) {
-      String message = '';
-      
-      switch (type) {
-        case 'upcoming':
-          message = 'Bạn chưa có chuyến đi nào sắp tới';
-          break;
-        case 'in-progress':
-          message = 'Bạn không có chuyến đi nào đang diễn ra';
-          break;
-        case 'completed':
-          message = 'Bạn chưa có chuyến đi nào đã hoàn thành';
-          break;
-        case 'cancelled':
-          message = 'Bạn không có chuyến đi nào đã hủy hoặc hết hạn';
-          break;
-      }
-      
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
-              Icons.calendar_today,
-              size: 64,
-              color: Colors.grey,
-            ),
+            const Icon(Icons.upcoming, size: 48, color: Colors.grey),
             const SizedBox(height: 16),
             Text(
-              message,
-              style: const TextStyle(
+              showCancelButton 
+                  ? 'Không có chuyến đi nào sắp tới' 
+                  : showConfirmButton 
+                      ? 'Không có chuyến đi nào đang diễn ra'
+                      : 'Không có lịch sử chuyến đi',
+              style: TextStyle(
+                color: Colors.grey[700],
                 fontSize: 16,
-                color: Colors.grey,
               ),
-              textAlign: TextAlign.center,
             ),
           ],
         ),
       );
     }
 
-    return RefreshIndicator(
-      onRefresh: _loadBookings,
-      child: ListView.builder(
-        padding: const EdgeInsets.all(8.0),
-        itemCount: bookings.length,
-        itemBuilder: (context, index) {
-          final booking = bookings[index];
-          final isExpanded = _expandedState[booking.id] ?? false;
-          
-          return _buildBookingCard(booking, type, isExpanded);
-        },
-      ),
-    );
-  }
-
-  Widget _buildBookingCard(BookingDTO booking, String type, bool isExpanded) {
-    // Format date strings
-    final formattedDate = DateFormat('dd/MM/yyyy').format(booking.startTime);
-    final formattedTime = DateFormat('HH:mm').format(booking.startTime);
-    final formattedCreatedAt = DateFormat('dd/MM/yyyy HH:mm').format(booking.createdAt);
-    
-    // Status color and text
-    Color statusColor;
-    String statusText;
-    
-    switch (booking.status.toUpperCase()) {
-      case 'PENDING':
-        statusColor = Colors.orange;
-        statusText = 'Chờ xác nhận';
-        break;
-      case 'ACCEPTED':
-        statusColor = Colors.blue;
-        statusText = 'Đã chấp nhận';
-        break;
-      case 'DRIVER_CONFIRMED':
-        statusColor = Colors.green;
-        statusText = 'Tài xế đã xác nhận';
-        break;
-      case 'PASSENGER_CONFIRMED':
-        statusColor = Colors.green;
-        statusText = 'Hành khách đã xác nhận';
-        break;
-      case 'COMPLETED':
-        statusColor = Colors.green;
-        statusText = 'Hoàn thành';
-        break;
-      case 'CANCELLED':
-        statusColor = Colors.red;
-        statusText = 'Đã hủy';
-        break;
-      case 'REJECTED':
-        statusColor = Colors.red;
-        statusText = 'Đã từ chối';
-        break;
-      default:
-        statusColor = Colors.grey;
-        statusText = booking.status;
-    }
-
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8.0),
-      elevation: 2,
-      child: InkWell(
-        onTap: () => _toggleExpanded(booking.id),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Header row with expandable icon
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Chuyến đi #${booking.rideId}',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color: Colors.blueAccent[700],
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: bookings.length,
+      itemBuilder: (context, index) {
+        final booking = bookings[index];
+        bool isExpanded = _expandedState[booking.id] ?? false;
+        
+        // Tạo Ride object từ BookingDTO
+        final ride = Ride(
+          id: booking.rideId,
+          driverName: booking.driverName,
+          driverEmail: booking.driverEmail,
+          departure: booking.departure,
+          destination: booking.destination,
+          startTime: booking.startTime.toIso8601String(),
+          pricePerSeat: booking.pricePerSeat,
+          availableSeats: booking.availableSeats,
+          totalSeat: booking.totalSeats,
+          status: booking.rideStatus,
+        );
+        
+        return Card(
+          margin: const EdgeInsets.only(bottom: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          elevation: 4,
+          child: InkWell(
+            onTap: () {
+              _viewBookingDetails(booking);
+            },
+            child: Column(
+              children: [
+                // Use the updated RideCard
+                RideCard(
+                  ride: ride,
+                  bookingDTO: booking,
+                  showFavorite: false,
+                  onTap: () {
+                    _viewBookingDetails(booking);
+                  },
+                  onConfirmComplete: showConfirmButton ? 
+                    () => _confirmRideCompletion(booking) : null,
+                ),
+                
+                // Cancel button if needed
+                if (showCancelButton)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0, right: 8.0),
+                    child: Align(
+                      alignment: Alignment.bottomRight,
+                      child: TextButton.icon(
+                        icon: const Icon(Icons.cancel, color: Colors.red),
+                        label: const Text(
+                          'Hủy booking',
+                          style: TextStyle(color: Colors.red),
                         ),
-                      ),
-                      Text(
-                        statusText,
-                        style: TextStyle(
-                          color: statusColor,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  
-                  const SizedBox(height: 8),
-                  
-                  // Time and date info
-                  Row(
-                    children: [
-                      const Icon(Icons.calendar_today, size: 16, color: Colors.blueGrey),
-                      const SizedBox(width: 4),
-                      Text(
-                        formattedDate,
-                        style: const TextStyle(color: Colors.blueGrey),
-                      ),
-                      const SizedBox(width: 16),
-                      const Icon(Icons.access_time, size: 16, color: Colors.blueGrey),
-                      const SizedBox(width: 4),
-                      Text(
-                        formattedTime,
-                        style: const TextStyle(color: Colors.blueGrey),
-                      ),
-                    ],
-                  ),
-                  
-                  const SizedBox(height: 8),
-                  
-                  // Departure and destination
-                  Row(
-                    children: [
-                      const Icon(Icons.location_on, size: 16, color: Colors.green),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          booking.departure,
-                          style: const TextStyle(color: Colors.black87),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                  
-                  const SizedBox(height: 4),
-                  
-                  Row(
-                    children: [
-                      const Icon(Icons.location_on, size: 16, color: Colors.red),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          booking.destination,
-                          style: const TextStyle(color: Colors.black87),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                  
-                  const SizedBox(height: 8),
-                  
-                  // Basic booking info
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '${booking.seatsBooked} ghế × ${NumberFormat.currency(locale: 'vi_VN', symbol: '').format(booking.pricePerSeat)}đ',
-                        style: const TextStyle(color: Colors.black87),
-                      ),
-                      Text(
-                        '${NumberFormat.currency(locale: 'vi_VN', symbol: '').format(booking.totalPrice)}đ',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
-                        ),
-                      ),
-                    ],
-                  ),
-                  
-                  // Expanded content
-                  if (isExpanded) ...[
-                    const Divider(height: 24),
-                    
-                    // Driver information
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: CircleAvatar(
-                        backgroundImage: booking.driverAvatarUrl != null
-                            ? NetworkImage(booking.driverAvatarUrl!)
-                            : null,
-                        child: booking.driverAvatarUrl == null
-                            ? const Icon(Icons.person)
-                            : null,
-                      ),
-                      title: Text(
-                        booking.driverName,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              const Icon(Icons.phone, size: 16, color: Colors.blueGrey),
-                              const SizedBox(width: 4),
-                              Text(booking.driverPhone),
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          Row(
-                            children: [
-                              const Icon(Icons.email, size: 16, color: Colors.blueGrey),
-                              const SizedBox(width: 4),
-                              Text(booking.driverEmail),
-                            ],
-                          ),
-                        ],
+                        onPressed: () => _handleCancelBooking(booking),
                       ),
                     ),
-                    
-                    const SizedBox(height: 8),
-                    
-                    // Additional ride details
-                    Row(
-                      children: [
-                        const Icon(Icons.event_seat, size: 16, color: Colors.blueGrey),
-                        const SizedBox(width: 4),
-                        Text('Tổng số ghế: ${booking.totalSeats}'),
-                        const SizedBox(width: 16),
-                        const Icon(Icons.event_available, size: 16, color: Colors.blueGrey),
-                        const SizedBox(width: 4),
-                        Text('Còn trống: ${booking.availableSeats}'),
-                      ],
-                    ),
-                    
-                    const SizedBox(height: 8),
-                    
-                    // Booking creation info
-                    Row(
-                      children: [
-                        const Icon(Icons.history, size: 16, color: Colors.blueGrey),
-                        const SizedBox(width: 4),
-                        Text('Đặt lúc: $formattedCreatedAt'),
-                      ],
-                    ),
-                  ],
-                  
-                  // Show expand/collapse indicator
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        isExpanded ? Icons.expand_less : Icons.expand_more,
-                        color: Colors.blueGrey,
-                      ),
-                    ],
                   ),
-                ],
-              ),
+              ],
             ),
-            
-            // Action buttons based on booking status
-            if (type == 'upcoming' && _canCancelBooking(booking))
-              Padding(
-                padding: const EdgeInsets.only(left: 8.0, right: 8.0, bottom: 8.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => _cancelBooking(booking),
-                      child: const Text(
-                        'Hủy',
-                        style: TextStyle(color: Colors.red),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              
-            if (type == 'in-progress' && booking.status.toUpperCase() == 'ACCEPTED')
-              Padding(
-                padding: const EdgeInsets.only(left: 8.0, right: 8.0, bottom: 8.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => _confirmBookingComplete(booking),
-                      child: const Text(
-                        'Xác nhận hoàn thành',
-                        style: TextStyle(color: Colors.green),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Hủy booking
-  Future<void> _cancelBooking(BookingDTO booking) async {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Xác nhận hủy chuyến đi'),
-        content: const Text('Bạn có chắc chắn muốn hủy đặt chỗ này không?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Không'),
           ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              
-              setState(() {
-                _isLoading = true;
-              });
-              
-              // Call the new API to cancel booking
-              final success = await _bookingService.cancelBookingDTO(booking.id);
-              
-              setState(() {
-                _isLoading = false;
-              });
-              
-              if (success) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Đã hủy đặt chỗ thành công'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-                _loadBookings(); // Refresh list
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Không thể hủy đặt chỗ. Vui lòng thử lại sau.'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              }
-            },
-            child: const Text('Có'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Xác nhận hoàn thành chuyến đi
-  Future<void> _confirmBookingComplete(BookingDTO booking) async {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Xác nhận hoàn thành'),
-        content: const Text('Bạn xác nhận chuyến đi đã hoàn thành?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Không'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              
-              setState(() {
-                _isLoading = true;
-              });
-              
-              // Call the new API to confirm booking completion
-              final success = await _bookingService.passengerConfirmCompletionDTO(booking.id);
-              
-              setState(() {
-                _isLoading = false;
-              });
-              
-              if (success) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Đã xác nhận hoàn thành chuyến đi'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-                _loadBookings(); // Refresh list
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Không thể xác nhận hoàn thành. Vui lòng thử lại sau.'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              }
-            },
-            child: const Text('Có'),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 } 

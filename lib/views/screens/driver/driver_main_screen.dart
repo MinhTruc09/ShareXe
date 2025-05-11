@@ -4,7 +4,8 @@ import 'home_dscreen.dart';
 import '../chat/user_list_screen.dart';
 import 'driver_profile_screen.dart';
 import '../../widgets/notification_badge.dart';
-import 'driver_bookings_screen.dart';
+import 'my_rides_screen.dart';
+import '../../../utils/navigation_helper.dart';
 
 // InheritedWidget để cung cấp truy cập vào điều hướng bottom bar
 class TabNavigator extends InheritedWidget {
@@ -22,6 +23,11 @@ class TabNavigator extends InheritedWidget {
 
   static TabNavigator? of(BuildContext context) {
     return context.dependOnInheritedWidgetOfExactType<TabNavigator>();
+  }
+  
+  // Phương thức chung để điều hướng đến màn hình tạo chuyến đi
+  static void navigateToCreateRide(BuildContext context) {
+    Navigator.pushNamed(context, DriverRoutes.createRide);
   }
 
   @override
@@ -46,7 +52,7 @@ class _DriverMainScreenState extends State<DriverMainScreen>
   // Danh sách các màn hình chính
   final List<Widget> _screens = [
     const HomeDscreen(),
-    const DriverBookingsScreen(),
+    const MyRidesScreen(),
     const UserListScreen(),
     const DriverProfileScreen(),
   ];
@@ -245,7 +251,7 @@ class _DriverMainScreenState extends State<DriverMainScreen>
                 backgroundColor: const Color(0xFF002D72),
                 elevation: 8,
                 onPressed: () {
-                  Navigator.pushNamed(context, DriverRoutes.createRide);
+                  NavigationHelper.navigateToCreateRide(context);
                 },
                 child: const Icon(Icons.add),
               )
