@@ -56,13 +56,38 @@ class AppConfig {
   // Booking status constants - Chuẩn hóa theo yêu cầu
   static const String BOOKING_STATUS_PENDING = "PENDING";      // Vừa đặt
   static const String BOOKING_STATUS_ACCEPTED = "ACCEPTED";    // Đã được duyệt
+  static const String BOOKING_STATUS_IN_PROGRESS = "IN_PROGRESS"; // Đang diễn ra
   static const String BOOKING_STATUS_PASSENGER_CONFIRMED = "PASSENGER_CONFIRMED"; // Hành khách xác nhận
-  static const String BOOKING_STATUS_DRIVER_CONFIRMED = "DRIVER_CONFIRMED";       // Tài xế xác nhận (nếu dùng)
-  static const String BOOKING_STATUS_CANCELLED = "CANCELLED";  // Không được đi
+  static const String BOOKING_STATUS_DRIVER_CONFIRMED = "DRIVER_CONFIRMED";       // Tài xế xác nhận
+  static const String BOOKING_STATUS_COMPLETED = "COMPLETED";  // Hoàn thành
+  static const String BOOKING_STATUS_CANCELLED = "CANCELLED";  // Đã hủy
   static const String BOOKING_STATUS_REJECTED = "REJECTED";    // Bị từ chối
   
   // Time buffer in minutes to determine if a ride is about to start
   int rideStartTimeBuffer = 5; // 5 minutes buffer
+
+  // Notification types - Các loại thông báo
+  // Thông báo liên quan đến booking
+  static const String NOTIFICATION_BOOKING_REQUEST = "BOOKING_REQUEST";       // Có người đặt chỗ mới
+  static const String NOTIFICATION_BOOKING_ACCEPTED = "BOOKING_ACCEPTED";     // Tài xế chấp nhận booking
+  static const String NOTIFICATION_BOOKING_REJECTED = "BOOKING_REJECTED";     // Tài xế từ chối booking
+  static const String NOTIFICATION_BOOKING_CANCELLED = "BOOKING_CANCELLED";   // Hành khách hủy booking
+  
+  // Thông báo liên quan đến chuyến đi
+  static const String NOTIFICATION_RIDE_CREATED = "RIDE_CREATED";            // Tài xế tạo chuyến đi mới
+  static const String NOTIFICATION_RIDE_STARTED = "RIDE_STARTED";            // Chuyến đi bắt đầu
+  static const String NOTIFICATION_DRIVER_CONFIRMED = "DRIVER_CONFIRMED";    // Tài xế xác nhận hoàn thành
+  static const String NOTIFICATION_PASSENGER_CONFIRMED = "PASSENGER_CONFIRMED"; // Hành khách xác nhận hoàn thành
+  static const String NOTIFICATION_RIDE_COMPLETED = "RIDE_COMPLETED";        // Chuyến đi hoàn thành
+  static const String NOTIFICATION_RIDE_CANCELLED = "RIDE_CANCELLED";        // Chuyến đi bị hủy
+  
+  // Thông báo liên quan đến tài xế
+  static const String NOTIFICATION_DRIVER_APPROVED = "DRIVER_APPROVED";      // Hồ sơ tài xế được duyệt
+  static const String NOTIFICATION_DRIVER_REJECTED = "DRIVER_REJECTED";      // Hồ sơ tài xế bị từ chối
+  
+  // Thông báo hệ thống
+  static const String NOTIFICATION_SYSTEM = "SYSTEM";                        // Thông báo hệ thống
+  static const String NOTIFICATION_CHAT_MESSAGE = "CHAT_MESSAGE";            // Tin nhắn chat
 
   // Các endpoint API
   String get loginEndpoint => '$fullApiUrl/auth/login';
@@ -209,27 +234,45 @@ class AppConfig {
   // Get booking status text based on booking status and time
   String getBookingStatusText(String bookingStatus, DateTime startTime, String rideStatus) {
     final now = DateTime.now();
+    final status = bookingStatus.toUpperCase();
     
-    if (rideStatus == RIDE_STATUS_COMPLETED) {
+    // Nếu chuyến đi đã hoàn thành, hiển thị trạng thái của chuyến đi
+    if (rideStatus.toUpperCase() == RIDE_STATUS_COMPLETED) {
       return "Đã hoàn thành";
     }
     
-    if (bookingStatus == BOOKING_STATUS_PENDING) {
-      return "Đang chờ tài xế duyệt";
-    } else if (bookingStatus == BOOKING_STATUS_ACCEPTED) {
-      if (now.isAfter(startTime)) {
-        return "Đang đi";
-      } else {
-        return "Đã được duyệt - sắp diễn ra";
-      }
-    } else if (bookingStatus == BOOKING_STATUS_PASSENGER_CONFIRMED) {
-      return "Đã xác nhận từ khách";
-    } else if (bookingStatus == BOOKING_STATUS_CANCELLED) {
-      return "Đã hủy";
-    } else if (bookingStatus == BOOKING_STATUS_REJECTED) {
-      return "Từ chối";
-    } else {
-      return "Không xác định";
+    // Hiển thị theo trạng thái booking
+    switch (status) {
+      case BOOKING_STATUS_PENDING:
+        return "Đang chờ tài xế duyệt";
+        
+      case BOOKING_STATUS_ACCEPTED:
+        if (now.isAfter(startTime)) {
+          return "Đang đi";
+        } else {
+          return "Đã được duyệt - sắp diễn ra";
+        }
+        
+      case BOOKING_STATUS_IN_PROGRESS:
+        return "Đang diễn ra";
+        
+      case BOOKING_STATUS_PASSENGER_CONFIRMED:
+        return "Đã xác nhận từ khách";
+        
+      case BOOKING_STATUS_DRIVER_CONFIRMED:
+        return "Tài xế đã xác nhận";
+        
+      case BOOKING_STATUS_COMPLETED:
+        return "Đã hoàn thành";
+        
+      case BOOKING_STATUS_CANCELLED:
+        return "Đã hủy";
+        
+      case BOOKING_STATUS_REJECTED:
+        return "Từ chối";
+        
+      default:
+        return "Trạng thái không xác định: $status";
     }
   }
   
@@ -242,6 +285,10 @@ class AppConfig {
   // Booking: Check if confirmation button should be shown for passenger
   bool shouldShowPassengerConfirmButton(String bookingStatus, DateTime startTime) {
     final now = DateTime.now();
-    return bookingStatus == BOOKING_STATUS_ACCEPTED && now.isAfter(startTime);
+    final status = bookingStatus.toUpperCase();
+    
+    // Hiển thị nút xác nhận khi trạng thái là ACCEPTED (đã được duyệt) 
+    // hoặc IN_PROGRESS (đang diễn ra) và đã qua thời gian khởi hành
+    return (status == BOOKING_STATUS_ACCEPTED || status == BOOKING_STATUS_IN_PROGRESS) && now.isAfter(startTime);
   }
 }

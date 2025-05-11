@@ -10,6 +10,7 @@ import 'package:sharexe/models/ride.dart';
 import 'package:sharexe/services/notification_service.dart';
 import 'package:sharexe/views/screens/common/ride_details.dart';
 import 'package:sharexe/views/widgets/ride_card.dart';
+import 'package:sharexe/utils/app_config.dart';
 
 class PassengerBookingsScreen extends StatefulWidget {
   const PassengerBookingsScreen({Key? key}) : super(key: key);
@@ -55,6 +56,7 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen> with 
     return now.isAfter(startTime) && booking.status == 'PENDING';
   }
 
+  // Phân loại bookings theo trạng thái
   Future<void> _loadBookings() async {
     if (mounted) {
       setState(() {
@@ -81,20 +83,26 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen> with 
       final List<BookingDTO> cancelledOrExpired = [];
 
       for (var booking in bookings) {
-        // Check if we need to refresh ride details (like available seats) from the API
-        final needsRideDetailRefresh = booking.status == 'ACCEPTED';
-        
         print('Phân loại booking #${booking.id}: ${booking.status}, ngày đi: ${booking.startTime}');
+        final status = booking.status.toUpperCase();
+        final now = DateTime.now();
+        final startTime = booking.startTime;
         
-        if (booking.status == 'CANCELLED' || booking.status == 'REJECTED' || _isBookingExpired(booking)) {
+        // Phân loại theo trạng thái
+        if (status == 'CANCELLED' || status == 'REJECTED' || _isBookingExpired(booking)) {
+          // Chuyến đã hủy hoặc từ chối hoặc đã hết hạn
           cancelledOrExpired.add(booking);
-        } else if (booking.status == 'COMPLETED' || booking.status == 'PASSENGER_CONFIRMED' || booking.status == 'DRIVER_CONFIRMED') {
+        } 
+        else if (status == 'COMPLETED' || status == 'PASSENGER_CONFIRMED' || status == 'DRIVER_CONFIRMED') {
+          // Các trạng thái hoàn thành: đã xác nhận từ cả hai phía hoặc hoàn thành
           completed.add(booking);
-        } else if (booking.status == 'ACCEPTED') {
+        }
+        else if (status == 'IN_PROGRESS') {
+          // Trạng thái đang diễn ra
+          inProgress.add(booking);
+        }
+        else if (status == 'ACCEPTED') {
           // Kiểm tra xem chuyến đi đã đến thời điểm khởi hành hay chưa
-          final now = DateTime.now();
-          final startTime = booking.startTime;
-          
           if (now.isAfter(startTime)) {
             // Đã đến giờ khởi hành, chuyến đang diễn ra
             inProgress.add(booking);
@@ -102,8 +110,14 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen> with 
             // Chưa đến giờ khởi hành, chuyến sắp tới
             upcoming.add(booking);
           }
-        } else {
-          // PENDING bookings go to upcoming
+        } 
+        else if (status == 'PENDING') {
+          // Chuyến chờ duyệt
+          upcoming.add(booking);
+        }
+        else {
+          // Các trạng thái khác chưa xác định, tạm thời đưa vào upcoming
+          print('⚠️ Trạng thái không xác định: $status cho booking #${booking.id}');
           upcoming.add(booking);
         }
       }
@@ -164,15 +178,22 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen> with 
 
       if (success) {
         // Gửi thông báo cho tài xế
-        await _notificationService.sendNotification(
-          'Booking đã bị hủy',
-          'Hành khách ${booking.passengerName} đã hủy booking cho chuyến đi của bạn',
-          'booking_cancelled',
-          {
-            'bookingId': booking.id,
-            'rideId': booking.rideId,
-          },
-        );
+        try {
+          // Sử dụng sendNotification thay thế vì Booking không có đủ các trường
+          await _notificationService.sendNotification(
+            'Booking đã bị hủy',
+            'Hành khách ${booking.passengerName} đã hủy booking cho chuyến đi từ ${booking.departure} đến ${booking.destination}',
+            AppConfig.NOTIFICATION_BOOKING_CANCELLED,
+            {
+              'bookingId': booking.id,
+              'rideId': booking.rideId,
+            },
+            recipientEmail: booking.driverEmail
+          );
+        } catch (e) {
+          print('❌ Lỗi khi gửi thông báo hủy booking: $e');
+          // Không dừng quy trình vì đây không phải lỗi chính
+        }
 
         // Làm mới danh sách bookings
         await _loadBookings();
@@ -255,12 +276,13 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen> with 
         // Gửi thông báo cho tài xế
         await _notificationService.sendNotification(
           'Hành khách đã xác nhận hoàn thành',
-          'Hành khách ${booking.passengerName} đã xác nhận hoàn thành chuyến đi',
-          'passenger_confirmed',
+          'Hành khách ${booking.passengerName} đã xác nhận hoàn thành chuyến đi.',
+          'PASSENGER_CONFIRMED',
           {
             'bookingId': booking.id,
             'rideId': booking.rideId,
           },
+          recipientEmail: booking.driverEmail,
         );
 
         // Làm mới danh sách bookings

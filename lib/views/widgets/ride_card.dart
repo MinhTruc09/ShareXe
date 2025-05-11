@@ -113,10 +113,23 @@ class RideCard extends StatelessWidget {
           statusColor = Colors.red;
           break;
         case "Chờ xác nhận":
+        case "Đang chờ tài xế duyệt":
           statusColor = Colors.amber;
           break;
+        case "Đã được duyệt - sắp diễn ra":
+          statusColor = Colors.blue;
+          break;
+        case "Đã xác nhận từ khách":
+          statusColor = Colors.teal;
+          break;
+        case "Đã hoàn thành":
+          statusColor = Colors.green.shade700;
+          break;
+        case "Từ chối":
+          statusColor = Colors.red.shade700;
+          break;
         default:
-          statusColor = Colors.green;
+          statusColor = Colors.grey;
       }
     } else {
       // Fallback khi không có startTime

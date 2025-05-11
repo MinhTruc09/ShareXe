@@ -19,6 +19,7 @@ import '../../../utils/app_config.dart';
 import '../../../utils/api_debug_helper.dart'; // Add this import
 import '../../../utils/navigation_helper.dart'; // Thêm import NavigationHelper
 import '../../../views/widgets/skeleton_loader.dart';
+import '../../../views/widgets/notification_badge.dart'; // Add import for NotificationBadge
 
 class HomeDscreen extends StatefulWidget {
   const HomeDscreen({super.key});
@@ -228,22 +229,16 @@ class _HomeDscreenState extends State<HomeDscreen> {
 
         // Tạo thông báo cho hành khách
         try {
-          // Sử dụng tên của hành khách từ booking để gửi thông báo
-          if (kDebugMode) {
-            print('Gửi thông báo tới: ${booking.passengerName}');
-          }
-
-          await _notificationService.showLocalNotification(
-            NotificationModel(
-              id: DateTime.now().millisecondsSinceEpoch,
-              userEmail: booking.passengerName, // Dùng passengerName vì không có passengerEmail
-              title: 'Đặt chỗ đã được chấp nhận',
-              content: 'Tài xế đã chấp nhận đặt chỗ của bạn cho chuyến đi #${booking.rideId}',
-              type: 'booking_accepted',
-              read: false,
-              referenceId: booking.id,
-              createdAt: DateTime.now(),
-            ),
+          // Gửi thông báo hệ thống thay vì đến một email cụ thể
+          await _notificationService.sendNotification(
+            'Đặt chỗ đã được chấp nhận',
+            'Đặt chỗ #${booking.id} cho chuyến đi #${booking.rideId} đã được chấp nhận bởi tài xế.',
+            AppConfig.NOTIFICATION_BOOKING_ACCEPTED,
+            {
+              'bookingId': booking.id,
+              'rideId': booking.rideId
+            }
+            // Backend sẽ xử lý việc gửi thông báo đến đúng hành khách
           );
 
           if (kDebugMode) {
@@ -251,7 +246,7 @@ class _HomeDscreenState extends State<HomeDscreen> {
           }
         } catch (e) {
           if (kDebugMode) {
-            print('Lỗi khi hiển thị thông báo: $e');
+            print('Lỗi khi gửi thông báo: $e');
           }
           // Không dừng quy trình vì đây không phải lỗi chính
         }
@@ -319,6 +314,25 @@ class _HomeDscreenState extends State<HomeDscreen> {
           _pendingBookings =
               _pendingBookings.where((b) => b.id != booking.id).toList();
         });
+
+        // Gửi thông báo cho hành khách
+        try {
+          await _notificationService.sendNotification(
+            'Đặt chỗ đã bị từ chối',
+            'Đặt chỗ #${booking.id} cho chuyến đi #${booking.rideId} đã bị từ chối bởi tài xế.',
+            AppConfig.NOTIFICATION_BOOKING_REJECTED,
+            {
+              'bookingId': booking.id,
+              'rideId': booking.rideId
+            }
+            // Backend sẽ xử lý việc gửi thông báo đến đúng hành khách
+          );
+        } catch (e) {
+          if (kDebugMode) {
+            print('Lỗi khi gửi thông báo: $e');
+          }
+          // Không dừng quy trình vì đây không phải lỗi chính
+        }
 
         // Hiển thị thông báo thành công
         if (mounted) {
@@ -584,6 +598,13 @@ class _HomeDscreenState extends State<HomeDscreen> {
           title: const Text('Trang chủ tài xế'),
           elevation: 0,
           actions: [
+            NotificationBadge(
+              iconColor: Colors.white,
+              onPressed: () {
+                // Điều hướng đến màn hình thông báo tab
+                Navigator.pushNamed(context, AppRoute.notificationTabs);
+              },
+            ),
             IconButton(icon: const Icon(Icons.logout), onPressed: _logout),
             // Add debug button with long press gesture
             GestureDetector(
@@ -1822,6 +1843,14 @@ class _ApiDebugScreenState extends State<ApiDebugScreen> {
       appBar: AppBar(
         backgroundColor: const Color(0xFF002D72),
         title: const Text('Kiểm tra kết nối API'),
+        actions: [
+          NotificationBadge(
+            iconColor: Colors.white,
+            onPressed: () {
+              Navigator.pushNamed(context, AppRoute.notificationTabs);
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),

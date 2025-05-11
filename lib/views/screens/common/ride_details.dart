@@ -702,6 +702,26 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
           _booking = booking;
         });
 
+        // Gửi thông báo cho tài xế về yêu cầu đặt chỗ mới
+        try {
+          // Trích xuất thông tin tài xế từ ride nếu có
+          final String driverEmail = rideData.driverEmail ?? '';
+          
+          if (driverEmail.isNotEmpty) {
+            await _notificationService.sendBookingRequestNotification(
+              booking.id,
+              booking.rideId,
+              booking.passengerName,
+              driverEmail
+            );
+          } else {
+            print('⚠️ Không thể gửi thông báo: Thiếu email tài xế');
+          }
+        } catch (e) {
+          print('❌ Lỗi khi gửi thông báo đặt chỗ: $e');
+          // Không dừng quy trình vì đây không phải lỗi chính
+        }
+
         // Set up real-time listener for this booking
         _setupBookingStatusListener(booking.id);
         

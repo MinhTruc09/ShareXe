@@ -5,6 +5,7 @@ import '../../../models/booking.dart';
 import '../../../services/booking_service.dart';
 import '../../../services/notification_service.dart';
 import '../../../services/ride_service.dart';
+import '../../../utils/app_config.dart';
 import '../../widgets/ride_card.dart';
 import 'dart:async';
 import 'package:firebase_database/firebase_database.dart';
@@ -166,15 +167,40 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
       if (success) {
         // Send notification to passengers about the completed ride
         try {
-          await _notificationService.sendNotification(
-            'Chuyến đi hoàn thành',
-            'Chuyến đi đã được đánh dấu hoàn thành bởi tài xế',
-            'ride_completed',
-            {
-              'rideId': rideData.id,
-              'status': 'COMPLETED',
-            },
-          );
+          // Gửi thông báo đến tất cả hành khách đã đặt chỗ cho chuyến đi này
+          if (_bookings.isNotEmpty) {
+            for (var booking in _bookings) {
+              // Chỉ gửi thông báo cho các booking đã được chấp nhận
+              if (booking.status.toUpperCase() == 'ACCEPTED' || 
+                  booking.status.toUpperCase() == 'APPROVED' ||
+                  booking.status.toUpperCase() == 'IN_PROGRESS') {
+                // Fetch passenger's email from backend if needed
+                // For now, using a system notification without targeting a specific user
+                await _notificationService.sendNotification(
+                  'Tài xế đã xác nhận hoàn thành',
+                  'Tài xế ${rideData.driverName} đã xác nhận hoàn thành chuyến đi từ ${rideData.departure} đến ${rideData.destination}.',
+                  AppConfig.NOTIFICATION_DRIVER_CONFIRMED,
+                  {
+                    'rideId': rideData.id,
+                    'bookingId': booking.id,
+                    'status': 'DRIVER_CONFIRMED',
+                  }
+                  // Not specifying recipient - will be handled by backend
+                );
+              }
+            }
+          } else {
+            // Nếu không có bookings, vẫn lưu thông báo vào hệ thống
+            await _notificationService.sendNotification(
+              'Chuyến đi hoàn thành',
+              'Chuyến đi đã được đánh dấu hoàn thành bởi tài xế',
+              'ride_completed',
+              {
+                'rideId': rideData.id,
+                'status': 'COMPLETED',
+              }
+            );
+          }
         } catch (notifError) {
           // Just log notification error, don't stop the process
           print('Lỗi khi gửi thông báo: $notifError');
@@ -312,6 +338,32 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
         
         // Quay về màn hình trước đó ngay lập tức sau khi hủy thành công
         if (!mounted) return;
+        
+        // Gửi thông báo cho hành khách đã đặt chỗ
+        try {
+          // Thay thế phương thức sendRideCancelledNotification bằng sendNotification riêng lẻ
+          // cho từng booking nhưng không gửi trực tiếp đến email hành khách
+          for (var booking in _bookings.where((b) => 
+              b.status.toUpperCase() == 'APPROVED' || 
+              b.status.toUpperCase() == 'ACCEPTED')) {
+                
+            await _notificationService.sendNotification(
+              'Chuyến đi đã bị hủy',
+              'Chuyến đi từ ${rideData.departure} đến ${rideData.destination} đã bị hủy bởi tài xế ${rideData.driverName}.',
+              AppConfig.NOTIFICATION_RIDE_CANCELLED,
+              {
+                'rideId': rideData.id,
+                'bookingId': booking.id,
+                'status': 'CANCELLED',
+              }
+              // Backend sẽ xử lý việc gửi thông báo đến đúng hành khách
+            );
+          }
+        } catch (e) {
+          print('Lỗi khi gửi thông báo hủy chuyến: $e');
+          // Không dừng luồng vì đây không phải lỗi chính
+        }
+        
         Navigator.of(currentContext).pop(true); // Trả về true để báo hiệu hủy thành công
       } else {
         if (!mounted) return;
@@ -442,6 +494,30 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
           _driverConfirmed = true;
           _isConfirming = false;
         });
+        
+        // Gửi thông báo cho hành khách đã đặt chỗ
+        try {
+          // Gửi thông báo cho từng booking được chấp nhận
+          for (var booking in _bookings.where((b) => 
+              b.status.toUpperCase() == 'APPROVED' || 
+              b.status.toUpperCase() == 'ACCEPTED')) {
+            
+            await _notificationService.sendNotification(
+              'Chuyến đi đã bắt đầu',
+              'Chuyến đi từ ${rideData.departure} đến ${rideData.destination} đã bắt đầu.',
+              AppConfig.NOTIFICATION_RIDE_STARTED,
+              {
+                'rideId': rideData.id,
+                'bookingId': booking.id,
+                'status': 'IN_PROGRESS',
+              }
+              // Backend sẽ xử lý việc gửi thông báo đến đúng hành khách
+            );
+          }
+        } catch (e) {
+          print('Lỗi khi gửi thông báo bắt đầu chuyến: $e');
+          // Không dừng luồng vì đây không phải lỗi chính
+        }
         
         ScaffoldMessenger.of(currentContext).showSnackBar(
           const SnackBar(

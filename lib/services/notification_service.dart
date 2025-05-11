@@ -3,6 +3,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import '../models/booking.dart';
+import '../models/ride.dart';
 import '../utils/http_client.dart';
 import 'auth_manager.dart';
 import 'package:http/http.dart' as http;
@@ -245,17 +246,17 @@ class NotificationService {
 
     // Phát thông báo đến stream theo loại
     switch (notification.type) {
-      case 'BOOKING_REQUEST':
-      case 'BOOKING_ACCEPTED':
-      case 'BOOKING_REJECTED':
-      case 'BOOKING_CANCELED':
+      case AppConfig.NOTIFICATION_BOOKING_REQUEST:
+      case AppConfig.NOTIFICATION_BOOKING_ACCEPTED:
+      case AppConfig.NOTIFICATION_BOOKING_REJECTED:
+      case AppConfig.NOTIFICATION_BOOKING_CANCELLED:
         _bookingNotificationController.add(notification);
         break;
-      case 'CHAT_MESSAGE':
+      case AppConfig.NOTIFICATION_CHAT_MESSAGE:
         _messageNotificationController.add(notification);
         break;
-      case 'DRIVER_APPROVED':
-      case 'DRIVER_REJECTED':
+      case AppConfig.NOTIFICATION_DRIVER_APPROVED:
+      case AppConfig.NOTIFICATION_DRIVER_REJECTED:
         _driverNotificationController.add(notification);
         break;
     }
@@ -563,7 +564,7 @@ class NotificationService {
       final allNotifications = await getNotifications();
       // Lọc các thông báo có type là DRIVER_REJECTED
       return allNotifications
-          .where((notification) => notification.type == 'DRIVER_REJECTED')
+          .where((notification) => notification.type == AppConfig.NOTIFICATION_DRIVER_REJECTED)
           .toList();
     } catch (e) {
       if (kDebugMode) {
@@ -891,25 +892,25 @@ class NotificationService {
   // Hiển thị thông báo cho từng loại thông báo cụ thể
   Future<void> showNotificationByType(NotificationModel notification) async {
     switch (notification.type) {
-      case 'BOOKING_REQUEST':
+      case AppConfig.NOTIFICATION_BOOKING_REQUEST:
         await showBookingRequestNotification(notification);
         break;
-      case 'BOOKING_ACCEPTED':
+      case AppConfig.NOTIFICATION_BOOKING_ACCEPTED:
         await showBookingAcceptedNotification(notification);
         break;
-      case 'BOOKING_REJECTED':
+      case AppConfig.NOTIFICATION_BOOKING_REJECTED:
         await showBookingRejectedNotification(notification);
         break;
-      case 'BOOKING_CANCELED':
+      case AppConfig.NOTIFICATION_BOOKING_CANCELLED:
         await showBookingCanceledNotification(notification);
         break;
-      case 'CHAT_MESSAGE':
+      case AppConfig.NOTIFICATION_CHAT_MESSAGE:
         await showChatMessageNotification(notification);
         break;
-      case 'DRIVER_APPROVED':
+      case AppConfig.NOTIFICATION_DRIVER_APPROVED:
         await showDriverApprovedNotification(notification);
         break;
-      case 'DRIVER_REJECTED':
+      case AppConfig.NOTIFICATION_DRIVER_REJECTED:
         await showDriverRejectedNotification(notification);
         break;
       default:
@@ -1218,31 +1219,43 @@ class NotificationService {
     }
   }
 
-  // Add this method to the NotificationService class
+  // Send notification to specific user or broadcast
   Future<bool> sendNotification(
     String title,
     String message,
     String type,
-    Map<String, dynamic> data
+    Map<String, dynamic> data,
+    {String? recipientEmail}
   ) async {
     try {
       if (kDebugMode) {
         print('Sending notification: $title, $message, $type');
+        if (recipientEmail != null) {
+          print('Recipient: $recipientEmail');
+        }
       }
       
       // Option 1: Use API to send notification
       final token = await _authManager.getToken();
       if (token == null) return false;
       
-      // Check the ApiClient implementation to use the correct parameters
+      // Prepare request body
+      final Map<String, dynamic> requestBody = {
+        'title': title,
+        'content': message,  // Backend uses 'content' for message body
+        'type': type,
+        'referenceId': data['bookingId'] ?? data['rideId'] ?? 0,  // Backend expects referenceId directly, not nested in data
+      };
+      
+      // Add recipient if specified
+      if (recipientEmail != null && recipientEmail.isNotEmpty) {
+        requestBody['recipientEmail'] = recipientEmail;
+      }
+      
+      // Use the correct API endpoint
       final response = await _apiClient.post(
-        '/api/notifications/send',
-        body: {
-          'title': title,
-          'message': message,
-          'type': type,
-          'data': data,
-        },
+        '/notifications/send',  // Make sure this matches your backend endpoint
+        body: requestBody,
         requireAuth: true,
       );
       
@@ -1275,6 +1288,153 @@ class NotificationService {
     } catch (e) {
       if (kDebugMode) {
         print('Error sending notification: $e');
+      }
+      return false;
+    }
+  }
+
+  // Gửi thông báo khi tài xế được duyệt
+  Future<bool> sendDriverApprovalNotification(String driverEmail, String driverName) async {
+    try {
+      return await sendNotification(
+        'Hồ sơ tài xế đã được duyệt',
+        'Chúc mừng $driverName! Bạn đã có thể bắt đầu nhận các chuyến đi với tư cách tài xế.',
+        AppConfig.NOTIFICATION_DRIVER_APPROVED,
+        {
+          'status': 'APPROVED',
+        },
+        recipientEmail: driverEmail
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('Lỗi khi gửi thông báo tài xế được duyệt: $e');
+      }
+      return false;
+    }
+  }
+
+  // Gửi thông báo khi tài xế bị từ chối
+  Future<bool> sendDriverRejectionNotification(String driverEmail, String driverName, String reason) async {
+    try {
+      return await sendNotification(
+        'Hồ sơ tài xế bị từ chối',
+        'Hồ sơ tài xế của bạn chưa được phê duyệt. Lý do: $reason',
+        AppConfig.NOTIFICATION_DRIVER_REJECTED,
+        {
+          'status': 'REJECTED',
+          'reason': reason,
+        },
+        recipientEmail: driverEmail
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('Lỗi khi gửi thông báo tài xế bị từ chối: $e');
+      }
+      return false;
+    }
+  }
+
+  // Gửi thông báo khi chuyến đi bị hủy
+  Future<bool> sendRideCancelledNotification(Ride ride, List<String> passengerEmails) async {
+    try {
+      bool allSuccess = true;
+      
+      // Gửi thông báo đến từng hành khách đã đặt chỗ
+      for (String email in passengerEmails) {
+        final success = await sendNotification(
+          'Chuyến đi đã bị hủy',
+          'Chuyến đi ${ride.departure} đến ${ride.destination} đã bị hủy bởi tài xế ${ride.driverName}.',
+          AppConfig.NOTIFICATION_RIDE_CANCELLED,
+          {
+            'rideId': ride.id,
+            'status': 'CANCELLED',
+          },
+          recipientEmail: email
+        );
+        
+        if (!success) {
+          allSuccess = false;
+        }
+      }
+      
+      return allSuccess;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Lỗi khi gửi thông báo hủy chuyến: $e');
+      }
+      return false;
+    }
+  }
+
+  // Gửi thông báo khi chuyến đi bắt đầu
+  Future<bool> sendRideStartedNotification(Ride ride, List<String> passengerEmails) async {
+    try {
+      bool allSuccess = true;
+      
+      // Gửi thông báo đến từng hành khách đã đặt chỗ
+      for (String email in passengerEmails) {
+        final success = await sendNotification(
+          'Chuyến đi đã bắt đầu',
+          'Chuyến đi ${ride.departure} đến ${ride.destination} đã bắt đầu.',
+          AppConfig.NOTIFICATION_RIDE_STARTED,
+          {
+            'rideId': ride.id,
+            'status': 'IN_PROGRESS',
+          },
+          recipientEmail: email
+        );
+        
+        if (!success) {
+          allSuccess = false;
+        }
+      }
+      
+      return allSuccess;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Lỗi khi gửi thông báo bắt đầu chuyến: $e');
+      }
+      return false;
+    }
+  }
+  
+  // Gửi thông báo khi có booking mới
+  Future<bool> sendBookingRequestNotification(int bookingId, int rideId, String passengerName, String driverEmail) async {
+    try {
+      return await sendNotification(
+        'Yêu cầu đặt chỗ mới',
+        'Có yêu cầu đặt chỗ mới từ hành khách $passengerName cho chuyến đi #$rideId.',
+        AppConfig.NOTIFICATION_BOOKING_REQUEST,
+        {
+          'bookingId': bookingId,
+          'rideId': rideId,
+        },
+        recipientEmail: driverEmail
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('Lỗi khi gửi thông báo yêu cầu đặt chỗ: $e');
+      }
+      return false;
+    }
+  }
+  
+  // Gửi thông báo khi booking bị hủy bởi hành khách
+  Future<bool> sendBookingCancelledNotification(int bookingId, int rideId, String passengerName, String driverEmail) async {
+    try {
+      return await sendNotification(
+        'Booking đã bị hủy',
+        'Booking #$bookingId cho chuyến đi #$rideId đã bị hủy bởi hành khách $passengerName.',
+        AppConfig.NOTIFICATION_BOOKING_CANCELLED,
+        {
+          'bookingId': bookingId,
+          'rideId': rideId,
+        },
+        recipientEmail: driverEmail
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('Lỗi khi gửi thông báo hủy booking: $e');
       }
       return false;
     }
