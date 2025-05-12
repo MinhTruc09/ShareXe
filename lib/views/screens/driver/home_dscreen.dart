@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sharexe/views/widgets/sharexe_background1.dart';
+import 'package:sharexe/views/widgets/sharexe_background2.dart';
 import 'package:sharexe/services/auth_service.dart';
 import 'package:sharexe/controllers/auth_controller.dart';
 import 'package:sharexe/app_route.dart';
@@ -589,7 +589,7 @@ class _HomeDscreenState extends State<HomeDscreen> {
 
   @override
   Widget build(BuildContext context) {
-    return SharexeBackground1(
+    return SharexeBackground2(
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(

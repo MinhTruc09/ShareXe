@@ -9,6 +9,7 @@ import '../../../utils/app_config.dart';
 import '../../widgets/ride_card.dart';
 import 'dart:async';
 import 'package:firebase_database/firebase_database.dart';
+import '../../widgets/sharexe_background2.dart';
 
 class DriverRideDetailScreen extends StatefulWidget {
   final dynamic ride;
@@ -574,187 +575,278 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
     final bool isReadyForDeparture = _rideService.canConfirmRide(rideData);
     final bool isInProgress = _rideService.isRideInProgress(rideData);
 
-    return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        title: const Text('Quản lý chuyến đi'),
-        backgroundColor: const Color(0xFF002D72),
-        elevation: 0,
-      ),
-      backgroundColor: Colors.white,
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header section with ride info
-            Container(
-              color: const Color(0xFF002D72),
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${rideData.departure} → ${rideData.destination}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+    return SharexeBackground2(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          title: const Text('Chi tiết chuyến đi'),
+          backgroundColor: const Color(0xFF002D72),
+        ),
+        body: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header section with ride info
+              Container(
+                color: const Color(0xFF002D72),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${rideData.departure} → ${rideData.destination}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.schedule,
-                        color: Colors.white70,
-                        size: 16,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        _formatTime(rideData.startTime),
-                        style: const TextStyle(color: Colors.white, fontSize: 16),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.event_seat,
-                                color: Colors.white70,
-                                size: 16,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '${rideData.totalSeat} ghế',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.schedule,
+                          color: Colors.white70,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          _formatTime(rideData.startTime),
+                          style: const TextStyle(color: Colors.white, fontSize: 16),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.event_seat,
+                                  color: Colors.white70,
+                                  size: 16,
                                 ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(width: 16),
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.monetization_on,
-                                color: Colors.white70,
-                                size: 16,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                rideData.pricePerSeat != null
-                                    ? currencyFormat.format(rideData.pricePerSeat)
-                                    : 'Miễn phí',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${rideData.totalSeat} ghế',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      _buildStatusIndicator(rideData.status),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            // Ride details
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Ride details section
-                  const Text(
-                    'Thông tin chuyến đi',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildDetailRow(
-                    'Số ghế trống:',
-                    '${rideData.availableSeats}/${rideData.totalSeat} người',
-                  ),
-                  const SizedBox(height: 8),
-                  _buildDetailRow(
-                    'Giá mỗi ghế:',
-                    rideData.pricePerSeat != null
-                        ? currencyFormat.format(rideData.pricePerSeat)
-                        : 'Miễn phí',
-                  ),
-                  const SizedBox(height: 8),
-                  _buildDetailRow(
-                    'Trạng thái:',
-                    rideData.status.toUpperCase() == 'ACTIVE'
-                        ? 'Đang mở'
-                        : rideData.status.toUpperCase() == 'COMPLETED'
-                        ? 'Đã hoàn thành'
-                        : rideData.status.toUpperCase() == 'CANCELLED'
-                        ? 'Đã hủy'
-                        : rideData.status.toUpperCase() == 'IN_PROGRESS'
-                        ? 'Đang diễn ra'
-                        : rideData.status,
-                  ),
-
-                  const Divider(height: 32),
-
-                  // Xác nhận xuất phát
-                  if (isReadyForDeparture && !isCompletedOrCancelled && !isInProgress) ...[
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.amber.shade50,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.amber.shade300),
-                      ),
-                      child: Column(
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.access_time,
-                                color: Colors.amber.shade800,
-                                size: 24,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Đã đến giờ khởi hành!',
-                                style: TextStyle(
-                                  color: Colors.amber.shade800,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            _driverConfirmed
-                              ? 'Bạn đã xác nhận khởi hành chuyến đi này.'
-                              : 'Hãy xác nhận khi bạn đã sẵn sàng để khởi hành chuyến đi.',
-                            style: TextStyle(
-                              color: Colors.grey.shade800,
-                              fontSize: 14,
+                              ],
                             ),
-                          ),
-                          const SizedBox(height: 16),
-                          if (!_driverConfirmed)
+                            const SizedBox(width: 16),
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.monetization_on,
+                                  color: Colors.white70,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  rideData.pricePerSeat != null
+                                      ? currencyFormat.format(rideData.pricePerSeat)
+                                      : 'Miễn phí',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        _buildStatusIndicator(rideData.status),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              // Ride details
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Ride details section
+                    const Text(
+                      'Thông tin chuyến đi',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildDetailRow(
+                      'Số ghế trống:',
+                      '${rideData.availableSeats}/${rideData.totalSeat} người',
+                    ),
+                    const SizedBox(height: 8),
+                    _buildDetailRow(
+                      'Giá mỗi ghế:',
+                      rideData.pricePerSeat != null
+                          ? currencyFormat.format(rideData.pricePerSeat)
+                          : 'Miễn phí',
+                    ),
+                    const SizedBox(height: 8),
+                    _buildDetailRow(
+                      'Trạng thái:',
+                      rideData.status.toUpperCase() == 'ACTIVE'
+                          ? 'Đang mở'
+                          : rideData.status.toUpperCase() == 'COMPLETED'
+                          ? 'Đã hoàn thành'
+                          : rideData.status.toUpperCase() == 'CANCELLED'
+                          ? 'Đã hủy'
+                          : rideData.status.toUpperCase() == 'IN_PROGRESS'
+                          ? 'Đang diễn ra'
+                          : rideData.status,
+                    ),
+
+                    const Divider(height: 32),
+
+                    // Xác nhận xuất phát
+                    if (isReadyForDeparture && !isCompletedOrCancelled && !isInProgress) ...[
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.amber.shade300),
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.access_time,
+                                  color: Colors.amber.shade800,
+                                  size: 24,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Đã đến giờ khởi hành!',
+                                  style: TextStyle(
+                                    color: Colors.amber.shade800,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              _driverConfirmed
+                                ? 'Bạn đã xác nhận khởi hành chuyến đi này.'
+                                : 'Hãy xác nhận khi bạn đã sẵn sàng để khởi hành chuyến đi.',
+                              style: TextStyle(
+                                color: Colors.grey.shade800,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            if (!_driverConfirmed)
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  onPressed: _isConfirming ? null : _confirmDeparture,
+                                  icon: _isConfirming
+                                      ? const SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                            color: Colors.white,
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : const Icon(Icons.directions_car),
+                                  label: Text(
+                                    _isConfirming ? 'Đang xác nhận...' : 'Xác nhận xuất phát'
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.amber.shade700,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                  ),
+                                ),
+                              ),
+                            if (_driverConfirmed)
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.green.shade100,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.check_circle,
+                                      color: Colors.green.shade700,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Đã xác nhận khởi hành',
+                                      style: TextStyle(
+                                        color: Colors.green.shade700,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+
+                    // Ride in progress UI
+                    if (isInProgress && !isCompletedOrCancelled) ...[
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.green.shade300),
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.drive_eta,
+                                  color: Colors.green.shade800,
+                                  size: 24,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Chuyến đi đang diễn ra!',
+                                  style: TextStyle(
+                                    color: Colors.green.shade800,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Hãy hoàn thành chuyến đi sau khi đã chở tất cả hành khách đến nơi.',
+                              style: TextStyle(
+                                color: Colors.grey.shade800,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
                             SizedBox(
                               width: double.infinity,
                               child: ElevatedButton.icon(
-                                onPressed: _isConfirming ? null : _confirmDeparture,
-                                icon: _isConfirming
+                                onPressed: _isCompleting ? null : _completeRide,
+                                icon: _isCompleting
                                     ? const SizedBox(
                                         width: 20,
                                         height: 20,
@@ -763,335 +855,244 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
                                           strokeWidth: 2,
                                         ),
                                       )
-                                    : const Icon(Icons.directions_car),
+                                    : const Icon(Icons.check_circle),
                                 label: Text(
-                                  _isConfirming ? 'Đang xác nhận...' : 'Xác nhận xuất phát'
+                                  _isCompleting ? 'Đang xác nhận...' : 'Hoàn thành chuyến đi'
                                 ),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.amber.shade700,
+                                  backgroundColor: Colors.green.shade700,
                                   foregroundColor: Colors.white,
                                   padding: const EdgeInsets.symmetric(vertical: 12),
                                 ),
                               ),
                             ),
-                          if (_driverConfirmed)
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.green.shade100,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.check_circle,
-                                    color: Colors.green.shade700,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Đã xác nhận khởi hành',
-                                    style: TextStyle(
-                                      color: Colors.green.shade700,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 24),
-                  ],
+                      const SizedBox(height: 24),
+                    ],
 
-                  // Ride in progress UI
-                  if (isInProgress && !isCompletedOrCancelled) ...[
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.green.shade50,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.green.shade300),
+                    // Actions for the ride
+                    if (!isCompletedOrCancelled && !isInProgress) ...[
+                      const Text(
+                        'Quản lý chuyến đi',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                      child: Column(
+                      const SizedBox(height: 16),
+                      Row(
                         children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.drive_eta,
-                                color: Colors.green.shade800,
-                                size: 24,
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: _isLoading ? null : _cancelRide,
+                              icon: const Icon(Icons.cancel),
+                              label: const Text('Hủy chuyến'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
                               ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Chuyến đi đang diễn ra!',
-                                style: TextStyle(
-                                  color: Colors.green.shade800,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Hãy hoàn thành chuyến đi sau khi đã chở tất cả hành khách đến nơi.',
-                            style: TextStyle(
-                              color: Colors.grey.shade800,
-                              fontSize: 14,
                             ),
                           ),
-                          const SizedBox(height: 16),
-                          SizedBox(
-                            width: double.infinity,
+                          const SizedBox(width: 16),
+                          Expanded(
                             child: ElevatedButton.icon(
                               onPressed: _isCompleting ? null : _completeRide,
-                              icon: _isCompleting
-                                  ? const SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        color: Colors.white,
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Icon(Icons.check_circle),
-                              label: Text(
-                                _isCompleting ? 'Đang xác nhận...' : 'Hoàn thành chuyến đi'
-                              ),
+                              icon: const Icon(Icons.check_circle),
+                              label:
+                                  _isCompleting
+                                      ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          color: Colors.white,
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                      : const Text('Hoàn thành'),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green.shade700,
-                                foregroundColor: Colors.white,
+                                backgroundColor: Colors.green,
                                 padding: const EdgeInsets.symmetric(vertical: 12),
                               ),
                             ),
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(height: 24),
-                  ],
 
-                  // Actions for the ride
-                  if (!isCompletedOrCancelled && !isInProgress) ...[
+                      const Divider(height: 32),
+                    ],
+
+                    // Bookings list section
                     const Text(
-                      'Quản lý chuyến đi',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      'Danh sách đặt chỗ',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: _isLoading ? null : _cancelRide,
-                            icon: const Icon(Icons.cancel),
-                            label: const Text('Hủy chuyến'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
+                    const SizedBox(height: 12),
+
+                    _isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : _bookings.isEmpty
+                        ? const Card(
+                          child: Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: Text(
+                              'Chưa có yêu cầu đặt chỗ nào cho chuyến đi này',
+                              textAlign: TextAlign.center,
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: _isCompleting ? null : _completeRide,
-                            icon: const Icon(Icons.check_circle),
-                            label:
-                                _isCompleting
-                                    ? const SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        color: Colors.white,
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                    : const Text('Hoàn thành'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const Divider(height: 32),
-                  ],
-
-                  // Bookings list section
-                  const Text(
-                    'Danh sách đặt chỗ',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 12),
-
-                  _isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : _bookings.isEmpty
-                      ? const Card(
-                        child: Padding(
-                          padding: EdgeInsets.all(16.0),
-                          child: Text(
-                            'Chưa có yêu cầu đặt chỗ nào cho chuyến đi này',
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      )
-                      : ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: _bookings.length,
-                        itemBuilder: (context, index) {
-                          final booking = _bookings[index];
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            child: Padding(
-                              padding: const EdgeInsets.all(12.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        'Đặt chỗ #${booking.id}',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 16,
-                                        ),
-                                      ),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 3,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color:
-                                              booking.status.toUpperCase() ==
-                                                      'PENDING'
-                                                  ? Colors.orange.withOpacity(
-                                                    0.2,
-                                                  )
-                                                  : booking.status
-                                                          .toUpperCase() ==
-                                                      'APPROVED'
-                                                  ? Colors.green.withOpacity(
-                                                    0.2,
-                                                  )
-                                                  : Colors.red.withOpacity(0.2),
-                                          borderRadius: BorderRadius.circular(
-                                            12,
+                        )
+                        : ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: _bookings.length,
+                          itemBuilder: (context, index) {
+                            final booking = _bookings[index];
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          'Đặt chỗ #${booking.id}',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
                                           ),
                                         ),
-                                        child: Text(
-                                          booking.status.toUpperCase() ==
-                                                  'PENDING'
-                                              ? 'Chờ duyệt'
-                                              : booking.status.toUpperCase() ==
-                                                  'APPROVED'
-                                              ? 'Đã duyệt'
-                                              : 'Từ chối',
-                                          style: TextStyle(
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 3,
+                                          ),
+                                          decoration: BoxDecoration(
                                             color:
                                                 booking.status.toUpperCase() ==
                                                         'PENDING'
-                                                    ? Colors.orange
+                                                    ? Colors.orange.withOpacity(
+                                                      0.2,
+                                                    )
                                                     : booking.status
                                                             .toUpperCase() ==
                                                         'APPROVED'
-                                                    ? Colors.green
-                                                    : Colors.red,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.bold,
+                                                    ? Colors.green.withOpacity(
+                                                      0.2,
+                                                    )
+                                                    : Colors.red.withOpacity(0.2),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
                                           ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text('Hành khách: ${booking.passengerName}'),
-                                  Text('Số ghế: ${booking.seatsBooked}'),
-                                  Text(
-                                    'Thời gian đặt: ${_formatTime(booking.createdAt)}',
-                                  ),
-
-                                  if (booking.status.toUpperCase() ==
-                                          'PENDING' &&
-                                      !isCompletedOrCancelled) ...[
-                                    const SizedBox(height: 8),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.end,
-                                      children: [
-                                        TextButton.icon(
-                                          onPressed: () async {
-                                            // Từ chối yêu cầu
-                                            await _bookingService.rejectBooking(
-                                              booking.id,
-                                            );
-                                            _loadBookings();
-                                          },
-                                          icon: const Icon(
-                                            Icons.close,
-                                            color: Colors.red,
-                                          ),
-                                          label: const Text(
-                                            'Từ chối',
-                                            style: TextStyle(color: Colors.red),
-                                          ),
-                                          style: TextButton.styleFrom(
-                                            backgroundColor: Colors.white,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        ElevatedButton.icon(
-                                          onPressed: () async {
-                                            // Chấp nhận yêu cầu
-                                            final success =
-                                                await _bookingService
-                                                    .acceptBooking(booking.id);
-                                            if (success) {
-                                              ScaffoldMessenger.of(
-                                                context,
-                                              ).showSnackBar(
-                                                const SnackBar(
-                                                  content: Text(
-                                                    'Đã chấp nhận yêu cầu',
-                                                    style: TextStyle(
-                                                      color: Colors.white,
-                                                    ),
-                                                  ),
-                                                  backgroundColor: Colors.green,
-                                                ),
-                                              );
-                                              _loadBookings();
-                                            }
-                                          },
-                                          icon: const Icon(Icons.check),
-                                          label: const Text('Chấp nhận'),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.green,
-                                            foregroundColor: Colors.white,
+                                          child: Text(
+                                            booking.status.toUpperCase() ==
+                                                    'PENDING'
+                                                ? 'Chờ duyệt'
+                                                : booking.status.toUpperCase() ==
+                                                    'APPROVED'
+                                                ? 'Đã duyệt'
+                                                : 'Từ chối',
+                                            style: TextStyle(
+                                              color:
+                                                  booking.status.toUpperCase() ==
+                                                          'PENDING'
+                                                      ? Colors.orange
+                                                      : booking.status
+                                                              .toUpperCase() ==
+                                                          'APPROVED'
+                                                      ? Colors.green
+                                                      : Colors.red,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                            ),
                                           ),
                                         ),
                                       ],
                                     ),
+                                    const SizedBox(height: 8),
+                                    Text('Hành khách: ${booking.passengerName}'),
+                                    Text('Số ghế: ${booking.seatsBooked}'),
+                                    Text(
+                                      'Thời gian đặt: ${_formatTime(booking.createdAt)}',
+                                    ),
+
+                                    if (booking.status.toUpperCase() ==
+                                            'PENDING' &&
+                                        !isCompletedOrCancelled) ...[
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.end,
+                                        children: [
+                                          TextButton.icon(
+                                            onPressed: () async {
+                                              // Từ chối yêu cầu
+                                              await _bookingService.rejectBooking(
+                                                booking.id,
+                                              );
+                                              _loadBookings();
+                                            },
+                                            icon: const Icon(
+                                              Icons.close,
+                                              color: Colors.red,
+                                            ),
+                                            label: const Text(
+                                              'Từ chối',
+                                              style: TextStyle(color: Colors.red),
+                                            ),
+                                            style: TextButton.styleFrom(
+                                              backgroundColor: Colors.white,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          ElevatedButton.icon(
+                                            onPressed: () async {
+                                              // Chấp nhận yêu cầu
+                                              final success =
+                                                  await _bookingService
+                                                      .acceptBooking(booking.id);
+                                              if (success) {
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text(
+                                                      'Đã chấp nhận yêu cầu',
+                                                      style: TextStyle(
+                                                        color: Colors.white,
+                                                      ),
+                                                    ),
+                                                    backgroundColor: Colors.green,
+                                                  ),
+                                                );
+                                                _loadBookings();
+                                              }
+                                            },
+                                            icon: const Icon(Icons.check),
+                                            label: const Text('Chấp nhận'),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: Colors.green,
+                                              foregroundColor: Colors.white,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ],
-                                ],
+                                ),
                               ),
-                            ),
-                          );
-                        },
-                      ),
-                ],
+                            );
+                          },
+                        ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -3,13 +3,20 @@ import 'package:intl/intl.dart';
 import 'dart:developer' as developer;
 import 'dart:math';
 import '../../../models/booking.dart';
+import '../../../models/ride.dart';
 import '../../../services/booking_service.dart';
+import '../../../services/profile_service.dart';
+import '../../../models/user_profile.dart';
+import '../../../models/notification_model.dart';
 import '../../../utils/app_config.dart';
 import '../../../utils/api_debug_helper.dart';
 import '../../../views/widgets/skeleton_loader.dart';
+import '../../widgets/sharexe_background2.dart';
 
 class DriverBookingsScreen extends StatefulWidget {
-  const DriverBookingsScreen({Key? key}) : super(key: key);
+  final Ride ride;
+  
+  const DriverBookingsScreen({Key? key, required this.ride}) : super(key: key);
 
   @override
   State<DriverBookingsScreen> createState() => _DriverBookingsScreenState();
@@ -413,82 +420,64 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
   
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF002D72),
-        title: const Text('Chuyến đi của tôi'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.bug_report),
-            onPressed: _toggleDebugMode,
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadBookings,
-          ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          isScrollable: true,
-          tabs: [
-            Tab(text: 'Chờ duyệt (${_pendingBookings.length})'),
-            Tab(text: 'Đã chấp nhận (${_acceptedBookings.length})'),
-            Tab(text: 'Đang tiến hành (${_ongoingBookings.length})'),
-            Tab(text: 'Hoàn thành (${_completedBookings.length})'),
-            Tab(text: 'Đã hủy (${_cancelledBookings.length})'),
-          ],
+    return SharexeBackground2(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          title: Text('Danh sách đặt chỗ - ${widget.ride.departure} đến ${widget.ride.destination}'),
+          backgroundColor: const Color(0xFF002D72),
         ),
+        body: _isLoading && !_isInitialLoad
+            ? const Center(child: CircularProgressIndicator())
+            : Column(
+                children: [
+                  if (_isDebugMode) _buildDebugPanel(),
+                  
+                  // Statistics panel
+                  Container(
+                    color: Colors.grey.shade100,
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildStatCard(
+                          'Tổng số',
+                          _totalBookings.toString(),
+                          Icons.book_online,
+                          Colors.blue,
+                        ),
+                        _buildStatCard(
+                          'Ghế đã đặt',
+                          _totalSeatsBooked.toString(),
+                          Icons.airline_seat_recline_normal,
+                          Colors.green,
+                        ),
+                        _buildStatCard(
+                          'Doanh thu',
+                          NumberFormat('#,###', 'vi_VN').format(_totalRevenue) + ' đ',
+                          Icons.monetization_on,
+                          Colors.amber,
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  // Tab content
+                  Expanded(
+                    child: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _buildBookingsList(_pendingBookings, BookingStatus.pending),
+                        _buildBookingsList(_acceptedBookings, BookingStatus.accepted),
+                        _buildBookingsList(_ongoingBookings, BookingStatus.ongoing),
+                        _buildBookingsList(_completedBookings, BookingStatus.completed),
+                        _buildBookingsList(_cancelledBookings, BookingStatus.cancelled),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
       ),
-      body: _isLoading && !_isInitialLoad
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                if (_isDebugMode) _buildDebugPanel(),
-                
-                // Statistics panel
-                Container(
-                  color: Colors.grey.shade100,
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildStatCard(
-                        'Tổng số',
-                        _totalBookings.toString(),
-                        Icons.book_online,
-                        Colors.blue,
-                      ),
-                      _buildStatCard(
-                        'Ghế đã đặt',
-                        _totalSeatsBooked.toString(),
-                        Icons.airline_seat_recline_normal,
-                        Colors.green,
-                      ),
-                      _buildStatCard(
-                        'Doanh thu',
-                        NumberFormat('#,###', 'vi_VN').format(_totalRevenue) + ' đ',
-                        Icons.monetization_on,
-                        Colors.amber,
-                      ),
-                    ],
-                  ),
-                ),
-                
-                // Tab content
-                Expanded(
-                  child: TabBarView(
-                    controller: _tabController,
-                    children: [
-                      _buildBookingsList(_pendingBookings, BookingStatus.pending),
-                      _buildBookingsList(_acceptedBookings, BookingStatus.accepted),
-                      _buildBookingsList(_ongoingBookings, BookingStatus.ongoing),
-                      _buildBookingsList(_completedBookings, BookingStatus.completed),
-                      _buildBookingsList(_cancelledBookings, BookingStatus.cancelled),
-                    ],
-                  ),
-                ),
-              ],
-            ),
     );
   }
   

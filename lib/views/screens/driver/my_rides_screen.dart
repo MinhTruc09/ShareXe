@@ -5,7 +5,7 @@ import '../../../models/ride.dart';
 import '../../../services/ride_service.dart';
 import '../../../utils/app_config.dart'; 
 import '../../widgets/ride_card.dart';
-import '../../widgets/sharexe_background1.dart';
+import '../../widgets/sharexe_background2.dart';
 import 'create_ride_screen.dart';
 import '../../../app_route.dart';
 import 'driver_main_screen.dart';
@@ -897,7 +897,7 @@ class _MyRidesScreenState extends State<MyRidesScreen>
           ? const Center(child: CircularProgressIndicator(color: Color(0xFF00AEEF)))
           : _hasNetworkError 
               ? _buildNetworkErrorWidget()
-              : SharexeBackground1(
+              : SharexeBackground2(
                   child: Column(
                     children: [
                       if (_isDebugMode) _buildDebugPanel(),

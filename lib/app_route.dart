@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'views/screens/common/splash_screen.dart';
 import 'views/screens/common/role_screen.dart';
 import 'views/screens/common/ride_details.dart';
+import 'views/screens/common/forgot_password_screen.dart';
 
 // Passenger screens
 import 'views/screens/passenger/splash_pscreen.dart';
@@ -41,6 +42,7 @@ import 'views/screens/notifications/notification_tabs_screen.dart';
 // Models
 import 'models/registration_data.dart';
 import 'models/user_profile.dart';
+import 'models/ride.dart';
 
 // Passenger routes namespace
 class PassengerRoutes {
@@ -74,6 +76,7 @@ class AppRoute {
   static const String splash = '/splash';
   static const String role = '/role';
   static const String rideDetails = '/ride-details';
+  static const String forgotPassword = '/forgot-password';
 
   // Notification routes
   static const String notifications = '/notifications';
@@ -113,6 +116,8 @@ class AppRoute {
       return MaterialPageRoute(
         builder: (context) => RideDetailScreen(ride: ride),
       );
+    } else if (routeName == forgotPassword) {
+      return MaterialPageRoute(builder: (_) => const ForgotPasswordScreen());
     } else if (routeName == notifications) {
       return MaterialPageRoute(builder: (_) => const NotificationsScreen());
     } else if (routeName == notificationTabs) {
@@ -183,13 +188,24 @@ class AppRoute {
     } else if (routeName == DriverRoutes.profile) {
       return MaterialPageRoute(builder: (_) => const DriverProfileScreen());
     } else if (routeName == DriverRoutes.editProfile) {
-      return MaterialPageRoute(
-        builder:
-            (context) => DriverEditProfileScreen(
-              userProfile:
-                  ModalRoute.of(context)!.settings.arguments as UserProfile,
+      final userProfile = settings.arguments;
+      if (userProfile is UserProfile) {
+        return MaterialPageRoute(
+          builder: (context) => DriverEditProfileScreen(userProfile: userProfile),
+        );
+      } else {
+        return MaterialPageRoute(
+          builder: (context) => Scaffold(
+            appBar: AppBar(title: const Text('Lỗi')),
+            body: const Center(
+              child: Text(
+                'Không thể tải thông tin hồ sơ. Vui lòng thử lại sau.',
+                textAlign: TextAlign.center,
+              ),
             ),
-      );
+          ),
+        );
+      }
     } else if (routeName == DriverRoutes.createRide) {
       final existingRide = settings.arguments as Map<String, dynamic>?;
       return MaterialPageRoute(
@@ -198,7 +214,39 @@ class AppRoute {
     } else if (routeName == DriverRoutes.myRides) {
       return MaterialPageRoute(builder: (_) => const MyRidesScreen());
     } else if (routeName == DriverRoutes.bookings) {
-      return MaterialPageRoute(builder: (_) => const DriverBookingsScreen());
+      // Check if a ride object was passed as argument
+      final ride = settings.arguments as Map<String, dynamic>?;
+      if (ride != null) {
+        // Create a simple Ride object from the map data
+        final rideObj = Ride(
+          id: ride['id'] ?? 0,
+          departure: ride['fromLocation'] ?? ride['departure'] ?? 'Điểm đi',
+          destination: ride['toLocation'] ?? ride['destination'] ?? 'Điểm đến',
+          startTime: ride['startTime'] ?? DateTime.now().toIso8601String(),
+          totalSeat: ride['totalSeat'] ?? 0,
+          status: ride['status'] ?? 'ACTIVE',
+          driverEmail: ride['driverEmail'] ?? 'no-email@example.com',
+          driverName: ride['driverName'] ?? 'Tài xế',
+          availableSeats: ride['availableSeats'] ?? 0,
+          pricePerSeat: ride['pricePerSeat'],
+        );
+        return MaterialPageRoute(builder: (_) => DriverBookingsScreen(ride: rideObj));
+      } else {
+        // Create a dummy ride with generic information if no ride data is provided
+        final dummyRide = Ride(
+          id: 0,
+          departure: 'Tất cả điểm đi',
+          destination: 'Tất cả điểm đến',
+          startTime: DateTime.now().toIso8601String(),
+          totalSeat: 0,
+          status: 'ACTIVE',
+          availableSeats: 0,
+          driverName: 'Tài xế',
+          driverEmail: 'example@sharexe.com',
+          pricePerSeat: null,
+        );
+        return MaterialPageRoute(builder: (_) => DriverBookingsScreen(ride: dummyRide));
+      }
     } else if (routeName == DriverRoutes.rideDetails) {
       final ride = settings.arguments;
       return MaterialPageRoute(

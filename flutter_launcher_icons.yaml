@@ -1,0 +1,15 @@
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/icon_sharexe.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/images/icon_sharexe.png"
+  web:
+    generate: true
+    image_path: "assets/images/icon_sharexe.png"
+  windows:
+    generate: true
+    image_path: "assets/images/icon_sharexe.png"
+  macos:
+    generate: true
+    image_path: "assets/images/icon_sharexe.png" 

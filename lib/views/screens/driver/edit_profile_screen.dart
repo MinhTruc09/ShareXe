@@ -3,12 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../models/user_profile.dart';
 import '../../../services/profile_service.dart';
+import '../../widgets/sharexe_background2.dart';
 
 class DriverEditProfileScreen extends StatefulWidget {
   final UserProfile userProfile;
 
   const DriverEditProfileScreen({Key? key, required this.userProfile})
-    : super(key: key);
+    : assert(userProfile != null, "userProfile cannot be null"),
+      super(key: key);
 
   @override
   State<DriverEditProfileScreen> createState() =>
@@ -33,12 +35,38 @@ class _DriverEditProfileScreenState extends State<DriverEditProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _fullNameController = TextEditingController(
-      text: widget.userProfile.fullName,
-    );
-    _phoneController = TextEditingController(
-      text: widget.userProfile.phoneNumber,
-    );
+    try {
+      _fullNameController = TextEditingController(
+        text: widget.userProfile.fullName,
+      );
+      _phoneController = TextEditingController(
+        text: widget.userProfile.phoneNumber,
+      );
+      
+      print('Khởi tạo EditProfileScreen thành công với: ${widget.userProfile.fullName}');
+      
+      // Thêm hàm kiểm tra cấu hình
+      _checkConfiguration();
+    } catch (e) {
+      print('Lỗi khi khởi tạo controllers: $e');
+      _fullNameController = TextEditingController();
+      _phoneController = TextEditingController();
+    }
+  }
+
+  void _checkConfiguration() {
+    print('======= KIỂM TRA CẤU HÌNH EDIT PROFILE SCREEN =======');
+    print('userProfile: ${widget.userProfile}');
+    print('userProfile.id: ${widget.userProfile.id}');
+    print('userProfile.fullName: ${widget.userProfile.fullName}');
+    print('userProfile.email: ${widget.userProfile.email}');
+    print('userProfile.phoneNumber: ${widget.userProfile.phoneNumber}');
+    print('userProfile.role: ${widget.userProfile.role}');
+    print('userProfile.avatarUrl: ${widget.userProfile.avatarUrl}');
+    print('userProfile.licenseImageUrl: ${widget.userProfile.licenseImageUrl}');
+    print('userProfile.vehicleImageUrl: ${widget.userProfile.vehicleImageUrl}');
+    print('userProfile.status: ${widget.userProfile.status}');
+    print('=======================================================');
   }
 
   @override
@@ -229,250 +257,251 @@ class _DriverEditProfileScreenState extends State<DriverEditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF002D72),
-        title: const Text('Chỉnh sửa hồ sơ tài xế'),
-        centerTitle: true,
-      ),
-      body:
-          _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : SingleChildScrollView(
-                child: Form(
-                  key: _formKey,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        const SizedBox(height: 20),
-                        // Error message if any
-                        if (_errorMessage != null)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 16.0),
-                            child: Text(
-                              _errorMessage!,
-                              style: const TextStyle(color: Colors.red),
-                            ),
-                          ),
-
-                        // Avatar selection
-                        Stack(
-                          alignment: Alignment.bottomRight,
-                          children: [
-                            Container(
-                              height: 120,
-                              width: 120,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.rectangle,
-                                borderRadius: BorderRadius.circular(15),
-                                color: Colors.yellow,
-                                border: Border.all(
-                                  color: Colors.purple,
-                                  width: 4,
-                                ),
+    return SharexeBackground2(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          title: const Text('Cập nhật hồ sơ'),
+          backgroundColor: const Color(0xFF002D72),
+        ),
+        body:
+            _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : SingleChildScrollView(
+                  child: Form(
+                    key: _formKey,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          const SizedBox(height: 20),
+                          // Error message if any
+                          if (_errorMessage != null)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 16.0),
+                              child: Text(
+                                _errorMessage!,
+                                style: const TextStyle(color: Colors.red),
                               ),
-                              child:
-                                  _avatarImage != null
-                                      ? ClipRRect(
-                                        borderRadius: BorderRadius.circular(10),
-                                        child: Image.file(
-                                          _avatarImage!,
-                                          fit: BoxFit.cover,
-                                        ),
-                                      )
-                                      : widget.userProfile.avatarUrl != null
-                                      ? ClipRRect(
-                                        borderRadius: BorderRadius.circular(10),
-                                        child: Image.network(
-                                          widget.userProfile.avatarUrl!,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (
-                                            context,
-                                            error,
-                                            stackTrace,
-                                          ) {
-                                            return const Icon(
+                            ),
+
+                          // Avatar selection
+                          Stack(
+                            alignment: Alignment.bottomRight,
+                            children: [
+                              Container(
+                                height: 120,
+                                width: 120,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.rectangle,
+                                  borderRadius: BorderRadius.circular(15),
+                                  color: Colors.yellow,
+                                  border: Border.all(
+                                    color: Colors.purple,
+                                    width: 4,
+                                  ),
+                                ),
+                                child:
+                                    _avatarImage != null
+                                        ? ClipRRect(
+                                          borderRadius: BorderRadius.circular(10),
+                                          child: Image.file(
+                                            _avatarImage!,
+                                            fit: BoxFit.cover,
+                                          ),
+                                        )
+                                        : widget.userProfile.avatarUrl != null
+                                        ? ClipRRect(
+                                          borderRadius: BorderRadius.circular(10),
+                                          child: Image.network(
+                                            widget.userProfile.avatarUrl!,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (
+                                              context,
+                                              error,
+                                              stackTrace,
+                                            ) {
+                                              return const Icon(
+                                                Icons.person,
+                                                size: 60,
+                                                color: Colors.white,
+                                              );
+                                            },
+                                          ),
+                                        )
+                                        : ClipRRect(
+                                          borderRadius: BorderRadius.circular(10),
+                                          child: Container(
+                                            color: Colors.amber,
+                                            child: const Icon(
                                               Icons.person,
                                               size: 60,
                                               color: Colors.white,
-                                            );
-                                          },
-                                        ),
-                                      )
-                                      : ClipRRect(
-                                        borderRadius: BorderRadius.circular(10),
-                                        child: Container(
-                                          color: Colors.amber,
-                                          child: const Icon(
-                                            Icons.person,
-                                            size: 60,
-                                            color: Colors.white,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                            ),
-                            Positioned(
-                              bottom: 0,
-                              right: 0,
-                              child: CircleAvatar(
-                                radius: 18,
-                                backgroundColor: Colors.white,
-                                child: IconButton(
-                                  padding: EdgeInsets.zero,
-                                  icon: const Icon(
-                                    Icons.add_a_photo,
-                                    size: 18,
-                                    color: Colors.blue,
+                              ),
+                              Positioned(
+                                bottom: 0,
+                                right: 0,
+                                child: CircleAvatar(
+                                  radius: 18,
+                                  backgroundColor: Colors.white,
+                                  child: IconButton(
+                                    padding: EdgeInsets.zero,
+                                    icon: const Icon(
+                                      Icons.add_a_photo,
+                                      size: 18,
+                                      color: Colors.blue,
+                                    ),
+                                    onPressed: () => _showImagePickerModal(1),
                                   ),
-                                  onPressed: () => _showImagePickerModal(1),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 24),
-
-                        // Email field (non-editable)
-                        TextFormField(
-                          initialValue: widget.userProfile.email,
-                          readOnly: true,
-                          decoration: InputDecoration(
-                            labelText: 'Email',
-                            prefixIcon: const Icon(Icons.email),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            filled: true,
-                            fillColor: Colors.grey[200],
+                            ],
                           ),
-                        ),
 
-                        const SizedBox(height: 16),
+                          const SizedBox(height: 24),
 
-                        // Full name field
-                        TextFormField(
-                          controller: _fullNameController,
-                          decoration: InputDecoration(
-                            labelText: 'Họ tên',
-                            prefixIcon: const Icon(Icons.person),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
+                          // Email field (non-editable)
+                          TextFormField(
+                            initialValue: widget.userProfile.email,
+                            readOnly: true,
+                            decoration: InputDecoration(
+                              labelText: 'Email',
+                              prefixIcon: const Icon(Icons.email),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              filled: true,
+                              fillColor: Colors.grey[200],
                             ),
                           ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Vui lòng nhập họ tên';
-                            }
-                            return null;
-                          },
-                        ),
 
-                        const SizedBox(height: 16),
+                          const SizedBox(height: 16),
 
-                        // Phone number field
-                        TextFormField(
-                          controller: _phoneController,
-                          decoration: InputDecoration(
-                            labelText: 'Số điện thoại',
-                            prefixIcon: const Icon(Icons.phone),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
+                          // Full name field
+                          TextFormField(
+                            controller: _fullNameController,
+                            decoration: InputDecoration(
+                              labelText: 'Họ tên',
+                              prefixIcon: const Icon(Icons.person),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Vui lòng nhập họ tên';
+                              }
+                              return null;
+                            },
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          // Phone number field
+                          TextFormField(
+                            controller: _phoneController,
+                            decoration: InputDecoration(
+                              labelText: 'Số điện thoại',
+                              prefixIcon: const Icon(Icons.phone),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            keyboardType: TextInputType.phone,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Vui lòng nhập số điện thoại';
+                              }
+                              return null;
+                            },
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          // Gender selection
+                          DropdownButtonFormField<String>(
+                            value: _selectedGender,
+                            decoration: InputDecoration(
+                              labelText: 'Giới tính',
+                              prefixIcon: const Icon(Icons.person_outline),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            items: const [
+                              DropdownMenuItem(value: 'MALE', child: Text('Nam')),
+                              DropdownMenuItem(
+                                value: 'FEMALE',
+                                child: Text('Nữ'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'OTHER',
+                                child: Text('Khác'),
+                              ),
+                            ],
+                            onChanged: (String? value) {
+                              setState(() {
+                                _selectedGender = value;
+                              });
+                            },
+                          ),
+
+                          const SizedBox(height: 32),
+
+                          // License Image Upload
+                          _buildImageUploadSection(
+                            'Ảnh bằng lái',
+                            _licenseImage,
+                            () => _showImagePickerModal(2),
+                            'Tải lên ảnh bằng lái',
+                          ),
+
+                          const SizedBox(height: 24),
+
+                          // Vehicle Image Upload
+                          _buildImageUploadSection(
+                            'Ảnh phương tiện',
+                            _vehicleImage,
+                            () => _showImagePickerModal(3),
+                            'Tải lên ảnh phương tiện',
+                          ),
+
+                          const SizedBox(height: 32),
+
+                          // Update button
+                          ElevatedButton(
+                            onPressed: _updateProfile,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF002D72),
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 15,
+                                horizontal: 24,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              minimumSize: const Size(double.infinity, 50),
+                            ),
+                            child: const Text(
+                              'Cập nhật',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
-                          keyboardType: TextInputType.phone,
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Vui lòng nhập số điện thoại';
-                            }
-                            return null;
-                          },
-                        ),
 
-                        const SizedBox(height: 16),
-
-                        // Gender selection
-                        DropdownButtonFormField<String>(
-                          value: _selectedGender,
-                          decoration: InputDecoration(
-                            labelText: 'Giới tính',
-                            prefixIcon: const Icon(Icons.person_outline),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          items: const [
-                            DropdownMenuItem(value: 'MALE', child: Text('Nam')),
-                            DropdownMenuItem(
-                              value: 'FEMALE',
-                              child: Text('Nữ'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'OTHER',
-                              child: Text('Khác'),
-                            ),
-                          ],
-                          onChanged: (String? value) {
-                            setState(() {
-                              _selectedGender = value;
-                            });
-                          },
-                        ),
-
-                        const SizedBox(height: 32),
-
-                        // License Image Upload
-                        _buildImageUploadSection(
-                          'Ảnh bằng lái',
-                          _licenseImage,
-                          () => _showImagePickerModal(2),
-                          'Tải lên ảnh bằng lái',
-                        ),
-
-                        const SizedBox(height: 24),
-
-                        // Vehicle Image Upload
-                        _buildImageUploadSection(
-                          'Ảnh phương tiện',
-                          _vehicleImage,
-                          () => _showImagePickerModal(3),
-                          'Tải lên ảnh phương tiện',
-                        ),
-
-                        const SizedBox(height: 32),
-
-                        // Update button
-                        ElevatedButton(
-                          onPressed: _updateProfile,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF002D72),
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 15,
-                              horizontal: 24,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            minimumSize: const Size(double.infinity, 50),
-                          ),
-                          child: const Text(
-                            'Cập nhật',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(height: 32),
-                      ],
+                          const SizedBox(height: 32),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
+      ),
     );
   }
 }

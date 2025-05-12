@@ -349,12 +349,28 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     });
 
     try {
+      if (foundation.kDebugMode) {
+        print('🔍 Tải lịch sử chat cho phòng: ${widget.roomId}');
+        print('🔍 Tài khoản người dùng: $_userEmail');
+      }
+
+      // Kiểm tra roomId có hợp lệ không
+      if (widget.roomId.isEmpty) {
+        if (foundation.kDebugMode) {
+          print('⚠️ RoomId trống, không thể tải lịch sử');
+        }
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
+
       // Đầu tiên, thử tải tin nhắn từ bộ nhớ cục bộ
       final localMessages = await _chatLocalStorage.getMessages(widget.roomId);
 
       if (localMessages.isNotEmpty) {
         if (foundation.kDebugMode) {
-          print('Tải ${localMessages.length} tin nhắn từ bộ nhớ cục bộ');
+          print('📱 Tải ${localMessages.length} tin nhắn từ bộ nhớ cục bộ');
         }
 
         if (mounted) {
@@ -369,13 +385,17 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
       }
 
       // Sau đó tải tin nhắn từ server để cập nhật
+      if (foundation.kDebugMode) {
+        print('🌐 Đang tải tin nhắn từ server...');
+      }
+      
       final serverMessages = await _chatService.getChatHistory(widget.roomId);
 
-      if (serverMessages.isNotEmpty) {
-        if (foundation.kDebugMode) {
-          print('Tải ${serverMessages.length} tin nhắn từ server');
-        }
+      if (foundation.kDebugMode) {
+        print('🌐 Đã nhận ${serverMessages.length} tin nhắn từ server');
+      }
 
+      if (serverMessages.isNotEmpty) {
         // Lưu tin nhắn từ server vào bộ nhớ cục bộ
         await _chatLocalStorage.saveMessages(widget.roomId, serverMessages);
 
@@ -390,8 +410,14 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
                     ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
               _isLoading = false;
             });
+
+            if (foundation.kDebugMode) {
+              print('✅ Đã cập nhật danh sách tin nhắn với dữ liệu từ server');
+            }
           }
         }
+      } else if (foundation.kDebugMode) {
+        print('ℹ️ Không có tin nhắn mới từ server');
       }
 
       // Cuộn xuống để hiển thị tin nhắn mới nhất sau khi tải xong
@@ -403,17 +429,37 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
       });
 
       // Đánh dấu tin nhắn đã đọc
-      await _chatService.markMessagesAsRead(widget.roomId);
+      try {
+        await _chatService.markMessagesAsRead(widget.roomId);
+        if (foundation.kDebugMode) {
+          print('✅ Đã đánh dấu tin nhắn là đã đọc');
+        }
+      } catch (e) {
+        if (foundation.kDebugMode) {
+          print('⚠️ Lỗi khi đánh dấu tin nhắn đã đọc: $e');
+        }
+      }
     } catch (e) {
+      if (foundation.kDebugMode) {
+        print('❌ Lỗi khi tải lịch sử chat: $e');
+        print('Stack trace: ${StackTrace.current}');
+      }
+      
       // Nếu đã có tin nhắn từ local, không hiển thị thông báo lỗi
       if (_messages.isEmpty && mounted) {
         setState(() {
           _isLoading = false;
         });
 
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Không thể tải tin nhắn: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Không thể tải tin nhắn: $e'),
+            action: SnackBarAction(
+              label: 'Thử lại',
+              onPressed: _loadChatHistory,
+            ),
+          ),
+        );
       }
     } finally {
       if (mounted) {

@@ -5,6 +5,7 @@ import '../../../services/auth_manager.dart';
 import '../../widgets/location_picker.dart';
 import '../../widgets/date_picker.dart';
 import '../../widgets/passenger_counter.dart';
+import '../../widgets/sharexe_background2.dart';
 
 class CreateRideScreen extends StatefulWidget {
   final Map<String, dynamic>?
@@ -269,142 +270,145 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF002D72),
-        title: Text(_isEditMode ? 'Cập nhật chuyến đi' : 'Tạo chuyến đi mới'),
-      ),
-      body: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Card(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                elevation: 4,
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    children: [
-                      LocationPicker(
-                        title: 'Điểm đi',
-                        icon: Icons.circle_outlined,
-                        hintText: 'Xuất phát từ',
-                        initialValue: _departure,
-                        onLocationSelected: (location) {
-                          setState(() {
-                            _departure = location;
-                          });
-                        },
-                      ),
-                      const Divider(height: 16),
-                      LocationPicker(
-                        title: 'Điểm đến',
-                        icon: Icons.location_on_outlined,
-                        hintText: 'Điểm đến',
-                        initialValue: _destination,
-                        onLocationSelected: (location) {
-                          setState(() {
-                            _destination = location;
-                          });
-                        },
-                      ),
-                      const Divider(height: 16),
-                      DatePickerField(
-                        icon: Icons.access_time,
-                        hintText: 'Thời gian xuất phát (ngày và giờ)',
-                        initialDate: _departureDate,
-                        includeTime: true,
-                        onDateSelected: (date) {
-                          setState(() {
-                            _departureDate = date;
-                            print('Đã chọn thời gian: ${DateFormat('dd/MM/yyyy HH:mm').format(date)}');
-                          });
-                        },
-                      ),
-                      const Divider(height: 16),
-                      PassengerCounter(
-                        icon: Icons.people_outline,
-                        hintText: 'Số ghế',
-                        initialCount: _totalSeats,
-                        maxCount: 8,
-                        onCountChanged: (count) {
-                          setState(() {
-                            _totalSeats = count;
-                          });
-                        },
-                      ),
-                      const Divider(height: 16),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.monetization_on_outlined,
-                            color: Colors.grey,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: TextFormField(
-                              controller: _priceController,
-                              decoration: const InputDecoration(
-                                hintText: 'Giá mỗi ghế (VND)',
-                                border: InputBorder.none,
-                              ),
-                              keyboardType: TextInputType.number,
-                              onChanged: (value) {
-                                setState(() {
-                                  _pricePerSeat = double.tryParse(value) ?? 0;
-                                });
-                              },
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Vui lòng nhập giá';
-                                }
-                                if (double.tryParse(value) == null) {
-                                  return 'Giá không hợp lệ';
-                                }
-                                return null;
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+    return SharexeBackground2(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF002D72),
+          title: const Text('Tạo chuyến đi mới'),
+        ),
+        body: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Card(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: _isSubmitting ? null : _submitRide,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF002D72),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                  elevation: 4,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      children: [
+                        LocationPicker(
+                          title: 'Điểm đi',
+                          icon: Icons.circle_outlined,
+                          hintText: 'Xuất phát từ',
+                          initialValue: _departure,
+                          onLocationSelected: (location) {
+                            setState(() {
+                              _departure = location;
+                            });
+                          },
+                        ),
+                        const Divider(height: 16),
+                        LocationPicker(
+                          title: 'Điểm đến',
+                          icon: Icons.location_on_outlined,
+                          hintText: 'Điểm đến',
+                          initialValue: _destination,
+                          onLocationSelected: (location) {
+                            setState(() {
+                              _destination = location;
+                            });
+                          },
+                        ),
+                        const Divider(height: 16),
+                        DatePickerField(
+                          icon: Icons.access_time,
+                          hintText: 'Thời gian xuất phát (ngày và giờ)',
+                          initialDate: _departureDate,
+                          includeTime: true,
+                          onDateSelected: (date) {
+                            setState(() {
+                              _departureDate = date;
+                              print('Đã chọn thời gian: ${DateFormat('dd/MM/yyyy HH:mm').format(date)}');
+                            });
+                          },
+                        ),
+                        const Divider(height: 16),
+                        PassengerCounter(
+                          icon: Icons.people_outline,
+                          hintText: 'Số ghế',
+                          initialCount: _totalSeats,
+                          maxCount: 8,
+                          onCountChanged: (count) {
+                            setState(() {
+                              _totalSeats = count;
+                            });
+                          },
+                        ),
+                        const Divider(height: 16),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.monetization_on_outlined,
+                              color: Colors.grey,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _priceController,
+                                decoration: const InputDecoration(
+                                  hintText: 'Giá mỗi ghế (VND)',
+                                  border: InputBorder.none,
+                                ),
+                                keyboardType: TextInputType.number,
+                                onChanged: (value) {
+                                  setState(() {
+                                    _pricePerSeat = double.tryParse(value) ?? 0;
+                                  });
+                                },
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'Vui lòng nhập giá';
+                                  }
+                                  if (double.tryParse(value) == null) {
+                                    return 'Giá không hợp lệ';
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                  child:
-                      _isSubmitting
-                          ? const CircularProgressIndicator(color: Colors.white)
-                          : Text(
-                            _isEditMode
-                                ? 'Cập nhật chuyến đi'
-                                : 'Tạo chuyến đi',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: _isSubmitting ? null : _submitRide,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF002D72),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child:
+                        _isSubmitting
+                            ? const CircularProgressIndicator(color: Colors.white)
+                            : Text(
+                              _isEditMode
+                                  ? 'Cập nhật chuyến đi'
+                                  : 'Tạo chuyến đi',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sharexe/app_route.dart';
 import 'package:sharexe/views/widgets/custom_button.dart';
 import 'package:sharexe/views/widgets/custom_text_field.dart';
 import 'package:sharexe/views/widgets/custom_text_field1.dart';
@@ -33,6 +34,13 @@ class LoginFormContainer1 extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.9),
         borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
       ),
       child: Form(
         key: formKey,
@@ -72,11 +80,55 @@ class LoginFormContainer1 extends StatelessWidget {
                 return null;
               },
             ),
-            SizedBox(height: screenHeight * 0.02),
+            SizedBox(height: screenHeight * 0.01),
+            
+            // Thêm nút quên mật khẩu
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, AppRoute.forgotPassword);
+                },
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFF00B7FF),
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(10, 20),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text(
+                  'Quên mật khẩu?',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+            
+            SizedBox(height: screenHeight * 0.01),
             if (errorMessage.isNotEmpty)
-              Text(
-                errorMessage,
-                style: const TextStyle(color: Colors.red),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Colors.red.withOpacity(0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.error_outline, color: Colors.red, size: 16),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        errorMessage,
+                        style: const TextStyle(color: Colors.red, fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             SizedBox(height: screenHeight * 0.02),
             CustomButton(

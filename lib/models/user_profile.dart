@@ -103,7 +103,7 @@ class UserProfile {
 
 class ProfileResponse {
   final String message;
-  final UserProfile data;
+  final UserProfile? data;
   final bool success;
 
   ProfileResponse({
@@ -113,9 +113,11 @@ class ProfileResponse {
   });
 
   factory ProfileResponse.fromJson(Map<String, dynamic> json) {
+    final userData = json['data'];
+    
     return ProfileResponse(
       message: json['message'] ?? '',
-      data: UserProfile.fromJson(json['data'] ?? {}),
+      data: userData != null ? UserProfile.fromJson(userData) : null,
       success: json['success'] ?? false,
     );
   }

@@ -51,6 +51,19 @@ class ChatService {
   // Lấy lịch sử tin nhắn của một phòng chat
   Future<List<ChatMessageModel>> getChatHistory(String roomId) async {
     try {
+      if (kDebugMode) {
+        print('🔄 Đang tải lịch sử chat cho phòng: $roomId');
+        print('🔄 API Endpoint: ${_appConfig.fullApiUrl}/chat/history/$roomId');
+      }
+      
+      // Kiểm tra xem roomId có hợp lệ không
+      if (roomId.isEmpty || roomId == 'null' || roomId == 'undefined') {
+        if (kDebugMode) {
+          print('❌ RoomId không hợp lệ: $roomId');
+        }
+        return [];
+      }
+      
       final response = await _apiClient.get(
         '/chat/history/$roomId',
         requireAuth: true,
@@ -58,18 +71,36 @@ class ChatService {
 
       if (response.statusCode == 200) {
         final jsonResponse = json.decode(response.body);
+        if (kDebugMode) {
+          print('✅ Nhận phản hồi từ API: ${response.statusCode}');
+          print('✅ Dữ liệu: ${jsonResponse['success']}, có ${jsonResponse['data']?.length ?? 0} tin nhắn');
+        }
+        
         if (jsonResponse['success'] == true && jsonResponse['data'] != null) {
           final List<dynamic> data = jsonResponse['data'];
-          return data.map((item) => ChatMessageModel.fromJson(item)).toList();
+          final messages = data.map((item) => ChatMessageModel.fromJson(item)).toList();
+          
+          if (kDebugMode) {
+            print('✅ Đã chuyển đổi ${messages.length} tin nhắn từ JSON');
+          }
+          
+          return messages;
         } else {
+          if (kDebugMode) {
+            print('⚠️ API trả về success=false hoặc data=null: ${jsonResponse['message']}');
+          }
           return [];
         }
       } else {
+        if (kDebugMode) {
+          print('❌ Lỗi HTTP ${response.statusCode}: ${response.body}');
+        }
         throw Exception('Lỗi khi tải lịch sử chat: ${response.statusCode}');
       }
     } catch (e) {
       if (kDebugMode) {
-        print('Lỗi khi lấy lịch sử chat: $e');
+        print('❌ Lỗi khi lấy lịch sử chat: $e');
+        print('❌ Stack trace: ${StackTrace.current}');
       }
       return [];
     }
@@ -110,19 +141,45 @@ class ChatService {
     String receiverEmail,
     String content,
   ) async {
-    if (!_webSocketService.isConnected()) {
+    // Ensure we have valid parameters
+    if (roomId.isEmpty || receiverEmail.isEmpty || content.isEmpty) {
       if (kDebugMode) {
-        print('WebSocket không được kết nối. Thử gửi qua REST API.');
+        print('❌ Invalid parameters for sending message');
+        print('roomId: $roomId, receiverEmail: $receiverEmail, content length: ${content.length}');
+      }
+      return false;
+    }
+    
+    // First check if WebSocket is connected
+    final bool wsConnected = _webSocketService.isConnected();
+    
+    if (!wsConnected) {
+      if (kDebugMode) {
+        print('ℹ️ WebSocket not connected, using REST API fallback');
       }
       return _sendMessageViaRest(roomId, receiverEmail, content);
     }
 
     try {
+      if (kDebugMode) {
+        print('📤 Sending message via WebSocket to room: $roomId');
+      }
+      
       _webSocketService.sendChatMessage(roomId, receiverEmail, content);
+      
+      // Still send via REST API as a backup to ensure delivery
+      // This helps in case the WebSocket message gets lost
+      bool restSent = await _sendMessageViaRest(roomId, receiverEmail, content);
+      
+      if (kDebugMode && !restSent) {
+        print('⚠️ WebSocket message sent but REST API backup failed');
+      }
+      
       return true;
     } catch (e) {
       if (kDebugMode) {
-        print('Lỗi khi gửi tin nhắn qua WebSocket: $e');
+        print('❌ Error sending message via WebSocket: $e');
+        print('⚠️ Falling back to REST API');
       }
       // Fallback to REST API if WebSocket fails
       return _sendMessageViaRest(roomId, receiverEmail, content);
@@ -136,6 +193,11 @@ class ChatService {
     String content,
   ) async {
     try {
+      if (kDebugMode) {
+        print('📤 Sending message via REST API to room: $roomId');
+        print('📤 API Endpoint: ${_appConfig.fullApiUrl}/chat/send');
+      }
+      
       final response = await _apiClient.post(
         '/chat/send',
         body: {
@@ -146,10 +208,22 @@ class ChatService {
         requireAuth: true,
       );
 
-      return response.statusCode == 200;
+      final bool success = response.statusCode == 200;
+      
+      if (kDebugMode) {
+        if (success) {
+          print('✅ Message sent successfully via REST API');
+        } else {
+          print('❌ REST API message failed with status: ${response.statusCode}');
+          print('❌ Response: ${response.body}');
+        }
+      }
+      
+      return success;
     } catch (e) {
       if (kDebugMode) {
-        print('Lỗi khi gửi tin nhắn: $e');
+        print('❌ Error sending message via REST API: $e');
+        print('❌ Stack trace: ${StackTrace.current}');
       }
       return false;
     }

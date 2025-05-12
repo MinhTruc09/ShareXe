@@ -4,8 +4,10 @@ import '../../../services/profile_service.dart';
 import '../../../services/auth_service.dart';
 import '../../../controllers/auth_controller.dart';
 import '../../../app_route.dart';
-import '../../widgets/sharexe_background1.dart';
+import '../../widgets/sharexe_background2.dart';
 import 'dart:developer' as developer;
+import 'change_password_screen.dart';
+import 'edit_profile_screen.dart';
 
 class DriverProfileScreen extends StatefulWidget {
   const DriverProfileScreen({Key? key}) : super(key: key);
@@ -45,6 +47,8 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
           name: 'profile_screen');
         developer.log('Profile URLs: avatar=${response.data?.avatarUrl}, license=${response.data?.licenseImageUrl}, vehicle=${response.data?.vehicleImageUrl}', 
           name: 'profile_screen');
+      } else {
+        developer.log('Profile data is null', name: 'profile_screen');
       }
       
       setState(() {
@@ -55,7 +59,9 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
         } else {
           _isLoading = false;
           _isError = true;
-          _errorMessage = response.message;
+          _errorMessage = response.data == null 
+              ? 'Không thể tải thông tin hồ sơ. Vui lòng đăng nhập lại.'
+              : response.message;
         }
       });
     } catch (e) {
@@ -157,9 +163,58 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
     }
   }
 
+  void _editProfile() {
+    try {
+      if (_userProfile != null) {
+        print('Điều hướng đến màn hình chỉnh sửa hồ sơ với dữ liệu: ${_userProfile!.fullName}');
+        
+        // Sử dụng try-catch khi điều hướng để bắt lỗi
+        try {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => DriverEditProfileScreen(
+                userProfile: _userProfile!,
+              ),
+            ),
+          ).then((value) {
+            print('Quay lại từ màn hình chỉnh sửa, kết quả: $value');
+            _loadUserProfile();
+          });
+        } catch (e) {
+          print('LỖI KHI ĐIỀU HƯỚNG: $e');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Lỗi khi mở màn hình chỉnh sửa: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } else {
+        print('userProfile là null, không thể điều hướng');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Không thể tải thông tin hồ sơ. Vui lòng thử lại sau.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        // Thử tải lại hồ sơ
+        _loadUserProfile();
+      }
+    } catch (e) {
+      print('LỖI NGHIÊM TRỌNG: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Lỗi không xác định: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return SharexeBackground1(
+    return SharexeBackground2(
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
@@ -274,13 +329,7 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
             ),
             const SizedBox(height: 16),
             OutlinedButton.icon(
-              onPressed: () {
-                Navigator.pushNamed(
-                  context,
-                  DriverRoutes.editProfile,
-                  arguments: _userProfile,
-                ).then((_) => _loadUserProfile());
-              },
+              onPressed: _editProfile,
               icon: const Icon(Icons.edit),
               label: const Text('Chỉnh sửa hồ sơ'),
               style: OutlinedButton.styleFrom(
@@ -588,8 +637,11 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
               icon: Icons.lock,
               title: 'Đổi mật khẩu',
               onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Chức năng đang phát triển')),
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ChangePasswordScreen(),
+                  ),
                 );
               },
             ),

@@ -15,7 +15,6 @@ class ProfileService {
     try {
       final token = await _authManager.getToken();
       if (token == null) {
-        print('ProfileService: Không có token đăng nhập');
         return ProfileResponse(
           success: false,
           message: 'Chưa đăng nhập',
@@ -89,7 +88,7 @@ class ProfileService {
 
       try {
         // Parse JSON từ response body
-        final dynamic responseBody = json.decode(response.body);
+        final responseBody = json.decode(response.body);
         
         // Debug: In ra toàn bộ response body
         print('DEBUG: Parsed response body: $responseBody');
@@ -107,7 +106,16 @@ class ProfileService {
                 print('DEBUG: Avatar URL from API: ${responseBody['data']['avatarUrl']}');
               }
               
-              final profile = UserProfile.fromJson(responseBody['data'] ?? {});
+              // Kiểm tra xem data có null không
+              if (responseBody['data'] == null) {
+                return ProfileResponse(
+                  success: false,
+                  message: 'Không có dữ liệu hồ sơ',
+                  data: null,
+                );
+              }
+              
+              final profile = UserProfile.fromJson(responseBody['data']);
               
               // Debug: In ra profile sau khi parse
               print('DEBUG: Profile after parsing - avatarUrl: ${profile.avatarUrl}');
@@ -548,7 +556,10 @@ class ProfileService {
               'Content-Type': 'application/json',
               'Authorization': 'Bearer $token',
             },
-            body: json.encode({'oldPass': oldPassword, 'newPass': newPassword}),
+            body: json.encode({
+              'oldPass': oldPassword, 
+              'newPass': newPassword
+            }),
           )
           .timeout(
             const Duration(seconds: 10),
@@ -556,6 +567,9 @@ class ProfileService {
               throw Exception('Kết nối máy chủ quá hạn. Vui lòng thử lại sau.');
             },
           );
+
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
 
       if (response.statusCode == 401 || response.statusCode == 403) {
         return ProfileResponse(
@@ -566,11 +580,38 @@ class ProfileService {
       }
 
       if (response.statusCode == 200) {
-        return ProfileResponse(
-          success: true,
-          message: response.body, // Backend trả về message trực tiếp
-          data: null,
-        );
+        try {
+          // Attempt to parse the response body as JSON
+          final responseData = json.decode(response.body);
+          if (responseData is String) {
+            // If the response is a string, use it directly
+            return ProfileResponse(
+              success: true,
+              message: responseData,
+              data: null,
+            );
+          } else if (responseData is Map<String, dynamic>) {
+            // If the response is an object with a message field
+            return ProfileResponse(
+              success: true,
+              message: responseData['message'] ?? 'Đổi mật khẩu thành công',
+              data: null,
+            );
+          } else {
+            return ProfileResponse(
+              success: true,
+              message: 'Đổi mật khẩu thành công',
+              data: null,
+            );
+          }
+        } catch (parseError) {
+          // If we can't parse the response as JSON, assume it's a direct message string
+          return ProfileResponse(
+            success: true,
+            message: response.body,
+            data: null,
+          );
+        }
       } else {
         try {
           final responseData = json.decode(response.body);

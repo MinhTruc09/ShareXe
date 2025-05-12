@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:stomp_dart_client/stomp_dart_client.dart';
 import '../models/notification_model.dart';
 import '../models/chat_message_model.dart';
@@ -14,10 +15,37 @@ class WebSocketService {
   Function(NotificationModel)? onNotificationReceived;
   Function(ChatMessageModel)? onChatMessageReceived;
   String? _userEmail;
+  String? _token;
+  String? _serverUrl;
   final AppConfig _appConfig = AppConfig();
+  
+  int _reconnectAttempts = 0;
+  Timer? _reconnectTimer;
+  final int _maxReconnectAttempts = 5;
+  bool _isInitializing = false;
+  bool _inFallbackMode = false;
 
   void initialize(String serverUrl, String token, String userEmail) {
+    if (_isInitializing) {
+      if (kDebugMode) {
+        print('🔄 WebSocket initialization already in progress, skipping');
+      }
+      return;
+    }
+    
+    if (_inFallbackMode) {
+      if (kDebugMode) {
+        print('⚠️ WebSocket in fallback mode due to persistent connection issues');
+        print('⚠️ Application will use REST API fallback for messaging');
+      }
+      return;
+    }
+    
+    _isInitializing = true;
     _userEmail = userEmail;
+    _token = token;
+    _serverUrl = serverUrl;
+    _reconnectAttempts = 0;
 
     if (serverUrl.isNotEmpty) {
       _appConfig.updateBaseUrl(serverUrl);
@@ -27,34 +55,117 @@ class WebSocketService {
       disconnect();
     }
 
+    if (kDebugMode) {
+      print('🔄 Initializing WebSocket connection');
+      print('🔄 WebSocket URL: ${_appConfig.webSocketUrl}');
+      print('🔄 User email: $_userEmail');
+    }
+
     _stompClient = StompClient(
       config: StompConfig(
         url: _appConfig.webSocketUrl,
         onConnect: _onConnect,
-        onDisconnect: (_) {
+        onStompError: (frame) {
           if (kDebugMode) {
-            print('WebSocket disconnected');
+            print('❌ STOMP protocol error: ${frame.headers} - ${frame.body}');
           }
+          _scheduleReconnect();
+        },
+        onDisconnect: (frame) {
+          if (kDebugMode) {
+            print('❌ WebSocket disconnected: ${frame?.body}');
+          }
+          
+          _scheduleReconnect();
         },
         onWebSocketError: (error) {
           if (kDebugMode) {
-            print('WebSocket error: $error');
+            print('❌ WebSocket error: $error');
+            print('❌ WebSocket URL: ${_appConfig.webSocketUrl}');
+            
+            if (error.toString().contains('404')) {
+              print('❌ Error 404: WebSocket endpoint not found. Check server configuration.');
+            } else if (error.toString().contains('Connection refused')) {
+              print('❌ Connection refused: Server may be down or incorrect URL');
+            } else if (error.toString().contains('not upgraded to websocket')) {
+              print('❌ Connection not upgraded: Server may not support WebSockets or endpoint is incorrect');
+            }
           }
+          
+          _scheduleReconnect();
         },
         stompConnectHeaders: {'Authorization': 'Bearer $token'},
         webSocketConnectHeaders: {'Authorization': 'Bearer $token'},
+        reconnectDelay: const Duration(milliseconds: 5000),
+        connectionTimeout: const Duration(seconds: 10),
       ),
     );
 
-    _stompClient!.activate();
+    try {
+      _stompClient!.activate();
+      if (kDebugMode) {
+        print('✅ WebSocket activation initiated');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error activating WebSocket: $e');
+      }
+      _scheduleReconnect();
+    } finally {
+      _isInitializing = false;
+    }
+  }
+
+  void _scheduleReconnect() {
+    _reconnectTimer?.cancel();
+    
+    if (_reconnectAttempts < _maxReconnectAttempts && _token != null && _userEmail != null) {
+      _reconnectAttempts++;
+      final delay = _calculateReconnectDelay();
+      
+      if (kDebugMode) {
+        print('🔄 Scheduling WebSocket reconnect attempt $_reconnectAttempts in ${delay.inSeconds} seconds');
+      }
+      
+      _reconnectTimer = Timer(delay, () {
+        if (kDebugMode) {
+          print('🔄 Attempting to reconnect WebSocket (attempt $_reconnectAttempts)');
+        }
+        initialize(_serverUrl ?? '', _token!, _userEmail!);
+      });
+    } else if (_reconnectAttempts >= _maxReconnectAttempts) {
+      if (kDebugMode) {
+        print('⚠️ Maximum WebSocket reconnect attempts reached');
+        print('⚠️ Switching to fallback mode - using REST API for messaging');
+      }
+      _inFallbackMode = true;
+      
+      Timer(const Duration(minutes: 5), () {
+        if (kDebugMode) {
+          print('🔄 Attempting to reconnect WebSocket after cooldown period');
+        }
+        _inFallbackMode = false;
+        _reconnectAttempts = 0;
+        
+        if (_token != null && _userEmail != null) {
+          initialize(_serverUrl ?? '', _token!, _userEmail!);
+        }
+      });
+    }
+  }
+  
+  Duration _calculateReconnectDelay() {
+    final seconds = (1 << (_reconnectAttempts - 1)).clamp(1, 30);
+    return Duration(seconds: seconds);
   }
 
   void _onConnect(StompFrame frame) {
     if (kDebugMode) {
-      print('WebSocket connected');
+      print('✅ WebSocket connected successfully');
     }
+    
+    _reconnectAttempts = 0;
 
-    // 1. Đăng ký nhận thông báo
     _stompClient!.subscribe(
       destination: '/topic/notifications/$_userEmail',
       callback: (frame) {
@@ -68,19 +179,23 @@ class WebSocketService {
             }
           } catch (e) {
             if (kDebugMode) {
-              print('Error parsing notification: $e');
+              print('❌ Error parsing notification: $e');
+              print('Body: ${frame.body}');
             }
           }
         }
       },
     );
 
-    // 2. Đăng ký nhận tin nhắn chat
     _stompClient!.subscribe(
       destination: '/topic/chat/$_userEmail',
       callback: (frame) {
         if (frame.body != null) {
           try {
+            if (kDebugMode) {
+              print('✉️ Received chat message: ${frame.body}');
+            }
+            
             final chatMessage = ChatMessageModel.fromJson(
               json.decode(frame.body!),
             );
@@ -89,7 +204,8 @@ class WebSocketService {
             }
           } catch (e) {
             if (kDebugMode) {
-              print('Error parsing chat message: $e');
+              print('❌ Error parsing chat message: $e');
+              print('Body: ${frame.body}');
             }
           }
         }
@@ -98,13 +214,21 @@ class WebSocketService {
   }
 
   bool isConnected() {
-    return _stompClient?.connected ?? false;
+    if (_inFallbackMode) {
+      return false;
+    }
+    
+    final connected = _stompClient?.connected ?? false;
+    if (kDebugMode) {
+      print('🔍 WebSocket connection status: ${connected ? 'connected' : 'disconnected'}');
+    }
+    return connected;
   }
 
   void sendChatMessage(String roomId, String receiverEmail, String content) {
     if (_stompClient?.connected != true) {
       if (kDebugMode) {
-        print('WebSocket not connected. Cannot send message.');
+        print('❌ WebSocket not connected. Cannot send message.');
       }
       return;
     }
@@ -122,17 +246,32 @@ class WebSocketService {
     };
 
     if (kDebugMode) {
-      print('Sending message via WebSocket to /app/chat/$roomId');
+      print('✉️ Sending message via WebSocket to /app/chat/$roomId');
       print('Message: ${json.encode(message)}');
     }
 
-    _stompClient!.send(
-      destination: '/app/chat/$roomId',
-      body: json.encode(message),
-    );
+    try {
+      _stompClient!.send(
+        destination: '/app/chat/$roomId',
+        body: json.encode(message),
+      );
+      if (kDebugMode) {
+        print('✅ Message sent successfully');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error sending message: $e');
+      }
+    }
   }
 
   void disconnect() {
-    _stompClient?.deactivate();
+    _reconnectTimer?.cancel();
+    if (_stompClient?.connected == true) {
+      if (kDebugMode) {
+        print('🔄 Disconnecting WebSocket');
+      }
+      _stompClient?.deactivate();
+    }
   }
 }

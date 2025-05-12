@@ -23,13 +23,34 @@ class AppConfig {
   // WebSocket URL
   String get webSocketUrl {
     String baseUrl = isUsingFallback ? fallbackApiUrl : apiBaseUrl;
-    // Chuyển đổi https:// thành wss://
+    
+    // Remove any port specification with :0
+    if (baseUrl.contains(':0')) {
+      baseUrl = baseUrl.replaceAll(':0', '');
+    }
+    
+    // Ensure baseUrl doesn't end with a slash
+    if (baseUrl.endsWith('/')) {
+      baseUrl = baseUrl.substring(0, baseUrl.length - 1);
+    }
+    
+    // Convert HTTP/HTTPS to WebSocket protocol
+    String wsUrl;
     if (baseUrl.startsWith('https://')) {
-      return baseUrl.replaceFirst('https://', 'wss://') + '/ws';
+      wsUrl = baseUrl.replaceFirst('https://', 'wss://');
     } else if (baseUrl.startsWith('http://')) {
-      return baseUrl.replaceFirst('http://', 'ws://') + '/ws';
+      wsUrl = baseUrl.replaceFirst('http://', 'ws://');
     } else {
-      return baseUrl + '/ws';
+      // If no protocol specified, default to secure WebSocket
+      wsUrl = 'wss://$baseUrl';
+    }
+    
+    // For Ngrok URLs, use specific WebSocket endpoint path 
+    // Check if using Ngrok (containing ngrok in URL)
+    if (baseUrl.contains('ngrok')) {
+      return '$wsUrl/ws/websocket'; // Correct endpoint for Ngrok WebSocket
+    } else {
+      return '$wsUrl/ws'; // Regular WebSocket endpoint
     }
   }
 
