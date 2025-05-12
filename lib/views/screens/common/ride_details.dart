@@ -795,6 +795,7 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
         statusIcon = Icons.hourglass_empty;
         break;
       case 'APPROVED':
+      case 'ACCEPTED':
         statusColor = Colors.green;
         statusText = 'Đã được tài xế xác nhận';
         statusIcon = Icons.check_circle;
@@ -858,7 +859,7 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
           ),
           
           // Departure confirmation for rides in progress
-          if (isReadyForDeparture && booking.status.toUpperCase() == 'APPROVED')
+          if (isReadyForDeparture && (booking.status.toUpperCase() == 'APPROVED' || booking.status.toUpperCase() == 'ACCEPTED'))
             Padding(
               padding: const EdgeInsets.only(top: 16),
               child: Container(
@@ -928,7 +929,7 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
             ),
           
           // Ride completion confirmation for passenger when ride is in progress
-          if (needsCompletion && booking.status.toUpperCase() == 'APPROVED')
+          if (needsCompletion && (booking.status.toUpperCase() == 'APPROVED' || booking.status.toUpperCase() == 'ACCEPTED'))
             Padding(
               padding: const EdgeInsets.only(top: 16),
               child: Container(
@@ -1061,23 +1062,35 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
     try {
       print('🚫 Bắt đầu hủy đặt chỗ cho booking #${booking.id}');
       
-      // Gọi API để hủy booking
-      final success = await _bookingService.cancelBooking(booking.id);
+      // Gọi API để hủy booking sử dụng endpoint mới
+      final success = await _bookingService.cancelBooking(booking.rideId);
       
       if (success) {
         print('✅ Hủy đặt chỗ thành công');
         
         if (mounted) {
+          // Cập nhật trạng thái booking locally để hiển thị trạng thái "Đã hủy"
+          setState(() {
+            _booking = booking.copyWith(status: 'CANCELLED');
+            _isLoading = false;
+          });
+          
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Đã hủy đặt chỗ thành công'),
               backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
             ),
           );
           
+          // Đợi 2 giây để hiển thị trạng thái đã hủy trước khi quay lại màn hình trước
+          await Future.delayed(const Duration(seconds: 2));
+          
           // Đặt kết quả và quay về màn hình trước đó
           // Giá trị true sẽ trigger việc refresh danh sách chuyến đi trên màn hình trước
-          Navigator.pop(context, true);
+          if (mounted) {
+            Navigator.pop(context, true);
+          }
         }
       } else {
         print('❌ Không thể hủy đặt chỗ qua API');

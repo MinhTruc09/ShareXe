@@ -174,7 +174,7 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen> with 
 
     try {
       // Gọi API để hủy booking
-      final success = await _bookingService.cancelBooking(booking.id);
+      final success = await _bookingService.cancelBooking(booking.rideId);
 
       if (success) {
         // Gửi thông báo cho tài xế

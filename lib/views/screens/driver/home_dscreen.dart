@@ -208,7 +208,7 @@ class _HomeDscreenState extends State<HomeDscreen> {
       if (success) {
         // Cập nhật status trong Firebase nếu cần thiết
         try {
-          await _notificationService.updateBookingStatus(booking.id, "APPROVED");
+          await _notificationService.updateBookingStatus(booking.id, "ACCEPTED");
         } catch (e) {
           print('⚠️ Lỗi khi cập nhật trạng thái trên Firebase: $e');
           // Không dừng quy trình vì đây không phải lỗi chính

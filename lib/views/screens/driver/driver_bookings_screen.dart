@@ -876,7 +876,7 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
             passengerId: currentBooking.passengerId,
             seatsBooked: currentBooking.seatsBooked,
             passengerName: currentBooking.passengerName,
-            status: "APPROVED", // Cập nhật trạng thái mới
+            status: "ACCEPTED",
             createdAt: currentBooking.createdAt,
             departure: currentBooking.departure,
             destination: currentBooking.destination,
@@ -890,7 +890,7 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
       });
       
       // Use the booking service to accept the booking
-      final success = await _bookingService.driverAcceptBookingDTO(booking.id);
+      final success = await _bookingService.driverAcceptBookingDTO(booking.rideId);
       
       if (success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -944,7 +944,7 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
       developer.log('Rejecting booking #${booking.id}...', name: 'driver_bookings');
       
       // Use the booking service to reject the booking
-      final success = await _bookingService.driverRejectBookingDTO(booking.id);
+      final success = await _bookingService.driverRejectBookingDTO(booking.rideId);
       
       if (success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

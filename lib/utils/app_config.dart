@@ -268,6 +268,7 @@ class AppConfig {
         return "Đang chờ tài xế duyệt";
         
       case BOOKING_STATUS_ACCEPTED:
+      case "APPROVED": // Thêm trạng thái APPROVED để xử lý đồng nhất với ACCEPTED
         if (now.isAfter(startTime)) {
           return "Đang đi";
         } else {
@@ -309,7 +310,8 @@ class AppConfig {
     final status = bookingStatus.toUpperCase();
     
     // Hiển thị nút xác nhận khi trạng thái là ACCEPTED (đã được duyệt) 
+    // hoặc APPROVED (đã được duyệt - cũ)
     // hoặc IN_PROGRESS (đang diễn ra) và đã qua thời gian khởi hành
-    return (status == BOOKING_STATUS_ACCEPTED || status == BOOKING_STATUS_IN_PROGRESS) && now.isAfter(startTime);
+    return (status == BOOKING_STATUS_ACCEPTED || status == "APPROVED" || status == BOOKING_STATUS_IN_PROGRESS) && now.isAfter(startTime);
   }
 }
