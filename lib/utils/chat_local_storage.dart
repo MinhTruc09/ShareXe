@@ -14,7 +14,7 @@ class ChatLocalStorage {
   /// Lưu trữ tin nhắn vào local storage
   Future<bool> saveMessages(
     String roomId,
-    List<ChatMessageModel> messages,
+    List<ChatMessage> messages,
   ) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -31,7 +31,7 @@ class ChatLocalStorage {
   }
 
   /// Lấy tin nhắn từ local storage
-  Future<List<ChatMessageModel>> getMessages(String roomId) async {
+  Future<List<ChatMessage>> getMessages(String roomId) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final messagesJson = prefs.getString('$_chatMessagesPrefix$roomId');
@@ -41,7 +41,7 @@ class ChatLocalStorage {
       }
 
       final List<dynamic> decoded = json.decode(messagesJson);
-      return decoded.map((item) => ChatMessageModel.fromJson(item)).toList();
+      return decoded.map((item) => ChatMessage.fromJson(item)).toList();
     } catch (e) {
       if (kDebugMode) {
         print('Lỗi khi đọc tin nhắn từ local storage: $e');
@@ -51,7 +51,7 @@ class ChatLocalStorage {
   }
 
   /// Thêm một tin nhắn mới vào local storage
-  Future<bool> addMessage(String roomId, ChatMessageModel message) async {
+  Future<bool> addMessage(String roomId, ChatMessage message) async {
     try {
       final messages = await getMessages(roomId);
       messages.insert(0, message); // Thêm tin nhắn mới vào đầu danh sách
@@ -73,19 +73,30 @@ class ChatLocalStorage {
   /// Cập nhật trạng thái của một tin nhắn trong local storage
   Future<bool> updateMessageStatus(
     String roomId,
-    ChatMessageModel message,
+    ChatMessage message,
     String newStatus,
   ) async {
     try {
       final messages = await getMessages(roomId);
       final index = messages.indexWhere(
         (msg) =>
-            msg.content == message.content &&
+            msg.message == message.message &&
             msg.timestamp.isAtSameMomentAs(message.timestamp),
       );
 
       if (index >= 0) {
-        messages[index] = messages[index].copyWith(status: newStatus);
+        // Create a new message with updated status
+        final updatedMessage = ChatMessage(
+          id: messages[index].id,
+          senderId: messages[index].senderId,
+          receiverId: messages[index].receiverId,
+          message: messages[index].message,
+          messageType: messages[index].messageType,
+          timestamp: messages[index].timestamp,
+          isRead: messages[index].isRead,
+        );
+        
+        messages[index] = updatedMessage;
         return await saveMessages(roomId, messages);
       }
 

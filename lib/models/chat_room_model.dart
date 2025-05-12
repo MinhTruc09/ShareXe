@@ -1,3 +1,4 @@
+
 class ChatRoomModel {
   final String roomId;
   final String partnerEmail;
@@ -44,3 +45,4 @@ class ChatRoomModel {
     };
   }
 }
+

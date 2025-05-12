@@ -10,10 +10,13 @@ import 'package:sharexe/services/booking_service.dart';
 import 'package:intl/intl.dart';
 import '../../../services/profile_service.dart';
 import '../../../models/user_profile.dart';
+import '../../../models/driver_profile.dart';
 import '../../../models/notification_model.dart';
 import '../../../services/auth_manager.dart';
+import '../../../services/driver_profile_service.dart';
 import 'package:flutter/foundation.dart';
 import '../../../services/ride_service.dart';
+
 import 'driver_main_screen.dart'; // Import TabNavigator từ driver_main_screen.dart
 import '../../../utils/app_config.dart';
 import '../../../utils/api_debug_helper.dart'; // Add this import
@@ -35,6 +38,7 @@ class _HomeDscreenState extends State<HomeDscreen> {
   final ProfileService _profileService = ProfileService();
   final AuthManager _authManager = AuthManager();
   final RideService _rideService = RideService();
+
   final AppConfig _appConfig = AppConfig();
   bool _showDebugOptions = false;
 
@@ -46,26 +50,65 @@ class _HomeDscreenState extends State<HomeDscreen> {
   UserProfile? _userProfile;
   bool _isInitialLoad = true; // Track initial load to show skeleton
 
+
   @override
   void initState() {
     super.initState();
     _authController = AuthController(AuthService());
     _loadPendingBookings();
     _loadUserProfile();
+
     _loadAvailableRides();
+
   }
 
   Future<void> _loadUserProfile() async {
     try {
-      final response = await _profileService.getUserProfile();
+      final profile = await _driverProfileService.getDriverProfile();
 
-      if (response.success) {
+      if (profile != null) {
         setState(() {
-          _userProfile = response.data;
+          _driverProfile = profile;
         });
       }
     } catch (e) {
-      print('Error loading user profile: $e');
+      print('Error loading driver profile: $e');
+    }
+  }
+
+  Future<void> _loadMyRides() async {
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+      
+      // This would be replaced with actual API call to get driver's rides
+      // For now, we'll use a mock implementation
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      setState(() {
+        _isLoading = false;
+        // Mock data for demonstration
+        _myRides = [
+          Ride(
+            id: 1,
+            availableSeats: 2,
+            driverName: _driverProfile?.fullName ?? 'Tài xế',
+            driverEmail: _driverProfile?.email ?? 'driver@example.com',
+            departure: 'Long An',
+            destination: 'Cần Thơ',
+            startTime: DateTime.now().add(const Duration(days: 2)).toIso8601String(),
+            pricePerSeat: 900000,
+            totalSeat: 2,
+            status: 'ACTIVE',
+          ),
+        ];
+      });
+    } catch (e) {
+      print('Error loading rides: $e');
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -77,6 +120,7 @@ class _HomeDscreenState extends State<HomeDscreen> {
     }
 
     try {
+
       // Use the booking service to get real pending bookings
       final bookings = await _bookingService.getDriverPendingBookings();
 
@@ -158,6 +202,7 @@ class _HomeDscreenState extends State<HomeDscreen> {
           _isInitialLoad = false;
         });
       }
+
     }
   }
 
@@ -444,6 +489,7 @@ class _HomeDscreenState extends State<HomeDscreen> {
         );
       },
     );
+
   }
 
   String _formatTime(String timeString) {
@@ -569,6 +615,7 @@ class _HomeDscreenState extends State<HomeDscreen> {
     }
   }
 
+
   void _openApiDebugPage() {
     // Use the ApiDebugHelper to show the API debug screen
     ApiDebugHelper().showApiDebugScreen(context);
@@ -585,6 +632,7 @@ class _HomeDscreenState extends State<HomeDscreen> {
         _loadUserProfile();
       },
     );
+
   }
 
   @override
@@ -720,6 +768,7 @@ class _HomeDscreenState extends State<HomeDscreen> {
                   ),
                 ),
               ],
+
             ),
             const SizedBox(height: 20),
             const SkeletonLoader(

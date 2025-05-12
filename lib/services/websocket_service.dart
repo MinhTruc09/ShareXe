@@ -4,16 +4,17 @@ import 'package:stomp_dart_client/stomp_dart_client.dart';
 import '../models/notification_model.dart';
 import '../models/chat_message_model.dart';
 import 'package:flutter/foundation.dart';
-import '../utils/app_config.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:web_socket_channel/io.dart';
+import '../models/chat_message_model.dart';
 
 class WebSocketService {
   static final WebSocketService _instance = WebSocketService._internal();
   factory WebSocketService() => _instance;
   WebSocketService._internal();
 
-  StompClient? _stompClient;
-  Function(NotificationModel)? onNotificationReceived;
-  Function(ChatMessageModel)? onChatMessageReceived;
+  WebSocketChannel? _channel;
+  bool _isConnected = false;
   String? _userEmail;
   String? _token;
   String? _serverUrl;
@@ -47,13 +48,14 @@ class WebSocketService {
     _serverUrl = serverUrl;
     _reconnectAttempts = 0;
 
-    if (serverUrl.isNotEmpty) {
-      _appConfig.updateBaseUrl(serverUrl);
+  // Initialize WebSocket connection
+  void initialize(String baseUrl, String token, String userEmail) {
+    if (_isConnected) {
+      // Already connected
+      return;
     }
 
-    if (_stompClient != null && _stompClient!.connected) {
-      disconnect();
-    }
+    _userEmail = userEmail;
 
     if (kDebugMode) {
       print('🔄 Initializing WebSocket connection');
@@ -159,7 +161,9 @@ class WebSocketService {
     return Duration(seconds: seconds);
   }
 
-  void _onConnect(StompFrame frame) {
+  // Handle WebSocket connection closed
+  void _onConnectionClosed() {
+    _isConnected = false;
     if (kDebugMode) {
       print('✅ WebSocket connected successfully');
     }
@@ -213,6 +217,7 @@ class WebSocketService {
     );
   }
 
+  // Check if connected
   bool isConnected() {
     if (_inFallbackMode) {
       return false;
@@ -232,7 +237,7 @@ class WebSocketService {
       }
       return;
     }
-
+  }
     final message = {
       'senderEmail': _userEmail,
       'receiverEmail': receiverEmail,

@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
-import '../../../models/user_profile.dart';
-import '../../../services/profile_service.dart';
-import '../../../services/auth_service.dart';
-import '../../../controllers/auth_controller.dart';
+import '../../../models/driver_profile.dart';
+import '../../../services/driver_profile_service.dart';
 import '../../../app_route.dart';
+
 import '../../../models/notification_model.dart';
 import '../../../services/notification_service.dart';
 import '../../widgets/sharexe_background2.dart';
 import 'edit_profile_screen.dart';
 import 'vehicle_info_screen.dart';
 import 'change_password_screen.dart';
+
 
 class DriverProfileScreen extends StatefulWidget {
   const DriverProfileScreen({Key? key}) : super(key: key);
@@ -19,6 +19,7 @@ class DriverProfileScreen extends StatefulWidget {
 }
 
 class _DriverProfileScreenState extends State<DriverProfileScreen> {
+
   final ProfileService _profileService = ProfileService();
   final AuthController _authController = AuthController(AuthService());
   final NotificationService _notificationService = NotificationService();
@@ -29,22 +30,26 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
   String? _rejectionReason;
   bool _isLoadingNotifications = false;
 
+
   @override
   void initState() {
     super.initState();
-    _loadUserProfile();
+    _loadProfile();
   }
 
-  Future<void> _loadUserProfile() async {
+  Future<void> _loadProfile() async {
     setState(() {
       _isLoading = true;
-      _errorMessage = '';
+      _errorMessage = null;
     });
 
     try {
+
       final response = await _profileService.getUserProfile();
 
+
       setState(() {
+        _driverProfile = profile;
         _isLoading = false;
         if (response.success && response.data != null) {
           _userProfile = response.data;
@@ -63,7 +68,12 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
             _userProfile = null;
           }
         }
+
       });
+      
+      if (profile == null) {
+        _errorMessage = 'Không thể tải thông tin tài khoản';
+      }
     } catch (e) {
       setState(() {
         _isLoading = false;
@@ -221,13 +231,20 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(
-                        _errorMessage,
-                        style: const TextStyle(color: Colors.white),
+                      const Icon(
+                        Icons.error_outline,
+                        color: Colors.red,
+                        size: 60,
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 16),
+                      Text(
+                        _errorMessage!,
+                        style: const TextStyle(color: Colors.red),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 24),
                       ElevatedButton(
-                        onPressed: _loadUserProfile,
+                        onPressed: _loadProfile,
                         child: const Text('Thử lại'),
                       ),
                     ],
@@ -649,21 +666,24 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
                     ],
                   ),
                 ),
+
       ),
     );
   }
 
-  Widget _buildMenuItem({
-    required IconData icon,
+  Widget _buildInfoCard({
     required String title,
+
     required VoidCallback onTap,
     bool isDisabled = false,
   }) {
     return InkWell(
       onTap: isDisabled ? null : onTap,
+
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(
               icon,
@@ -679,7 +699,37 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
                   color: isDisabled ? Colors.grey[400] : Colors.black87,
                 ),
               ),
+              Text(
+                item.value,
+                style: const TextStyle(fontSize: 16),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildImagesCard() {
+    return Card(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Giấy tờ & Phương tiện',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF002D72),
+              ),
             ),
+
             if (isDisabled)
               Icon(Icons.lock_outline, size: 16, color: Colors.grey[400])
             else
@@ -802,3 +852,4 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
     );
   }
 }
+

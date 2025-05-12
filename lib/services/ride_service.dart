@@ -21,6 +21,7 @@ class RideService {
 
   RideService() : _apiClient = ApiClient();
 
+
   // Cached rides to improve performance
   List<Ride> _cachedAvailableRides = [];
   DateTime _lastCacheTime = DateTime(1970); // Set to epoch initially

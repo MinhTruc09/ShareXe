@@ -37,7 +37,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   final ScrollController _scrollController = ScrollController();
   final ImagePicker _imagePicker = ImagePicker();
 
-  List<ChatMessageModel> _messages = [];
+  List<ChatMessage> _messages = [];
   bool _isLoading = true;
   bool _isSending = false;
   String? _userEmail;
@@ -204,7 +204,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
       await _loadChatHistory();
 
       // Đánh dấu tin nhắn đã đọc
-      await _chatService.markMessagesAsRead(widget.roomId);
+      await _chatService.markAsRead(widget.roomId);
     } catch (e) {
       if (foundation.kDebugMode) {
         print('Lỗi khởi tạo chat: $e');
@@ -229,7 +229,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
       if (foundation.kDebugMode) {
         print('Nhận tin nhắn qua WebSocket: ${message.content}');
         print(
-          'Phòng chat hiện tại: ${widget.roomId}, Phòng của tin nhắn: ${message.roomId}',
+          'Phòng chat hiện tại: ${widget.roomId}, Phòng của tin nhắn: ${message.receiverId}',
         );
       }
 
@@ -249,7 +249,6 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
               // Sắp xếp lại theo thời gian để đảm bảo hiển thị đúng thứ tự
               _messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
             });
-
             // Cuộn xuống cuối danh sách tin nhắn
             _scrollToBottom();
           }
@@ -472,17 +471,17 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
 
   // Hàm so sánh hai danh sách tin nhắn
   bool _areMessagesEqual(
-    List<ChatMessageModel> list1,
-    List<ChatMessageModel> list2,
+    List<ChatMessage> list1,
+    List<ChatMessage> list2,
   ) {
     if (list1.length != list2.length) {
       return false;
     }
 
     for (int i = 0; i < list1.length; i++) {
-      if (list1[i].content != list2[i].content ||
+      if (list1[i].message != list2[i].message ||
           !list1[i].timestamp.isAtSameMomentAs(list2[i].timestamp) ||
-          list1[i].senderEmail != list2[i].senderEmail) {
+          list1[i].senderId != list2[i].senderId) {
         return false;
       }
     }
@@ -533,7 +532,6 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     setState(() {
       _isSending = true;
     });
-
     try {
       // TODO: Xử lý gửi ảnh ở phiên bản tiếp theo
       if (_selectedImage != null) {
@@ -542,7 +540,6 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
           _selectedImage = null;
         });
       }
-
       // Tạo tin nhắn mới với ID tạm thời
       final now = DateTime.now();
       final String tempId = now.millisecondsSinceEpoch.toString();
@@ -566,7 +563,6 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
 
       // Lưu tin nhắn vào bộ nhớ cục bộ tạm thời với trạng thái 'sending'
       await _chatLocalStorage.addMessage(widget.roomId, newMessage);
-
       // Xóa nội dung tin nhắn trong khung nhập
       _messageController.clear();
 

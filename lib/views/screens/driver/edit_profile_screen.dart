@@ -18,23 +18,27 @@ class DriverEditProfileScreen extends StatefulWidget {
 }
 
 class _DriverEditProfileScreenState extends State<DriverEditProfileScreen> {
+
   final ProfileService _profileService = ProfileService();
   final _formKey = GlobalKey<FormState>();
 
   late TextEditingController _fullNameController;
   late TextEditingController _phoneController;
 
+
   File? _avatarImage;
-  File? _licenseImage;
   File? _vehicleImage;
+
 
   bool _isLoading = false;
   String? _errorMessage;
   String? _selectedGender;
 
+
   @override
   void initState() {
     super.initState();
+
     try {
       _fullNameController = TextEditingController(
         text: widget.userProfile.fullName,
@@ -69,10 +73,13 @@ class _DriverEditProfileScreenState extends State<DriverEditProfileScreen> {
     print('=======================================================');
   }
 
+
   @override
   void dispose() {
     _fullNameController.dispose();
     _phoneController.dispose();
+    _vehicleTypeController.dispose();
+    _licensePlateController.dispose();
     super.dispose();
   }
 
@@ -92,11 +99,13 @@ class _DriverEditProfileScreenState extends State<DriverEditProfileScreen> {
               break;
             case 3: // Vehicle
               _vehicleImage = File(pickedFile.path);
+
               break;
           }
         });
       }
     } catch (e) {
+
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Lỗi khi chọn ảnh: $e')));
@@ -148,6 +157,7 @@ class _DriverEditProfileScreenState extends State<DriverEditProfileScreen> {
     );
   }
 
+
   Future<void> _updateProfile() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -159,6 +169,7 @@ class _DriverEditProfileScreenState extends State<DriverEditProfileScreen> {
     });
 
     try {
+
       final response = await _profileService.updateProfile(
         fullName: _fullNameController.text.trim(),
         phone: _phoneController.text.trim(),
@@ -170,6 +181,7 @@ class _DriverEditProfileScreenState extends State<DriverEditProfileScreen> {
       if (mounted) {
         setState(() {
           _isLoading = false;
+
         });
 
         if (response.success) {
@@ -252,7 +264,19 @@ class _DriverEditProfileScreenState extends State<DriverEditProfileScreen> {
           ),
         ),
       ],
+
     );
+  }
+
+  String _getImageTypeTitle(ImageType type) {
+    switch (type) {
+      case ImageType.avatar:
+        return 'đại diện';
+      case ImageType.vehicle:
+        return 'phương tiện';
+      case ImageType.license:
+        return 'giấy phép lái xe';
+    }
   }
 
   @override
@@ -507,3 +531,4 @@ class _DriverEditProfileScreenState extends State<DriverEditProfileScreen> {
 }
 
 enum ImageType { avatar, license, vehicle }
+
