@@ -221,7 +221,8 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
         if (!mounted) return;
         setState(() {
           if (widget.ride is Ride) {
-            (widget.ride as dynamic).status = 'COMPLETED';
+            Ride ride = widget.ride as Ride;
+            ride.status = 'COMPLETED';
           }
         });
         
@@ -333,7 +334,8 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
         if (!mounted) return;
         setState(() {
           if (widget.ride is Ride) {
-            (widget.ride as dynamic).status = 'CANCELLED';
+            Ride ride = widget.ride as Ride;
+            ride.status = 'CANCELLED';
           }
         });
         

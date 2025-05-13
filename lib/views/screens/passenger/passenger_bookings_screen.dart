@@ -11,6 +11,7 @@ import 'package:sharexe/services/notification_service.dart';
 import 'package:sharexe/views/screens/common/ride_details.dart';
 import 'package:sharexe/views/widgets/ride_card.dart';
 import 'package:sharexe/utils/app_config.dart';
+import 'package:sharexe/views/screens/passenger/passenger_main_screen.dart';
 
 class PassengerBookingsScreen extends StatefulWidget {
   const PassengerBookingsScreen({Key? key}) : super(key: key);
@@ -197,6 +198,27 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen> with 
 
         // Làm mới danh sách bookings
         await _loadBookings();
+        
+        // Thông báo cho PassengerMainScreen để làm mới danh sách chuyến đi
+        try {
+          // Lấy TabNavigator instance từ context
+          final tabNavigator = TabNavigator.of(context);
+          if (tabNavigator != null) {
+            print('✅ Tìm thấy TabNavigator, yêu cầu làm mới danh sách chuyến đi');
+            tabNavigator.refreshHomeTab();
+          } else {
+            print('⚠️ Không tìm thấy TabNavigator để làm mới danh sách');
+            // Thử cách khác - navigate về màn hình chính
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              PassengerRoutes.home, 
+              (route) => false
+            );
+          }
+        } catch (e) {
+          print('⚠️ Lỗi khi làm mới danh sách chuyến đi: $e');
+          // Không dừng quy trình vì đây không phải lỗi chính
+        }
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

@@ -33,14 +33,8 @@ class RideService {
   Future<List<Ride>> getAvailableRides() async {
     print('🔍 Fetching available rides from API...');
     
-    // Check if we have cached data that's less than 30 seconds old
-    final now = DateTime.now();
-    if (_cachedAvailableRides.isNotEmpty && 
-        now.difference(_lastCacheTime).inSeconds < 30) {
-      print('📦 Using cached rides (${_cachedAvailableRides.length} items) from ${now.difference(_lastCacheTime).inSeconds}s ago');
-      return _cachedAvailableRides;
-    }
-    
+    // Always refresh data when this method is called - don't use cache
+    // This ensures that when a booking is cancelled, the ride appears again
     print('🔍 Starting to fetch available rides...');
     print('🌐 API URL: ${_appConfig.availableRidesEndpoint}');
 
@@ -69,9 +63,12 @@ class RideService {
             availableRides = ridesData.map((json) => Ride.fromJson(json)).toList();
             print('✅ Lấy được ${availableRides.length} chuyến đi từ API');
             
+            // Sort rides with newest (highest ID) first
+            availableRides.sort((a, b) => b.id.compareTo(a.id));
+            
             // Update the cache with new data
             _cachedAvailableRides = List.from(availableRides);
-            _lastCacheTime = now;
+            _lastCacheTime = DateTime.now();
           } else {
             print('❌ API response format not as expected: ${responseData['message']}');
           }
@@ -85,7 +82,7 @@ class RideService {
             
             // Update the cache with fallback data
             _cachedAvailableRides = List.from(fallbackRides);
-            _lastCacheTime = now;
+            _lastCacheTime = DateTime.now();
           } else if (_cachedAvailableRides.isNotEmpty) {
             // Use stale cache if we have it rather than no data
             print('📦 Using stale cached data as fallback');
@@ -114,7 +111,9 @@ class RideService {
         if (userBookings.isNotEmpty) {
           final apiBookedRideIds = userBookings
               .where((booking) => 
+                // Only filter out PENDING or ACCEPTED bookings, not CANCELLED ones
                 booking.status.toUpperCase() == 'PENDING' || 
+                booking.status.toUpperCase() == 'ACCEPTED' ||
                 booking.status.toUpperCase() == 'APPROVED')
               .map((booking) => booking.rideId)
               .toSet();
@@ -123,9 +122,11 @@ class RideService {
           print('📋 Danh sách rideId đã đặt từ API: $apiBookedRideIds');
         }
         
-        // 2. Thêm rideId từ mock booking gần nhất (nếu có)
+        // 2. Thêm rideId từ mock booking gần nhất (nếu có và không phải đã hủy)
         final lastCreatedBooking = _bookingService.getLastCreatedBooking();
-        if (lastCreatedBooking != null) {
+        if (lastCreatedBooking != null && 
+            lastCreatedBooking.status.toUpperCase() != 'CANCELLED' &&
+            lastCreatedBooking.status.toUpperCase() != 'REJECTED') {
           print('🔍 Tìm thấy mock booking gần đây: #${lastCreatedBooking.id} cho chuyến #${lastCreatedBooking.rideId}');
           bookedRideIds.add(lastCreatedBooking.rideId);
         }
@@ -143,7 +144,7 @@ class RideService {
           
           // Update the cache with filtered data
           _cachedAvailableRides = List.from(availableRides);
-          _lastCacheTime = now;
+          _lastCacheTime = DateTime.now();
         } else {
           print('ℹ️ Không có chuyến đi nào cần lọc bỏ');
         }
@@ -153,7 +154,9 @@ class RideService {
         // Vẫn thử kiểm tra mock booking trong trường hợp lỗi API
         try {
           final lastCreatedBooking = _bookingService.getLastCreatedBooking();
-          if (lastCreatedBooking != null) {
+          if (lastCreatedBooking != null && 
+              lastCreatedBooking.status.toUpperCase() != 'CANCELLED' &&
+              lastCreatedBooking.status.toUpperCase() != 'REJECTED') {
             print('🔍 Vẫn dùng mock booking để lọc: #${lastCreatedBooking.id} cho chuyến #${lastCreatedBooking.rideId}');
             
             final filteredRides = availableRides
@@ -165,7 +168,7 @@ class RideService {
             
             // Update the cache with filtered data
             _cachedAvailableRides = List.from(availableRides);
-            _lastCacheTime = now;
+            _lastCacheTime = DateTime.now();
           }
         } catch (e2) {
           print('⚠️ Không thể kiểm tra mock booking: $e2');
@@ -401,6 +404,10 @@ class RideService {
                 print(
                   '✅ Successfully parsed ${rides.length} rides from direct API call',
                 );
+                
+                // Sort rides with newest (highest ID) first
+                rides.sort((a, b) => b.id.compareTo(a.id));
+                
                 return rides;
               } else {
                 print(
@@ -527,14 +534,20 @@ class RideService {
         try {
           final Map<String, dynamic> responseData = json.decode(response.body);
           if (responseData['success'] == true && responseData['data'] != null) {
+            List<Ride> rides = [];
             if (responseData['data'] is List) {
               final List<dynamic> rideData = responseData['data'];
               print('✅ Tìm thấy ${rideData.length} chuyến đi phù hợp');
-              return rideData.map((json) => Ride.fromJson(json)).toList();
+              rides = rideData.map((json) => Ride.fromJson(json)).toList();
             } else if (responseData['data'] is Map) {
               print('✅ Tìm thấy 1 chuyến đi phù hợp');
-              return [Ride.fromJson(responseData['data'])];
+              rides = [Ride.fromJson(responseData['data'])];
             }
+            
+            // Sort rides with newest (highest ID) first
+            rides.sort((a, b) => b.id.compareTo(a.id));
+            
+            return rides;
           }
           print('❌ Search response format not as expected: $responseData');
           return [];

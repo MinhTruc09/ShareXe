@@ -625,6 +625,26 @@ class BookingService {
               // Không fail process nếu phần này lỗi
             }
             
+            // Update _lastCreatedBooking status if it matches this rideId
+            if (_lastCreatedBooking != null && _lastCreatedBooking!.rideId == rideId) {
+              print('🔄 Cập nhật trạng thái của _lastCreatedBooking thành CANCELLED');
+              _lastCreatedBooking = Booking(
+                id: _lastCreatedBooking!.id,
+                rideId: _lastCreatedBooking!.rideId,
+                passengerId: _lastCreatedBooking!.passengerId,
+                seatsBooked: _lastCreatedBooking!.seatsBooked,
+                passengerName: _lastCreatedBooking!.passengerName,
+                status: "CANCELLED", // Update status to CANCELLED
+                createdAt: _lastCreatedBooking!.createdAt,
+                passengerAvatar: _lastCreatedBooking!.passengerAvatar,
+                totalPrice: _lastCreatedBooking!.totalPrice,
+                departure: _lastCreatedBooking!.departure,
+                destination: _lastCreatedBooking!.destination,
+                startTime: _lastCreatedBooking!.startTime,
+                pricePerSeat: _lastCreatedBooking!.pricePerSeat,
+              );
+            }
+            
             return true;
           } else {
             print('❌ API trả về thành công nhưng data.success = false');
@@ -643,6 +663,27 @@ class BookingService {
         // Trả về thành công giả nếu đã xác nhận API endpoint đúng
         if (response.statusCode == 404) {
           print('⚠️ Endpoint không tìm thấy - API có thể chưa triển khai. Trả về thành công giả');
+          
+          // Update _lastCreatedBooking status if it matches this rideId
+          if (_lastCreatedBooking != null && _lastCreatedBooking!.rideId == rideId) {
+            print('🔄 Cập nhật trạng thái của _lastCreatedBooking thành CANCELLED');
+            _lastCreatedBooking = Booking(
+              id: _lastCreatedBooking!.id,
+              rideId: _lastCreatedBooking!.rideId,
+              passengerId: _lastCreatedBooking!.passengerId,
+              seatsBooked: _lastCreatedBooking!.seatsBooked,
+              passengerName: _lastCreatedBooking!.passengerName,
+              status: "CANCELLED", // Update status to CANCELLED
+              createdAt: _lastCreatedBooking!.createdAt,
+              passengerAvatar: _lastCreatedBooking!.passengerAvatar,
+              totalPrice: _lastCreatedBooking!.totalPrice,
+              departure: _lastCreatedBooking!.departure,
+              destination: _lastCreatedBooking!.destination,
+              startTime: _lastCreatedBooking!.startTime,
+              pricePerSeat: _lastCreatedBooking!.pricePerSeat,
+            );
+          }
+          
           return true;
         }
         

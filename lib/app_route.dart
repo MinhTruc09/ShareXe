@@ -102,6 +102,7 @@ class AppRoute {
   static const String loginPassenger = PassengerRoutes.login;
   static const String splashPassenger = PassengerRoutes.splash;
   static const String passengerBookings = PassengerRoutes.bookings;
+  static const String passengerMainScreen = PassengerRoutes.home;
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     final String? routeName = settings.name;

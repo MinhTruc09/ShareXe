@@ -21,10 +21,11 @@ class NewHomePscreen extends StatefulWidget {
   const NewHomePscreen({super.key});
 
   @override
-  State<NewHomePscreen> createState() => _NewHomePscreenState();
+  State<NewHomePscreen> createState() => NewHomePscreenState();
 }
 
-class _NewHomePscreenState extends State<NewHomePscreen> {
+// Expose the state class to allow access from outside
+class NewHomePscreenState extends State<NewHomePscreen> {
   late AuthController _authController;
   final NotificationService _notificationService = NotificationService();
   final ProfileService _profileService = ProfileService();
@@ -46,7 +47,7 @@ class _NewHomePscreenState extends State<NewHomePscreen> {
   void initState() {
     super.initState();
     _authController = AuthController(AuthService());
-    _loadAvailableRides();
+    loadAvailableRides();
     _loadUserProfile();
   }
 
@@ -64,7 +65,9 @@ class _NewHomePscreenState extends State<NewHomePscreen> {
     }
   }
 
-  Future<void> _loadAvailableRides() async {
+  // This method is exposed for use by other classes
+  Future<void> loadAvailableRides() async {
+    print('🔄 loadAvailableRides called from ${StackTrace.current}');
     setState(() {
       _isLoading = true;
     });
@@ -76,6 +79,9 @@ class _NewHomePscreenState extends State<NewHomePscreen> {
       print('✅ Successfully fetched ${rides.length} rides from API');
 
       if (mounted) {
+        // Sort rides with newest (highest ID) first
+        rides.sort((a, b) => b.id.compareTo(a.id));
+        
         setState(() {
           _availableRides = rides;
           _isLoading = false;
@@ -107,25 +113,20 @@ class _NewHomePscreenState extends State<NewHomePscreen> {
     setState(() {
       _isRefreshing = true;
     });
-
+    
     try {
-      print('🔄 Refreshing available rides from API...');
-      final rides = await _rideService.getAvailableRides();
-
-      print('✅ Successfully refreshed ${rides.length} rides from API');
-
+      await loadAvailableRides();
+      
       if (mounted) {
         setState(() {
-          _availableRides = rides;
           _isRefreshing = false;
         });
-
+        
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Đã cập nhật danh sách chuyến xe')),
         );
       }
     } catch (e) {
-      print('❌ Error refreshing rides: $e');
       if (mounted) {
         setState(() {
           _isRefreshing = false;
@@ -158,6 +159,9 @@ class _NewHomePscreenState extends State<NewHomePscreen> {
         startTime: _departureDate,
         passengerCount: _passengerCount,
       );
+
+      // Sort rides with newest (highest ID) first
+      rides.sort((a, b) => b.id.compareTo(a.id));
 
       setState(() {
         _availableRides = rides;
@@ -730,7 +734,7 @@ class _NewHomePscreenState extends State<NewHomePscreen> {
                                           // Refresh rides list if booking was canceled
                                           if (result == true && mounted) {
                                             print('🔄 Booking đã hủy, làm mới danh sách chuyến đi');
-                                            _loadAvailableRides();
+                                            loadAvailableRides();
                                           }
                                         }
                                       },

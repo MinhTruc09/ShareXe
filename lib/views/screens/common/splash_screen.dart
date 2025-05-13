@@ -123,16 +123,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 );
               },
             ),
-            const SizedBox(height: 30),
-            const Text(
-              'ShareXe',
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 50),
+            const SizedBox(height: 60),
             if (_isLoading)
               const CircularProgressIndicator(
                 valueColor: AlwaysStoppedAnimation<Color>(Colors.white),

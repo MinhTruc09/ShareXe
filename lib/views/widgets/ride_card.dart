@@ -169,6 +169,23 @@ class RideCard extends StatelessWidget {
       totalPrice = (ride.pricePerSeat ?? 0) * bookedSeats;
     }
 
+    // Format giá tiền với xử lý số lớn
+    String formatPrice(double price) {
+      try {
+        return currencyFormat.format(price);
+      } catch (e) {
+        print('Error formatting price: $e');
+        // Fallback for very large numbers
+        if (price > 1000000000) {
+          return '${(price / 1000000000).toStringAsFixed(1)}B đ';
+        } else if (price > 1000000) {
+          return '${(price / 1000000).toStringAsFixed(1)}M đ';
+        } else {
+          return '$price đ';
+        }
+      }
+    }
+
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),
       shape: RoundedRectangleBorder(
@@ -290,23 +307,32 @@ class RideCard extends StatelessWidget {
                   
                   const SizedBox(height: 12),
                   
-                  // Số ghế và giá
+                  // Số ghế và giá - Sửa để xử lý giá lớn
                   Row(
                     children: [
-                      Text(
-                        '${ride.totalSeat - (ride.availableSeats ?? 0)} ghế × ${currencyFormat.format(ride.pricePerSeat ?? 0)}',
-                        style: const TextStyle(
-                          color: Colors.black87,
-                          fontSize: 14,
+                      Expanded(
+                        flex: 3,
+                        child: Text(
+                          '${ride.totalSeat - (ride.availableSeats ?? 0)} ghế × ${formatPrice(ride.pricePerSeat ?? 0)}',
+                          style: const TextStyle(
+                            color: Colors.black87,
+                            fontSize: 14,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const Spacer(),
-                      Text(
-                        currencyFormat.format(totalPrice),
-                        style: const TextStyle(
-                          color: Colors.black,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                      const SizedBox(width: 8),
+                      Expanded(
+                        flex: 2,
+                        child: Text(
+                          formatPrice(totalPrice),
+                          style: const TextStyle(
+                            color: Colors.black,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                          textAlign: TextAlign.right,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],

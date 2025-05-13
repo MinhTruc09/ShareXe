@@ -11,12 +11,14 @@ class TabNavigator extends InheritedWidget {
   final Function(int) navigateToTab;
   final int currentIndex;
   final Function(BuildContext, String, {Object? arguments}) navigateTo;
+  final VoidCallback refreshHomeTab;
 
   const TabNavigator({
     Key? key,
     required this.navigateToTab,
     required this.currentIndex,
     required this.navigateTo,
+    required this.refreshHomeTab,
     required Widget child,
   }) : super(key: key, child: child);
 
@@ -33,6 +35,11 @@ class TabNavigator extends InheritedWidget {
 class PassengerMainScreen extends StatefulWidget {
   const PassengerMainScreen({Key? key}) : super(key: key);
 
+  // Get TabNavigator from context
+  static TabNavigator? of(BuildContext context) {
+    return TabNavigator.of(context);
+  }
+
   @override
   State<PassengerMainScreen> createState() => _PassengerMainScreenState();
 }
@@ -42,14 +49,10 @@ class _PassengerMainScreenState extends State<PassengerMainScreen>
   int _currentIndex = 0;
   final PageController _pageController = PageController();
   late AnimationController _animationController;
+  final GlobalKey<NewHomePscreenState> _homeScreenKey = GlobalKey<NewHomePscreenState>();
 
   // Danh sách các màn hình chính
-  final List<Widget> _screens = [
-    const NewHomePscreen(),
-    const PassengerBookingsScreen(),
-    const UserListScreen(),
-    const ProfileScreen(),
-  ];
+  late final List<Widget> _screens;
 
   // Các tùy chọn menu
   final List<Map<String, dynamic>> _navItems = [
@@ -82,6 +85,15 @@ class _PassengerMainScreenState extends State<PassengerMainScreen>
   @override
   void initState() {
     super.initState();
+    
+    // Initialize screens with key for home screen
+    _screens = [
+      NewHomePscreen(key: _homeScreenKey),
+      const PassengerBookingsScreen(),
+      const UserListScreen(),
+      const ProfileScreen(),
+    ];
+    
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 400),
@@ -135,6 +147,21 @@ class _PassengerMainScreenState extends State<PassengerMainScreen>
   }) {
     Navigator.pushNamed(context, routeName, arguments: arguments);
   }
+  
+  // Method to refresh the home tab
+  void _refreshHomeTab() {
+    if (_homeScreenKey.currentState != null) {
+      print('✅ Refreshing home tab from PassengerMainScreen');
+      _homeScreenKey.currentState!.loadAvailableRides();
+      
+      // If we're not on the home tab, switch to it
+      if (_currentIndex != 0) {
+        _onTabTapped(0);
+      }
+    } else {
+      print('⚠️ Home screen state is null, cannot refresh');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -142,6 +169,7 @@ class _PassengerMainScreenState extends State<PassengerMainScreen>
       navigateToTab: _onTabTapped,
       currentIndex: _currentIndex,
       navigateTo: _navigateTo,
+      refreshHomeTab: _refreshHomeTab,
       child: Scaffold(
         appBar: _buildAppBar(),
         body: PageView(

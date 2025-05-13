@@ -8,7 +8,7 @@ class Ride {
   final String startTime;
   final double? pricePerSeat;
   final int totalSeat;
-  final String status;
+  String status;
 
   Ride({
     required this.id,
