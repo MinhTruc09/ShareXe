@@ -62,11 +62,32 @@ class RegisterController {
       }
 
       if (result.success == true) {
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          '/login_${role.toLowerCase()}',
+        // Login automatically after successful registration
+        final loginResult = await _authService.login(email, password);
+        
+        if (loginResult.success) {
+          // Navigate directly to the home screen based on role
+          if (role == 'DRIVER') {
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              '/driver/home',
               (route) => false,
-        );
+            );
+          } else {
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              '/passenger/home',
+              (route) => false,
+            );
+          }
+        } else {
+          // If auto-login fails, still go to login screen
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/login_${role.toLowerCase()}',
+            (route) => false,
+          );
+        }
       } else {
         setError(result.message ?? 'Đăng ký thất bại');
       }

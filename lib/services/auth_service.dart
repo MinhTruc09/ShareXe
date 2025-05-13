@@ -15,7 +15,7 @@ class AuthService {
   // Getter để lấy baseUrl từ AppConfig
   String get baseUrl => '${_appConfig.apiBaseUrl}/api';
 
-  Future<Passenger> login(String email, String password, String role) async {
+  Future<Passenger> loginWithRole(String email, String password, String role) async {
     try {
       print('📝 Login attempt: Email: $email, Role: $role');
       
@@ -95,6 +95,64 @@ class AuthService {
       return Passenger(
         success: false,
         message: 'Lỗi kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng và thử lại.',
+        data: null,
+      );
+    }
+  }
+
+  // Method for auto-login after registration without specifying role
+  Future<Passenger> login(String email, String password) async {
+    try {
+      print('📝 Auto-login attempt after registration: Email: $email');
+      
+      final response = await http.post(
+        Uri.parse('$baseUrl/auth/login'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': email, 'password': password}),
+      );
+      
+      print('📝 Auto-login response: Status ${response.statusCode}');
+      
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body);
+        final parsed = Passenger.fromJson(jsonResponse);
+
+        // Extract token data
+        if (parsed.success && parsed.data != null) {
+          final token = parsed.data!.token;
+          final userEmail = parsed.data!.email;
+          final userRole = parsed.data!.role;
+
+          if (token != null && userEmail != null && userRole != null) {
+            // Save auth data using AuthManager
+            await _authManager.saveAuthData(token, userEmail, userRole);
+          }
+        }
+
+        return parsed;
+      } else {
+        // If login fails, return error
+        String errorMessage = 'Đăng nhập tự động thất bại';
+        try {
+          final jsonResponse = jsonDecode(response.body);
+          if (jsonResponse['message'] != null) {
+            errorMessage = jsonResponse['message'];
+          }
+        } catch (e) {
+          // Ignore JSON parse errors
+        }
+        
+        return Passenger(
+          success: false,
+          message: errorMessage,
+          data: null,
+        );
+      }
+    } catch (e) {
+      print('❌ Auto-login error: $e');
+      return Passenger(
+        success: false,
+        message: 'Lỗi kết nối đến máy chủ. Vui lòng đăng nhập thủ công.',
         data: null,
       );
     }

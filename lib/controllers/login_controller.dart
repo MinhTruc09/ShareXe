@@ -20,7 +20,7 @@ class LoginController {
 
     try {
       print('🔑 Đang đăng nhập với vai trò: ${role ?? 'PASSENGER'}');
-      final response = await service.login(email, password, role!);
+      final response = await service.loginWithRole(email, password, role!);
       isLoading = false;
 
       if (response.success && response.data != null) {
