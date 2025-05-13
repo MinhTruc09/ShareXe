@@ -135,9 +135,11 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     super.initState();
     _initialize();
 
-    // Đặt timer để làm mới tin nhắn
-    _refreshTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
-      _loadMessages();
+    // Đặt timer để làm mới tin nhắn thường xuyên hơn (5 giây thay vì 10 giây)
+    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (mounted) {
+        _loadMessages();
+      }
     });
   }
 
@@ -166,6 +168,9 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
         throw Exception('Không thể lấy email người dùng');
       }
 
+      // Đảm bảo phòng chat được tạo cho cả hai bên
+      await _chatService.ensureChatRoomIsCreated(widget.partnerEmail);
+
       // Kết nối WebSocket
       String? token = await _authManager.getToken();
       if (token == null) {
@@ -180,20 +185,26 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
         print('WebSocket URL: ${_appConfig.webSocketUrl}');
       }
 
+      // Khởi tạo lại WebSocket để đảm bảo kết nối mới
       _webSocketService.initialize(_appConfig.apiBaseUrl, token, _userEmail!);
 
-      // Kiểm tra kết nối WebSocket
-      await Future.delayed(
-        const Duration(seconds: 2),
-      ); // Cho WebSocket có thời gian kết nối
-      if (!_webSocketService.isConnected()) {
-        if (foundation.kDebugMode) {
-          print('⚠️ WebSocket không thể kết nối sau khi khởi tạo');
-        }
-        // Vẫn tiếp tục mà không throw exception, vì chúng ta sẽ fallback sang REST API
-      } else {
-        if (foundation.kDebugMode) {
-          print('✅ WebSocket đã kết nối thành công');
+      // Kiểm tra kết nối WebSocket và thử kết nối lại nếu cần
+      for (int i = 0; i < 3; i++) {
+        await Future.delayed(const Duration(seconds: 1)); 
+        if (_webSocketService.isConnected()) {
+          if (foundation.kDebugMode) {
+            print('✅ WebSocket đã kết nối thành công sau lần thử $i');
+          }
+          break;
+        } else if (i == 2) {
+          if (foundation.kDebugMode) {
+            print('⚠️ WebSocket không thể kết nối sau 3 lần thử');
+          }
+        } else {
+          if (foundation.kDebugMode) {
+            print('⚠️ WebSocket chưa kết nối. Đang thử lại lần ${i+1}...');
+          }
+          _webSocketService.initialize(_appConfig.apiBaseUrl, token, _userEmail!);
         }
       }
 
@@ -208,12 +219,30 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     } catch (e) {
       if (foundation.kDebugMode) {
         print('Lỗi khởi tạo chat: $e');
+        print('Thử tải tin nhắn qua REST API thay vì WebSocket');
+      }
+
+      // Nếu có lỗi, vẫn thử tải tin nhắn qua REST API
+      try {
+        await _loadChatHistory();
+      } catch (loadError) {
+        if (foundation.kDebugMode) {
+          print('Không thể tải tin nhắn qua REST API: $loadError');
+        }
       }
 
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Không thể kết nối: $e')));
+        ).showSnackBar(
+          SnackBar(
+            content: Text('Có vấn đề khi kết nối: $e'),
+            action: SnackBarAction(
+              label: 'Thử lại',
+              onPressed: _initialize,
+            ),
+          ),
+        );
       }
     } finally {
       if (mounted) {
@@ -379,17 +408,34 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
             _messages =
                 localMessages
                   ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
-            _isLoading = false;
           });
         }
       }
 
-      // Sau đó tải tin nhắn từ server để cập nhật
+      // Luôn tải tin nhắn từ server để đảm bảo có dữ liệu mới nhất
       if (foundation.kDebugMode) {
         print('🌐 Đang tải tin nhắn từ server...');
       }
       
-      final serverMessages = await _chatService.getChatHistory(widget.roomId);
+      // Tăng số lần thử tải dữ liệu để đảm bảo ổn định
+      int retryCount = 0;
+      List<ChatMessageModel> serverMessages = [];
+      
+      while (retryCount < 3 && serverMessages.isEmpty) {
+        serverMessages = await _chatService.getChatHistory(widget.roomId);
+        
+        if (serverMessages.isEmpty && retryCount < 2) {
+          // Thử tải lại sau một khoảng thời gian ngắn
+          await Future.delayed(const Duration(milliseconds: 500));
+          retryCount++;
+          
+          if (foundation.kDebugMode) {
+            print('🔄 Thử tải lại tin nhắn lần ${retryCount + 1}...');
+          }
+        } else {
+          break;
+        }
+      }
 
       if (foundation.kDebugMode) {
         print('🌐 Đã nhận ${serverMessages.length} tin nhắn từ server');
@@ -400,20 +446,16 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
         await _chatLocalStorage.saveMessages(widget.roomId, serverMessages);
 
         if (mounted) {
-          // Cập nhật giao diện nếu danh sách tin nhắn từ server khác với local
-          if (localMessages.isEmpty ||
-              !_areMessagesEqual(localMessages, serverMessages)) {
-            setState(() {
-              // Đảm bảo tin nhắn được sắp xếp theo thời gian tăng dần
-              _messages =
-                  serverMessages
-                    ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
-              _isLoading = false;
-            });
+          setState(() {
+            // Đảm bảo tin nhắn được sắp xếp theo thời gian tăng dần
+            _messages =
+                serverMessages
+                  ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+            _isLoading = false;
+          });
 
-            if (foundation.kDebugMode) {
-              print('✅ Đã cập nhật danh sách tin nhắn với dữ liệu từ server');
-            }
+          if (foundation.kDebugMode) {
+            print('✅ Đã cập nhật danh sách tin nhắn với dữ liệu từ server');
           }
         }
       } else if (foundation.kDebugMode) {
@@ -445,21 +487,23 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
         print('Stack trace: ${StackTrace.current}');
       }
       
-      // Nếu đã có tin nhắn từ local, không hiển thị thông báo lỗi
-      if (_messages.isEmpty && mounted) {
+      if (mounted) {
         setState(() {
           _isLoading = false;
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Không thể tải tin nhắn: $e'),
-            action: SnackBarAction(
-              label: 'Thử lại',
-              onPressed: _loadChatHistory,
+        // Chỉ hiển thị thông báo lỗi nếu không có tin nhắn nào
+        if (_messages.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Không thể tải tin nhắn: $e'),
+              action: SnackBarAction(
+                label: 'Thử lại',
+                onPressed: _loadChatHistory,
+              ),
             ),
-          ),
-        );
+          );
+        }
       }
     } finally {
       if (mounted) {
@@ -470,59 +514,59 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     }
   }
 
-  // Hàm so sánh hai danh sách tin nhắn
-  bool _areMessagesEqual(
-    List<ChatMessageModel> list1,
-    List<ChatMessageModel> list2,
-  ) {
-    if (list1.length != list2.length) {
-      return false;
-    }
-
-    for (int i = 0; i < list1.length; i++) {
-      if (list1[i].content != list2[i].content ||
-          !list1[i].timestamp.isAtSameMomentAs(list2[i].timestamp) ||
-          list1[i].senderEmail != list2[i].senderEmail) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
+  // Method to refresh messages more aggressively
   Future<void> _loadMessages() async {
     if (!mounted) return;
 
     try {
+      if (foundation.kDebugMode) {
+        print('🔄 Tự động làm mới tin nhắn cho phòng ${widget.roomId}');
+      }
+      
+      // Luôn tải mới tin nhắn từ server mà không cần so sánh
       final messages = await _chatService.getChatHistory(widget.roomId);
+      
       if (mounted && messages.isNotEmpty) {
-        // Chỉ cập nhật nếu có tin nhắn mới
-        if (_messages.isEmpty ||
-            messages.length > _messages.length ||
-            !_areMessagesEqual(_messages, messages)) {
-          setState(() {
-            // Đảm bảo tin nhắn được sắp xếp theo thời gian tăng dần
-            _messages =
-                messages..sort((a, b) => a.timestamp.compareTo(b.timestamp));
-            _isLoading = false;
-          });
-
-          // Cuộn xuống tin nhắn cuối cùng
+        // Phát hiện các tin nhắn mới bằng cách so sánh ID và thời gian
+        bool hasNewMessages = false;
+        
+        if (_messages.isEmpty) {
+          hasNewMessages = true;
+        } else {
+          // Kiểm tra xem có tin nhắn mới không
+          final latestCurrentTimestamp = _messages.isNotEmpty 
+              ? _messages.map((m) => m.timestamp.millisecondsSinceEpoch).reduce((a, b) => a > b ? a : b)
+              : 0;
+              
+          for (var msg in messages) {
+            if (msg.timestamp.millisecondsSinceEpoch > latestCurrentTimestamp) {
+              hasNewMessages = true;
+              break;
+            }
+          }
+        }
+        
+        // Cập nhật danh sách tin nhắn
+        setState(() {
+          _messages = messages..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+        });
+        
+        // Cuộn xuống tin nhắn cuối cùng nếu có tin nhắn mới
+        if (hasNewMessages) {
           _scrollToBottom();
         }
+        
+        // Lưu trữ tin nhắn vào local storage
+        await _chatLocalStorage.saveMessages(widget.roomId, messages);
+        
+        // Đánh dấu tin nhắn đã đọc
+        await _chatService.markMessagesAsRead(widget.roomId);
       }
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-        // Chỉ hiển thị thông báo lỗi nếu chưa có tin nhắn nào
-        if (_messages.isEmpty) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Không thể tải tin nhắn: $e')));
-        }
+      if (foundation.kDebugMode) {
+        print('❌ Lỗi khi làm mới tin nhắn: $e');
       }
+      // Không hiển thị thông báo lỗi cho việc làm mới tự động
     }
   }
 
@@ -1371,5 +1415,25 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
         ),
       ),
     );
+  }
+
+  // Hàm so sánh hai danh sách tin nhắn
+  bool _areMessagesEqual(
+    List<ChatMessageModel> list1,
+    List<ChatMessageModel> list2,
+  ) {
+    if (list1.length != list2.length) {
+      return false;
+    }
+
+    for (int i = 0; i < list1.length; i++) {
+      if (list1[i].content != list2[i].content ||
+          !list1[i].timestamp.isAtSameMomentAs(list2[i].timestamp) ||
+          list1[i].senderEmail != list2[i].senderEmail) {
+        return false;
+      }
+    }
+
+    return true;
   }
 }

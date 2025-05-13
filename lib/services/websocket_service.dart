@@ -193,19 +193,59 @@ class WebSocketService {
         if (frame.body != null) {
           try {
             if (kDebugMode) {
-              print('✉️ Received chat message: ${frame.body}');
+              print('✉️ Received chat message via WebSocket: ${frame.body}');
             }
             
             final chatMessage = ChatMessageModel.fromJson(
               json.decode(frame.body!),
             );
+            
+            if (kDebugMode) {
+              print('✉️ Parsed message details:');
+              print('   - Room ID: ${chatMessage.roomId}');
+              print('   - Sender: ${chatMessage.senderEmail}');
+              print('   - Receiver: ${chatMessage.receiverEmail}');
+              print('   - Content: ${chatMessage.content.length > 30 ? '${chatMessage.content.substring(0, 30)}...' : chatMessage.content}');
+              print('   - Timestamp: ${chatMessage.timestamp}');
+            }
+            
             if (onChatMessageReceived != null) {
               onChatMessageReceived!(chatMessage);
+            } else if (kDebugMode) {
+              print('⚠️ No chat message handler registered');
             }
           } catch (e) {
             if (kDebugMode) {
               print('❌ Error parsing chat message: $e');
               print('Body: ${frame.body}');
+              print('Stack trace: ${StackTrace.current}');
+            }
+          }
+        } else if (kDebugMode) {
+          print('⚠️ Received empty chat message frame');
+        }
+      },
+    );
+    
+    _stompClient!.subscribe(
+      destination: '/topic/chat/global',
+      callback: (frame) {
+        if (frame.body != null && frame.body!.isNotEmpty) {
+          try {
+            final data = json.decode(frame.body!);
+            if (kDebugMode) {
+              print('📢 Global chat message: ${frame.body}');
+            }
+            
+            if (data['receiverEmail'] == _userEmail || data['senderEmail'] == _userEmail) {
+              final chatMessage = ChatMessageModel.fromJson(data);
+              if (onChatMessageReceived != null) {
+                onChatMessageReceived!(chatMessage);
+              }
+            }
+          } catch (e) {
+            if (kDebugMode) {
+              print('❌ Error processing global chat message: $e');
             }
           }
         }

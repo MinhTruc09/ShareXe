@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../services/chat_service.dart';
 import 'chat_room_screen.dart';
+import 'dart:async';
 
 class ChatListScreen extends StatefulWidget {
   const ChatListScreen({Key? key}) : super(key: key);
@@ -14,33 +15,63 @@ class _ChatListScreenState extends State<ChatListScreen> {
   final ChatService _chatService = ChatService();
   List<Map<String, dynamic>> _chatRooms = [];
   bool _isLoading = true;
+  Timer? _refreshTimer;
   
   @override
   void initState() {
     super.initState();
     _loadChatRooms();
+    
+    // Thiết lập bộ đếm thời gian để tự động làm mới danh sách chat
+    _refreshTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      if (mounted) {
+        _loadChatRooms(silentRefresh: true);
+      }
+    });
   }
   
-  Future<void> _loadChatRooms() async {
-    setState(() {
-      _isLoading = true;
-    });
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+  
+  Future<void> _loadChatRooms({bool silentRefresh = false}) async {
+    if (!silentRefresh) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
     
     try {
       final chatRooms = await _chatService.getChatRooms();
-      setState(() {
-        _chatRooms = chatRooms;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
       
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Không thể tải danh sách chat: $e')),
-        );
+      // Chỉ cập nhật UI nếu có sự thay đổi hoặc không phải là làm mới ngầm
+      if (!silentRefresh || chatRooms.length != _chatRooms.length) {
+        if (mounted) {
+          setState(() {
+            _chatRooms = chatRooms;
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (!silentRefresh) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Không thể tải danh sách chat: $e'),
+              action: SnackBarAction(
+                label: 'Thử lại',
+                onPressed: _loadChatRooms,
+              ),
+            ),
+          );
+        }
       }
     }
   }

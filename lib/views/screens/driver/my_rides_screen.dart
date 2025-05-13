@@ -684,15 +684,59 @@ class _MyRidesScreenState extends State<MyRidesScreen>
 
   Future<void> _editRide(Ride ride) async {
     // Kiểm tra trạng thái của chuyến đi
-    if (ride.status.toUpperCase() == 'CANCELLED') {
-      // Hiển thị thông báo không thể chỉnh sửa chuyến đi đã hủy
+    final String status = ride.status.toUpperCase();
+    
+    // Các trạng thái không cho phép chỉnh sửa
+    final List<String> nonEditableStatuses = [
+      AppConfig.RIDE_STATUS_DRIVER_CONFIRMED,
+      AppConfig.RIDE_STATUS_COMPLETED,
+      AppConfig.RIDE_STATUS_CANCELLED,
+      'IN_PROGRESS', // Trạng thái IN_PROGRESS của ride
+      'PASSENGER_CONFIRMED'
+    ];
+    
+    // Kiểm tra nếu booking thuộc các trạng thái không cho phép chỉnh sửa
+    if (nonEditableStatuses.contains(status)) {
+      // Hiển thị thông báo không thể chỉnh sửa 
+      String statusMessage = 'Không thể chỉnh sửa chuyến đi trong trạng thái hiện tại';
+      
+      if (status == AppConfig.RIDE_STATUS_CANCELLED) {
+        statusMessage = 'Không thể chỉnh sửa chuyến đi đã hủy';
+      } else if (status == AppConfig.RIDE_STATUS_COMPLETED) {
+        statusMessage = 'Không thể chỉnh sửa chuyến đi đã hoàn thành';
+      } else if (status == AppConfig.RIDE_STATUS_DRIVER_CONFIRMED) {
+        statusMessage = 'Không thể chỉnh sửa chuyến đi đã xác nhận hoàn thành';
+      } else if (status == 'IN_PROGRESS') {
+        statusMessage = 'Không thể chỉnh sửa chuyến đi đang diễn ra';
+      }
+      
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Không thể chỉnh sửa chuyến đi đã hủy'),
+        SnackBar(
+          content: Text(statusMessage),
           backgroundColor: Colors.red,
         ),
       );
       return; // Ngừng thực hiện phương thức
+    }
+
+    // Kiểm tra thời gian bắt đầu của chuyến đi
+    try {
+      final DateTime startTime = DateTime.parse(ride.startTime);
+      final DateTime now = DateTime.now();
+      
+      // Nếu chuyến đã bắt đầu (hoặc sắp bắt đầu trong vòng 30 phút), không cho phép chỉnh sửa
+      if (now.isAfter(startTime.subtract(const Duration(minutes: 30)))) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Không thể chỉnh sửa chuyến đi đã hoặc sắp diễn ra (trong vòng 30 phút)'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return; // Ngừng thực hiện phương thức
+      }
+    } catch (e) {
+      // Xử lý lỗi nếu không thể phân tích thời gian
+      print('Lỗi khi kiểm tra thời gian: $e');
     }
 
     final Map<String, dynamic> rideData = {
@@ -1207,8 +1251,34 @@ class _MyRidesScreenState extends State<MyRidesScreen>
         
         // Xác định các hành động dựa trên trạng thái
         final bool canCancel = status == 'ACTIVE' || status == 'PENDING';
-        final bool canEdit = status != 'CANCELLED' && status != 'COMPLETED' && 
-                        status != 'DRIVER_CONFIRMED' && status != 'IN_PROGRESS';
+        
+        // Danh sách trạng thái không được phép chỉnh sửa
+        final List<String> nonEditableStatuses = [
+          AppConfig.RIDE_STATUS_DRIVER_CONFIRMED,
+          AppConfig.RIDE_STATUS_COMPLETED, 
+          AppConfig.RIDE_STATUS_CANCELLED,
+          'IN_PROGRESS',
+          'PASSENGER_CONFIRMED'
+        ];
+        
+        // Kiểm tra xem ride có thuộc trạng thái không được phép chỉnh sửa không
+        final bool canEdit = !nonEditableStatuses.contains(ride.status.toUpperCase());
+        
+        // Kiểm tra thời gian bắt đầu
+        bool isStartingSoon = false;
+        try {
+          final DateTime startTime = DateTime.parse(ride.startTime);
+          final DateTime now = DateTime.now();
+          // Không cho phép chỉnh sửa nếu chuyến đã bắt đầu hoặc sắp bắt đầu trong vòng 30 phút
+          isStartingSoon = now.isAfter(startTime.subtract(const Duration(minutes: 30)));
+        } catch (e) {
+          // Xử lý lỗi khi phân tích thời gian
+          print('Lỗi khi kiểm tra thời gian bắt đầu: $e');
+        }
+        
+        // Chỉ cho phép chỉnh sửa nếu trạng thái cho phép VÀ chuyến đi chưa bắt đầu/sắp bắt đầu
+        final bool canReallyEdit = canEdit && !isStartingSoon;
+        
         final bool canConfirm = status == 'IN_PROGRESS'; // Chỉ IN_PROGRESS mới có thể xác nhận
         
         return Column(
@@ -1232,7 +1302,7 @@ class _MyRidesScreenState extends State<MyRidesScreen>
             ),
             
             // Hiển thị các nút hành động với thiết kế đẹp hơn
-            if (canCancel || canEdit)
+            if (canCancel || canReallyEdit)
               Container(
                 margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
@@ -1265,9 +1335,9 @@ class _MyRidesScreenState extends State<MyRidesScreen>
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           ),
                         ),
-                      if (canCancel && canEdit)
+                      if (canCancel && canReallyEdit)
                         const SizedBox(width: 12),
-                      if (canEdit)
+                      if (canReallyEdit)
                         ElevatedButton.icon(
                           onPressed: () => _editRide(ride),
                           icon: const Icon(Icons.edit_outlined, size: 18),
@@ -1285,7 +1355,7 @@ class _MyRidesScreenState extends State<MyRidesScreen>
                   ),
                 ),
               ),
-            if (!canCancel && !canEdit)
+            if (!canCancel && !canReallyEdit)
               const SizedBox(height: 16),
           ],
         );

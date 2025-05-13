@@ -8,6 +8,7 @@ import '../../widgets/location_picker.dart';
 import '../../widgets/date_picker.dart';
 import '../../widgets/passenger_counter.dart';
 import '../../widgets/sharexe_background2.dart';
+import '../../../utils/app_config.dart';
 
 class CreateRideScreen extends StatefulWidget {
   final Map<String, dynamic>?
@@ -238,14 +239,60 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
     // Kiểm tra trạng thái của chuyến đi nếu đang ở chế độ chỉnh sửa
     if (_isEditMode && widget.existingRide != null) {
       final rideStatus = widget.existingRide?['status']?.toString().toUpperCase();
-      if (rideStatus == 'CANCELLED') {
+      
+      // Danh sách các trạng thái không được phép chỉnh sửa
+      final List<String> nonEditableStatuses = [
+        AppConfig.RIDE_STATUS_DRIVER_CONFIRMED,
+        AppConfig.RIDE_STATUS_COMPLETED, 
+        AppConfig.RIDE_STATUS_CANCELLED,
+        'IN_PROGRESS',
+        'PASSENGER_CONFIRMED'
+      ];
+      
+      // Kiểm tra nếu trạng thái của chuyến đi không cho phép chỉnh sửa
+      if (nonEditableStatuses.contains(rideStatus)) {
+        String statusMessage = 'Không thể chỉnh sửa chuyến đi trong trạng thái hiện tại';
+        
+        if (rideStatus == AppConfig.RIDE_STATUS_CANCELLED) {
+          statusMessage = 'Không thể chỉnh sửa chuyến đi đã hủy';
+        } else if (rideStatus == AppConfig.RIDE_STATUS_COMPLETED) {
+          statusMessage = 'Không thể chỉnh sửa chuyến đi đã hoàn thành';
+        } else if (rideStatus == AppConfig.RIDE_STATUS_DRIVER_CONFIRMED) {
+          statusMessage = 'Không thể chỉnh sửa chuyến đi đã xác nhận hoàn thành';
+        } else if (rideStatus == 'IN_PROGRESS') {
+          statusMessage = 'Không thể chỉnh sửa chuyến đi đang diễn ra';
+        } else if (rideStatus == 'PASSENGER_CONFIRMED') {
+          statusMessage = 'Không thể chỉnh sửa chuyến đi đã được hành khách xác nhận';
+        }
+        
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Không thể cập nhật chuyến đi đã bị hủy'),
+          SnackBar(
+            content: Text(statusMessage),
             backgroundColor: Colors.red,
           ),
         );
         return;
+      }
+      
+      // Kiểm tra thời gian bắt đầu 
+      if (widget.existingRide?['startTime'] != null) {
+        try {
+          final DateTime startTime = DateTime.parse(widget.existingRide!['startTime']);
+          final DateTime now = DateTime.now();
+          
+          // Không cho phép chỉnh sửa nếu chuyến đi sắp bắt đầu trong vòng 30 phút
+          if (now.isAfter(startTime.subtract(const Duration(minutes: 30)))) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Không thể chỉnh sửa chuyến đi đã hoặc sắp diễn ra (trong vòng 30 phút)'),
+                backgroundColor: Colors.red,
+              ),
+            );
+            return;
+          }
+        } catch (e) {
+          print('Lỗi khi kiểm tra thời gian: $e');
+        }
       }
     }
 

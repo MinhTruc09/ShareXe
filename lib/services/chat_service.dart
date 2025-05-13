@@ -47,62 +47,96 @@ class ChatService {
     }
   }
 
-  // Lấy lịch sử tin nhắn của một phòng chat
+  // Lấy lịch sử tin nhắn của một phòng chat với cơ chế retry
   Future<List<ChatMessageModel>> getChatHistory(String roomId) async {
-    try {
-      if (kDebugMode) {
-        print('🔄 Đang tải lịch sử chat cho phòng: $roomId');
-        print('🔄 API Endpoint: ${_appConfig.fullApiUrl}/chat/history/$roomId');
-      }
-      
-      // Kiểm tra xem roomId có hợp lệ không
-      if (roomId.isEmpty || roomId == 'null' || roomId == 'undefined') {
+    int retryCount = 0;
+    const maxRetries = 2;
+    
+    while (retryCount <= maxRetries) {
+      try {
         if (kDebugMode) {
-          print('❌ RoomId không hợp lệ: $roomId');
-        }
-        return [];
-      }
-      
-      final response = await _apiClient.get(
-        '/chat/history/$roomId',
-        requireAuth: true,
-      );
-
-      if (response.statusCode == 200) {
-        final jsonResponse = json.decode(response.body);
-        if (kDebugMode) {
-          print('✅ Nhận phản hồi từ API: ${response.statusCode}');
-          print('✅ Dữ liệu: ${jsonResponse['success']}, có ${jsonResponse['data']?.length ?? 0} tin nhắn');
+          print('🔄 Đang tải lịch sử chat cho phòng: $roomId (lần thử ${retryCount + 1})');
+          print('🔄 API Endpoint: ${_appConfig.fullApiUrl}/chat/history/$roomId');
         }
         
-        if (jsonResponse['success'] == true && jsonResponse['data'] != null) {
-          final List<dynamic> data = jsonResponse['data'];
-          final messages = data.map((item) => ChatMessageModel.fromJson(item)).toList();
-          
+        // Kiểm tra xem roomId có hợp lệ không
+        if (roomId.isEmpty || roomId == 'null' || roomId == 'undefined') {
           if (kDebugMode) {
-            print('✅ Đã chuyển đổi ${messages.length} tin nhắn từ JSON');
-          }
-          
-          return messages;
-        } else {
-          if (kDebugMode) {
-            print('⚠️ API trả về success=false hoặc data=null: ${jsonResponse['message']}');
+            print('❌ RoomId không hợp lệ: $roomId');
           }
           return [];
         }
-      } else {
-        if (kDebugMode) {
-          print('❌ Lỗi HTTP ${response.statusCode}: ${response.body}');
+        
+        // Kiểm tra kết nối tới API
+        await _appConfig.switchToWorkingUrl();
+        
+        final response = await _apiClient.get(
+          '/chat/history/$roomId',
+          requireAuth: true,
+        );
+
+        if (response.statusCode == 200) {
+          final jsonResponse = json.decode(response.body);
+          if (kDebugMode) {
+            print('✅ Nhận phản hồi từ API: ${response.statusCode}');
+            print('✅ Dữ liệu: ${jsonResponse['success']}, có ${jsonResponse['data']?.length ?? 0} tin nhắn');
+          }
+          
+          if (jsonResponse['success'] == true && jsonResponse['data'] != null) {
+            final List<dynamic> data = jsonResponse['data'];
+            final messages = data.map((item) => ChatMessageModel.fromJson(item)).toList();
+            
+            if (kDebugMode) {
+              print('✅ Đã chuyển đổi ${messages.length} tin nhắn từ JSON');
+            }
+            
+            return messages;
+          } else {
+            if (kDebugMode) {
+              print('⚠️ API trả về success=false hoặc data=null: ${jsonResponse['message']}');
+            }
+            
+            // Nếu không có tin nhắn và đây không phải lần thử cuối cùng, thử lại
+            if (retryCount < maxRetries) {
+              retryCount++;
+              await Future.delayed(Duration(milliseconds: 500 * retryCount));
+              continue;
+            }
+            
+            return [];
+          }
+        } else {
+          if (kDebugMode) {
+            print('❌ Lỗi HTTP ${response.statusCode}: ${response.body}');
+          }
+          
+          // Nếu lỗi và đây không phải lần thử cuối cùng, thử lại
+          if (retryCount < maxRetries) {
+            retryCount++;
+            await Future.delayed(Duration(milliseconds: 500 * retryCount));
+            continue;
+          }
+          
+          throw Exception('Lỗi khi tải lịch sử chat: ${response.statusCode}');
         }
-        throw Exception('Lỗi khi tải lịch sử chat: ${response.statusCode}');
+      } catch (e) {
+        if (kDebugMode) {
+          print('❌ Lỗi khi lấy lịch sử chat (lần ${retryCount + 1}): $e');
+        }
+        
+        // Nếu lỗi và đây không phải lần thử cuối cùng, thử lại
+        if (retryCount < maxRetries) {
+          retryCount++;
+          await Future.delayed(Duration(milliseconds: 500 * retryCount));
+          continue;
+        }
+        
+        return [];
       }
-    } catch (e) {
-      if (kDebugMode) {
-        print('❌ Lỗi khi lấy lịch sử chat: $e');
-        print('❌ Stack trace: ${StackTrace.current}');
-      }
-      return [];
     }
+    
+    // Fallback nếu tất cả các lần thử đều thất bại
+    return [];
   }
 
   // Tạo phòng chat mới hoặc lấy phòng chat hiện tại với một người dùng
@@ -270,6 +304,43 @@ class ChatService {
         print('Lỗi khi lấy số tin nhắn chưa đọc: $e');
       }
       return 0;
+    }
+  }
+
+  // Phương thức mới để đảm bảo phòng chat được tạo và hiển thị cho cả hai bên
+  Future<void> ensureChatRoomIsCreated(String receiverEmail) async {
+    try {
+      if (kDebugMode) {
+        print('🔄 Đảm bảo phòng chat được tạo với: $receiverEmail');
+      }
+      
+      // Tạo hoặc lấy phòng chat
+      final roomId = await createOrGetChatRoom(receiverEmail);
+      
+      if (roomId != null && roomId.isNotEmpty) {
+        if (kDebugMode) {
+          print('✅ Phòng chat tồn tại: $roomId');
+        }
+        
+        // Gửi một tin nhắn hệ thống ẩn để đảm bảo phòng chat được tạo trên server
+        // Tin nhắn này sẽ không hiển thị cho người dùng
+        await _apiClient.post(
+          '/chat/ensure-room',
+          body: {
+            'roomId': roomId,
+            'receiverEmail': receiverEmail,
+          },
+          requireAuth: true,
+        );
+      } else {
+        if (kDebugMode) {
+          print('⚠️ Không thể tạo phòng chat với: $receiverEmail');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Lỗi khi đảm bảo phòng chat tồn tại: $e');
+      }
     }
   }
 }

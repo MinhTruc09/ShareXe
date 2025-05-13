@@ -615,21 +615,68 @@ class RideService {
     try {
       print('📝 Cập nhật chuyến đi #$rideId với dữ liệu: $rideData');
 
+      // Thêm timeout để tránh treo vô hạn
       final response = await _apiClient.put(
         '/ride/update/$rideId',
         body: rideData,
         requireAuth: true,
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          print('⌛ API update ride timeout sau 10 giây');
+          throw TimeoutException('API timeout');
+        },
       );
 
+      print('📝 Response status: ${response.statusCode}');
+      
       if (response.statusCode == 200) {
-        print('✅ Cập nhật chuyến đi thành công');
-        return true;
+        try {
+          final responseData = json.decode(response.body);
+          
+          // Kiểm tra đáp ứng có đúng định dạng không
+          if (responseData['success'] == true) {
+            print('✅ Cập nhật chuyến đi thành công');
+            
+            // Xóa cache để đảm bảo lần sau lấy dữ liệu mới
+            _cachedDriverRides = [];
+            _lastDriverCacheTime = DateTime(1970);
+            
+            return true;
+          } else {
+            print('❌ API trả về success=false: ${responseData['message'] ?? "Không có thông báo lỗi"}');
+            return false;
+          }
+        } catch (e) {
+          print('❌ Lỗi khi phân tích phản hồi: $e');
+          return false;
+        }
       } else {
         print('❌ Lỗi khi cập nhật chuyến đi: ${response.statusCode}');
+        
+        // Thử hiển thị nội dung lỗi từ phản hồi
+        try {
+          final errorData = json.decode(response.body);
+          print('❌ Chi tiết lỗi: ${errorData['message'] ?? "Không có thông báo lỗi"}');
+        } catch (e) {
+          print('❌ Không thể phân tích chi tiết lỗi: ${response.body}');
+        }
+        
         return false;
       }
     } catch (e) {
-      print('❌ Exception khi cập nhật chuyến đi: $e');
+      // Phân loại lỗi để hiển thị thông báo rõ ràng hơn
+      String errorMessage = e.toString();
+      
+      if (e is TimeoutException || errorMessage.contains('TimeoutException')) {
+        print('⏱️ Timeout error trong updateRide: $e');
+      } else if (errorMessage.contains('SocketException') || 
+                errorMessage.contains('Network is unreachable')) {
+        print('🔌 Network is unreachable trong updateRide: $e');
+      } else {
+        print('❌ Exception khi cập nhật chuyến đi: $e');
+      }
+      
       return false;
     }
   }
@@ -1223,6 +1270,129 @@ class RideService {
       }
     } catch (e) {
       developer.log('❌ Lỗi khi xác nhận hoàn thành chuyến đi: $e', name: 'ride_service', error: e);
+      return false;
+    }
+  }
+  
+  // Hủy booking chuyến đi (cho hành khách)
+  Future<bool> cancelPassengerBooking(int rideId) async {
+    developer.log('🔄 Đang hủy booking chuyến đi #$rideId...', name: 'ride_service');
+    print('🚫 Đang hủy booking cho chuyến đi #$rideId...');
+    
+    try {
+      // Lấy token để kiểm tra
+      final token = await _authManager.getToken();
+      if (token == null) {
+        print('❌ Token rỗng - không thể hủy booking');
+        return false;
+      }
+      
+      // Thử với endpoint chính
+      try {
+        final response = await _apiClient.delete(
+          '/passenger/bookings/$rideId',
+          requireAuth: true,
+        ).timeout(const Duration(seconds: 10), onTimeout: () {
+          throw TimeoutException('Yêu cầu đã hết thời gian chờ');
+        });
+
+        print('📡 Cancel booking response: ${response.statusCode}');
+        print('📡 Response body: ${response.body}');
+        
+        if (response.statusCode == 200) {
+          try {
+            final responseData = json.decode(response.body);
+            
+            if (responseData['success'] == true) {
+              developer.log('✅ Hủy booking chuyến đi #$rideId thành công', name: 'ride_service');
+              print('✅ Đã hủy booking thành công');
+              
+              // Xóa cache để đảm bảo dữ liệu mới nhất
+              _cachedAvailableRides = [];
+              _lastCacheTime = DateTime(1970);
+              
+              return true;
+            } else {
+              developer.log('❌ API trả về success=false: ${responseData['message'] ?? "Không có thông báo lỗi"}', name: 'ride_service');
+              print('❌ API trả về success=false: ${responseData['message'] ?? "Không có thông báo lỗi"}');
+              return false;
+            }
+          } catch (e) {
+            print('❌ Lỗi khi phân tích phản hồi: $e');
+            return false;
+          }
+        } else {
+          print('❌ Error Response (${response.statusCode}): ${response.body}');
+          
+          // Nếu 403 Forbidden, thì có thể người dùng không đủ quyền hoặc không phải là người đặt chuyến đi này
+          if (response.statusCode == 403) {
+            developer.log('❌ Không có quyền hủy booking (403 Forbidden)', name: 'ride_service');
+            print('❌ Không có quyền hủy booking hoặc không phải người đặt chuyến này');
+            return false;
+          }
+        }
+      } catch (e) {
+        print('❌ Lỗi với endpoint chính: $e');
+      }
+      
+      // Thử với endpoint thứ hai nếu endpoint đầu tiên không thành công
+      try {
+        print('🔄 Thử với endpoint thay thế...');
+        final altResponse = await _apiClient.delete(
+          '/passenger/cancel-booking/$rideId',
+          requireAuth: true,
+        ).timeout(const Duration(seconds: 10));
+        
+        print('📡 Alt endpoint response: ${altResponse.statusCode}');
+        
+        if (altResponse.statusCode == 200) {
+          developer.log('✅ Hủy booking thành công qua endpoint thay thế', name: 'ride_service');
+          print('✅ Đã hủy booking thành công (endpoint thay thế)');
+          return true;
+        }
+      } catch (e) {
+        print('❌ Lỗi với endpoint thay thế: $e');
+      }
+
+      // Thử lần cuối với endpoint thứ ba
+      try {
+        print('🔄 Thử với endpoint thứ ba...');
+        final finalResponse = await _apiClient.put(
+          '/passenger/bookings/cancel/$rideId',
+          requireAuth: true,
+        ).timeout(const Duration(seconds: 10));
+        
+        print('📡 Final endpoint response: ${finalResponse.statusCode}');
+        
+        if (finalResponse.statusCode == 200) {
+          developer.log('✅ Hủy booking thành công qua endpoint cuối cùng', name: 'ride_service');
+          print('✅ Đã hủy booking thành công (endpoint cuối cùng)');
+          return true;
+        } else {
+          print('❌ Error Response: ${finalResponse.body}');
+          print('📡 API response code: ${finalResponse.statusCode}');
+          print('📡 Response body: ${finalResponse.body}');
+        }
+      } catch (e) {
+        print('❌ Lỗi với endpoint cuối cùng: $e');
+      }
+      
+      // Nếu tất cả đều thất bại, trả về false
+      developer.log('❌ Không thể hủy booking sau khi thử tất cả các phương thức', name: 'ride_service');
+      return false;
+    } catch (e) {
+      String errorMessage = e.toString();
+      
+      if (e is TimeoutException || errorMessage.contains('TimeoutException')) {
+        print('⏱️ Timeout error khi hủy booking: $e');
+      } else if (errorMessage.contains('SocketException') || 
+                errorMessage.contains('Network is unreachable')) {
+        print('🔌 Network is unreachable khi hủy booking: $e');
+      } else {
+        print('❌ Exception khi hủy booking: $e');
+      }
+      
+      developer.log('❌ Lỗi khi hủy booking chuyến đi: $e', name: 'ride_service', error: e);
       return false;
     }
   }
