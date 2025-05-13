@@ -63,15 +63,8 @@ class RideService {
         } catch (e) {
           debugPrint('Error parsing API response: $e');
           
-          // Fallback to direct API call if parsing fails
-          final fallbackRides = await _tryDirectApiCall();
-          if (fallbackRides.isNotEmpty) {
-            availableRides = fallbackRides;
-            
-            // Update the cache with fallback data
-            _cachedAvailableRides = List.from(availableRides);
-            _lastCacheTime = DateTime.now();
-          } else if (_cachedAvailableRides.isNotEmpty) {
+          // Nếu parse không thành công, sử dụng cache nếu có
+          if (_cachedAvailableRides.isNotEmpty) {
             // Use stale cache if we have it rather than no data
             debugPrint('Using stale cached data as fallback');
             return _cachedAvailableRides;
@@ -323,105 +316,6 @@ class RideService {
 
   // Helper to get min value
   int min(int a, int b) => a < b ? a : b;
-
-  // Try a direct API call as fallback
-  Future<List<Ride>> _tryDirectApiCall() async {
-    print('🔄 Attempting direct API call as fallback...');
-
-    try {
-      final token = await _authManager.getToken();
-      print(
-        '🔑 Using direct API call with token: ${token != null ? "Token available" : "No token"}',
-      );
-
-      final uri = Uri.parse(_appConfig.availableRidesEndpoint);
-      print('🌐 Direct API URL: $uri');
-
-      final headers = {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        if (token != null) 'Authorization': 'Bearer $token',
-      };
-      print('🔑 Direct API headers: $headers');
-
-      print('⏳ Sending direct API request...');
-      final response = await http.get(uri, headers: headers);
-
-      print('📡 Direct API response status: ${response.statusCode}');
-      print('📡 Direct API content-type: ${response.headers['content-type']}');
-
-      if (response.statusCode == 200) {
-        print(
-          '📡 Direct API response body preview: ${response.body.substring(0, min(200, response.body.length))}...',
-        );
-
-        try {
-          if (!response.body.trim().startsWith('<!DOCTYPE') &&
-              !response.body.trim().startsWith('<html')) {
-            print('📝 Parsing direct API JSON response...');
-            final Map<String, dynamic> responseData = json.decode(
-              response.body,
-            );
-            print(
-              '📡 Direct API response keys: ${responseData.keys.join(", ")}',
-            );
-
-            if (responseData['success'] == true &&
-                responseData['data'] != null) {
-              print('✅ Success flag found in direct API response');
-              if (responseData['data'] is List) {
-                final List<dynamic> rideData = responseData['data'];
-                print(
-                  '📊 Direct API data is a List with ${rideData.length} items',
-                );
-                final rides =
-                    rideData.map((json) => Ride.fromJson(json)).toList();
-                print(
-                  '✅ Successfully parsed ${rides.length} rides from direct API call',
-                );
-                
-                // Sort rides with newest (highest ID) first
-                rides.sort((a, b) => b.id.compareTo(a.id));
-                
-                return rides;
-              } else {
-                print(
-                  '⚠️ Data is not a List but: ${responseData['data'].runtimeType}',
-                );
-              }
-            } else {
-              print(
-                '❌ Success flag not found or data is null in direct API response',
-              );
-              print('❌ Response data: $responseData');
-            }
-          } else {
-            print('❌ Received HTML in direct API call');
-            print(
-              '📄 HTML content preview: ${response.body.substring(0, min(200, response.body.length))}...',
-            );
-          }
-        } catch (e) {
-          print('❌ Error in direct API call JSON parsing: $e');
-        }
-      } else {
-        print(
-          '❌ Direct API call failed with status code: ${response.statusCode}',
-        );
-        if (response.body.isNotEmpty) {
-          print(
-            '📄 Error response body: ${response.body.substring(0, min(200, response.body.length))}...',
-          );
-        }
-      }
-    } catch (e) {
-      print('❌ Exception in direct API call: $e');
-    }
-
-    // Return empty list if API calls failed
-    print('⚠️ No rides available or API call failed');
-    return [];
-  }
 
   // Get ride details
   Future<Ride?> getRideDetails(int rideId) async {

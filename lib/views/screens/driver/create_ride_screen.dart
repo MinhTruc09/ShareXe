@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../services/ride_service.dart';
 import '../../../services/auth_manager.dart';
+import '../../../services/profile_service.dart';
+import '../../../models/user_profile.dart';
 import '../../widgets/location_picker.dart';
 import '../../widgets/date_picker.dart';
 import '../../widgets/passenger_counter.dart';
@@ -20,6 +22,7 @@ class CreateRideScreen extends StatefulWidget {
 class _CreateRideScreenState extends State<CreateRideScreen> {
   final RideService _rideService = RideService();
   final AuthManager _authManager = AuthManager();
+  final ProfileService _profileService = ProfileService();
   final _formKey = GlobalKey<FormState>();
 
   String _departure = '';
@@ -29,6 +32,9 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
   double _pricePerSeat = 0;
   bool _isSubmitting = false;
   bool _isEditMode = false;
+  bool _isLoading = true;
+  bool _isDriverApproved = false;
+  String? _driverStatus;
   int? _rideId;
 
   final TextEditingController _priceController = TextEditingController();
@@ -36,6 +42,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
   @override
   void initState() {
     super.initState();
+    _checkDriverStatus();
 
     // Nếu có existingRide thì đây là chế độ cập nhật
     if (widget.existingRide != null) {
@@ -72,6 +79,113 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
     }
   }
 
+  Future<void> _checkDriverStatus() async {
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+      
+      final response = await _profileService.getUserProfile();
+      
+      setState(() {
+        _isLoading = false;
+        
+        if (response.success && response.data != null) {
+          final UserProfile userProfile = response.data!;
+          _driverStatus = userProfile.status;
+          _isDriverApproved = userProfile.status == 'APPROVED';
+          
+          // Nếu không phải là chế độ chỉnh sửa chuyến và tài xế chưa được duyệt,
+          // hiển thị thông báo
+          if (!_isEditMode && !_isDriverApproved) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _showDriverNotApprovedDialog();
+            });
+          }
+        } else {
+          // Nếu không lấy được thông tin hồ sơ, giả định tài xế chưa được duyệt
+          _isDriverApproved = false;
+          _driverStatus = 'UNKNOWN';
+          
+          if (!_isEditMode) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _showDriverNotApprovedDialog();
+            });
+          }
+        }
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _isDriverApproved = false;
+        _driverStatus = 'ERROR';
+      });
+      
+      if (!_isEditMode) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _showDriverNotApprovedDialog();
+        });
+      }
+    }
+  }
+  
+  void _showDriverNotApprovedDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(
+                _driverStatus == 'PENDING'
+                    ? Icons.hourglass_top
+                    : Icons.error_outline,
+                color:
+                    _driverStatus == 'PENDING'
+                        ? Colors.orange
+                        : Colors.red,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                _driverStatus == 'PENDING'
+                    ? 'Đang chờ phê duyệt'
+                    : 'Chưa được phê duyệt',
+                style: TextStyle(
+                  color:
+                      _driverStatus == 'PENDING'
+                          ? Colors.orange[700]
+                          : Colors.red[700],
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _driverStatus == 'PENDING'
+                    ? 'Tài khoản tài xế của bạn đang trong quá trình xét duyệt. Vui lòng đợi phê duyệt trước khi tạo chuyến đi.'
+                    : 'Tài khoản của bạn chưa được duyệt. Vui lòng kiểm tra thông báo và cập nhật hồ sơ trước khi tạo chuyến đi.',
+                style: const TextStyle(fontSize: 14),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Đóng dialog
+                Navigator.of(context).pop(); // Quay lại màn hình trước
+              },
+              child: const Text('Đã hiểu'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   void dispose() {
     _priceController.dispose();
@@ -99,6 +213,12 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
   }
 
   Future<void> _submitRide() async {
+    // Kiểm tra trạng thái tài xế trước khi tạo chuyến mới
+    if (!_isEditMode && !_isDriverApproved) {
+      _showDriverNotApprovedDialog();
+      return;
+    }
+    
     if (_formKey.currentState?.validate() != true) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Vui lòng điền đầy đủ thông tin')),
@@ -226,7 +346,24 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
           },
         );
       } else {
-        // Hiển thị thông báo lỗi
+        // Kiểm tra lại trạng thái tài xế để hiển thị thông báo phù hợp
+        if (!_isEditMode) {
+          try {
+            final response = await _profileService.getUserProfile();
+            if (response.success && response.data != null) {
+              final UserProfile userProfile = response.data!;
+              if (userProfile.status != 'APPROVED') {
+                // Hiển thị thông báo tài xế chưa được duyệt
+                _showDriverNotApprovedDialog();
+                return;
+              }
+            }
+          } catch (e) {
+            print('Lỗi khi kiểm tra lại trạng thái tài xế: $e');
+          }
+        }
+        
+        // Hiển thị thông báo lỗi mặc định
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(_isEditMode 
@@ -250,21 +387,22 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
       if (Navigator.of(context).canPop()) {
         Navigator.of(context).pop();
       }
-
-      print('❌ Exception trong _submitRide: $e');
       
-      // Hiển thị thông báo lỗi chi tiết
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Đã xảy ra lỗi: ${e.toString()}'),
-          backgroundColor: Colors.red,
-          duration: Duration(seconds: 5),
-          action: SnackBarAction(
-            label: 'Thử lại',
-            onPressed: _submitRide,
+      // Kiểm tra lỗi để hiển thị thông báo phù hợp
+      if (e.toString().contains('permission') || 
+          e.toString().contains('unauthorized') ||
+          e.toString().contains('approved')) {
+        // Hiển thị thông báo tài xế chưa được duyệt
+        _showDriverNotApprovedDialog();
+      } else {
+        // Hiển thị thông báo lỗi chung
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Đã xảy ra lỗi: ${e.toString()}'),
+            backgroundColor: Colors.red,
           ),
-        ),
-      );
+        );
+      }
     }
   }
 
