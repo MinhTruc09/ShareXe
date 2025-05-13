@@ -1,3 +1,36 @@
+// Create a new FellowPassenger class to store data about fellow passengers
+class FellowPassenger {
+  final String name;
+  final String? phone;
+  final String? email;
+  final String? avatarUrl;
+
+  FellowPassenger({
+    required this.name,
+    this.phone,
+    this.email,
+    this.avatarUrl,
+  });
+
+  factory FellowPassenger.fromJson(Map<String, dynamic> json) {
+    return FellowPassenger(
+      name: json['name'] ?? '',
+      phone: json['phone'],
+      email: json['email'],
+      avatarUrl: json['avatarUrl'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'phone': phone,
+      'email': email,
+      'avatarUrl': avatarUrl,
+    };
+  }
+}
+
 class BookingDTO {
   final int id;
   final int rideId;
@@ -31,6 +64,9 @@ class BookingDTO {
   final String passengerPhone;
   final String passengerEmail;
   final String? passengerAvatarUrl;
+  
+  // Fellow passengers info
+  final List<FellowPassenger> fellowPassengers;
 
   BookingDTO({
     required this.id,
@@ -59,9 +95,17 @@ class BookingDTO {
     required this.passengerPhone,
     required this.passengerEmail,
     this.passengerAvatarUrl,
+    this.fellowPassengers = const [],
   });
 
   factory BookingDTO.fromJson(Map<String, dynamic> json) {
+    List<FellowPassenger> fellowPassengers = [];
+    if (json['fellowPassengers'] != null) {
+      fellowPassengers = (json['fellowPassengers'] as List)
+          .map((fellowJson) => FellowPassenger.fromJson(fellowJson))
+          .toList();
+    }
+
     return BookingDTO(
       id: json['id'],
       rideId: json['rideId'],
@@ -89,6 +133,7 @@ class BookingDTO {
       passengerPhone: json['passengerPhone'] ?? '',
       passengerEmail: json['passengerEmail'] ?? '',
       passengerAvatarUrl: json['passengerAvatarUrl'],
+      fellowPassengers: fellowPassengers,
     );
   }
 
@@ -120,6 +165,7 @@ class BookingDTO {
       'passengerPhone': passengerPhone,
       'passengerEmail': passengerEmail,
       'passengerAvatarUrl': passengerAvatarUrl,
+      'fellowPassengers': fellowPassengers.map((fellow) => fellow.toJson()).toList(),
     };
   }
 

@@ -6,6 +6,7 @@ import '../utils/http_client.dart';
 import '../models/booking.dart';
 import '../services/auth_manager.dart';
 import 'package:firebase_database/firebase_database.dart';
+import '../services/ride_service.dart';  // Add import for RideService
 
 // API Response model
 class ApiResponse {
@@ -189,7 +190,8 @@ class BookingService {
     try {
       // Call the new DTO-based method but convert to old format for backward compatibility
       final bookingsDTO = await getPassengerBookingsDTO();
-      return bookingsDTO.map((dto) => _convertDtoToBooking(dto)).toList();
+      final bookings = bookingsDTO.map((dto) => _convertDtoToBooking(dto)).toList();
+      return bookings;
     } catch (e) {
       print('❌ Exception in backward compatibility method: $e');
       
@@ -579,50 +581,26 @@ class BookingService {
   // Hủy đặt chỗ - Dành cho hành khách
   Future<bool> cancelBooking(int rideId) async {
     try {
-      print('🚫 Bắt đầu hủy đặt chỗ cho chuyến đi #$rideId');
-      
-      // Lấy thông tin về token hiện tại để debug
-      final token = await _authManager.getToken();
-      print('🔑 Token hiện tại: ${token != null ? (token.length > 20 ? token.substring(0, 20) + '...' : token) : 'NULL'}');
-      
-      // In URL đầy đủ để kiểm tra
-      print('🌐 URL hủy chuyến đi: /passenger/cancel-bookings/$rideId');
-      
-      // Gọi API để hủy booking
+      print('🚫 Đang hủy booking cho chuyến đi #$rideId...');
+
+      // Use PUT method with path parameter
       final response = await _apiClient.put(
-        '/passenger/cancel-bookings/$rideId',
+        '/booking/cancel/$rideId',
         requireAuth: true,
-        body: null, // Không cần dữ liệu trong body
       );
-      
-      print('📡 API response code: ${response.statusCode}');
+
+      print('📡 Cancel booking response: ${response.statusCode}');
       print('📡 Response body: ${response.body}');
-      
+
       if (response.statusCode == 200) {
         try {
-          // Parse API response
-          final data = json.decode(response.body);
-          final success = data['success'] == true;
-          
-          if (success) {
-            print('✅ Hủy chuyến đi thành công');
+          final responseData = json.decode(response.body);
+          print('📄 Response data: $responseData');
+
+          if (responseData['success'] == true) {
+            print('✅ Hủy booking thành công');
             
-            // Lưu vào Firebase Realtime Database để cập nhật UI realtime
-            try {
-              // Lưu vào Firebase với rideId thay vì bookingId
-              final databaseRef = FirebaseDatabase.instance.ref(
-                'rides/$rideId',
-              );
-              
-              // Cập nhật trạng thái hủy trên Firebase
-              await databaseRef.update({'status': 'CANCELLED'});
-              print('✅ Đã cập nhật trạng thái hủy lên Firebase');
-            } catch (e) {
-              print('⚠️ Lỗi khi cập nhật Firebase: $e');
-              // Không fail process nếu phần này lỗi
-            }
-            
-            // Update _lastCreatedBooking status if it matches this rideId
+            // Cập nhật trạng thái của booking gần đây nhất nếu đó là booking đang hủy
             if (_lastCreatedBooking != null && _lastCreatedBooking!.rideId == rideId) {
               print('🔄 Cập nhật trạng thái của _lastCreatedBooking thành CANCELLED');
               _lastCreatedBooking = Booking(
@@ -641,6 +619,24 @@ class BookingService {
                 pricePerSeat: _lastCreatedBooking!.pricePerSeat,
               );
             }
+            
+            // Xóa booking khỏi Firebase nếu tồn tại
+            try {
+              final bookingId = _lastCreatedBooking?.id;
+              if (bookingId != null) {
+                final DatabaseReference bookingRef = FirebaseDatabase.instance.ref('bookings/$bookingId');
+                await bookingRef.remove();
+                print('✅ Đã xóa booking #$bookingId khỏi Firebase sau khi hủy');
+              }
+            } catch (e) {
+              print('⚠️ Lỗi khi xóa booking khỏi Firebase: $e');
+              // Không dừng quy trình vì đây không phải lỗi chính
+            }
+            
+            // Force xóa cache để load lại danh sách chuyến đi sau khi hủy
+            final rideService = RideService();
+            rideService.clearAvailableRidesCache();
+            print('🧹 Đã xóa cache danh sách chuyến đi sau khi hủy');
             
             return true;
           } else {
@@ -679,6 +675,11 @@ class BookingService {
               startTime: _lastCreatedBooking!.startTime,
               pricePerSeat: _lastCreatedBooking!.pricePerSeat,
             );
+            
+            // Force xóa cache để load lại danh sách chuyến đi sau khi hủy
+            final rideService = RideService();
+            rideService.clearAvailableRidesCache();
+            print('🧹 Đã xóa cache danh sách chuyến đi sau khi hủy (fallback)');
           }
           
           return true;
@@ -694,6 +695,32 @@ class BookingService {
       if (e.toString().contains('SocketException') || 
           e.toString().contains('TimeoutException')) {
         print('⚠️ Lỗi mạng, trả về thành công giả');
+        
+        // Update _lastCreatedBooking status if it exists
+        if (_lastCreatedBooking != null && _lastCreatedBooking!.rideId == rideId) {
+          print('🔄 Cập nhật trạng thái của _lastCreatedBooking thành CANCELLED khi gặp lỗi mạng');
+          _lastCreatedBooking = Booking(
+            id: _lastCreatedBooking!.id,
+            rideId: _lastCreatedBooking!.rideId,
+            passengerId: _lastCreatedBooking!.passengerId,
+            seatsBooked: _lastCreatedBooking!.seatsBooked,
+            passengerName: _lastCreatedBooking!.passengerName,
+            status: "CANCELLED", // Update status to CANCELLED
+            createdAt: _lastCreatedBooking!.createdAt,
+            passengerAvatar: _lastCreatedBooking!.passengerAvatar,
+            totalPrice: _lastCreatedBooking!.totalPrice,
+            departure: _lastCreatedBooking!.departure,
+            destination: _lastCreatedBooking!.destination,
+            startTime: _lastCreatedBooking!.startTime,
+            pricePerSeat: _lastCreatedBooking!.pricePerSeat,
+          );
+          
+          // Force xóa cache để load lại danh sách chuyến đi sau khi hủy
+          final rideService = RideService();
+          rideService.clearAvailableRidesCache();
+          print('🧹 Đã xóa cache danh sách chuyến đi sau khi hủy (network error)');
+        }
+        
         return true;
       }
       
@@ -957,49 +984,95 @@ class BookingService {
     }
   }
 
-  // Get driver's bookings using the new API
+  // Get bookings for driver with detailed passenger information
   Future<List<BookingDTO>> getDriverBookingsDTO() async {
+    print('🔍 Fetching driver bookings with detailed passenger information...');
+    List<BookingDTO> bookings = [];
+
     try {
-      print('🔍 Bắt đầu lấy danh sách booking cho tài xế (DTO)');
-
-      // Thử gọi API trước
-      try {
-        final response = await _apiClient.get(
-          '/driver/bookings',
-          requireAuth: true,
-        );
-
-        print('📡 API response code: ${response.statusCode}');
-        
-        if (response.statusCode == 200) {
-          print('📄 API response body: ${response.body}');
-          
-          try {
-            final ApiResponse apiResponse = ApiResponse.fromJson(json.decode(response.body));
-
-            if (apiResponse.success && apiResponse.data != null) {
-              final List<dynamic> bookingsData = apiResponse.data;
-              print('📦 Số lượng bookings nhận được từ API: ${bookingsData.length}');
-              
-              return bookingsData
-                  .map((item) => BookingDTO.fromJson(item))
-                  .toList();
-            }
-          } catch (e) {
-            print('❌ Lỗi khi xử lý JSON response: $e');
-          }
-        }
-      } catch (e) {
-        print('❌ Lỗi khi gọi API: $e');
+      // Check token validity - replace with available methods
+      final token = await _authManager.getToken();
+      if (token == null) {
+        print('⚠️ Token không tồn tại khi lấy danh sách đặt chỗ cho tài xế');
+        return [];
       }
       
-      // Return empty list instead of mock data
-      print('⚠️ No driver bookings found or network error occurred');
-      return [];
+      // Use new endpoint that includes fellow passengers information
+      final response = await _apiClient.get(
+        '/driver/bookings',
+        requireAuth: true,
+      );
+      
+      print('📡 Driver bookings response: ${response.statusCode}');
+      
+      if (response.statusCode == 200) {
+        try {
+          final responseData = json.decode(response.body);
+          print('📄 Driver bookings data: $responseData');
+          
+          if (responseData['success'] == true && responseData['data'] != null) {
+            final List<dynamic> bookingsData = responseData['data'] as List;
+            bookings = bookingsData.map((json) => BookingDTO.fromJson(json)).toList();
+            print('✅ Loaded ${bookings.length} bookings for driver with detailed passenger info');
+            return bookings;
+          } else {
+            print('⚠️ API trả về success=false hoặc data=null: ${responseData['message'] ?? "Không có thông báo lỗi"}');
+          }
+        } catch (e) {
+          print('❌ Lỗi khi xử lý JSON từ API: $e');
+        }
+      } else {
+        print('❌ API trả về mã lỗi: ${response.statusCode}');
+        print('❌ Chi tiết lỗi: ${response.body}');
+      }
     } catch (e) {
-      print('❌ Exception khi lấy danh sách booking: $e');
-      return [];
+      print('❌ Lỗi khi lấy danh sách đặt chỗ cho tài xế: $e');
     }
+    
+    // If we got no bookings, try falling back to the regular method
+    // and convert them to BookingDTO format
+    if (bookings.isEmpty) {
+      print('🔄 Dùng phương thức thay thế để lấy danh sách đặt chỗ cho tài xế');
+      try {
+        final regularBookings = await getBookingsForDriver();
+        // Convert regular bookings to BookingDTO
+        bookings = regularBookings.map((booking) => _convertBookingToDto(booking)).toList();
+      } catch (e) {
+        print('❌ Lỗi khi dùng phương thức thay thế: $e');
+      }
+    }
+    
+    return bookings;
+  }
+  
+  // Helper method to convert Booking to BookingDTO
+  BookingDTO _convertBookingToDto(Booking booking) {
+    return BookingDTO(
+      id: booking.id,
+      rideId: booking.rideId,
+      seatsBooked: booking.seatsBooked,
+      status: booking.status,
+      createdAt: DateTime.parse(booking.createdAt),
+      totalPrice: booking.totalPrice ?? 0.0,
+      departure: booking.departure ?? '',
+      destination: booking.destination ?? '',
+      startTime: booking.startTime != null ? DateTime.parse(booking.startTime!) : DateTime.now(),
+      pricePerSeat: booking.pricePerSeat ?? 0.0,
+      rideStatus: 'ACTIVE', // Default value
+      totalSeats: 4, // Default value
+      availableSeats: 0, // Default value
+      driverId: 0, // Default value
+      driverName: '', // Default value
+      driverPhone: '', // Default value
+      driverEmail: '', // Default value
+      driverStatus: 'ACTIVE', // Default value
+      passengerId: booking.passengerId,
+      passengerName: booking.passengerName,
+      passengerPhone: '', // Not available in the original model
+      passengerEmail: '', // Not available in the original model
+      passengerAvatarUrl: booking.passengerAvatar,
+      fellowPassengers: [], // Empty list as this data isn't available
+    );
   }
 
   // Hủy booking - Updated for new API structure

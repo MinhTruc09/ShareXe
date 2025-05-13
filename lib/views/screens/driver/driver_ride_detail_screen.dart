@@ -8,6 +8,8 @@ import '../../../services/ride_service.dart';
 import '../../../utils/app_config.dart';
 import 'dart:async';
 import '../../widgets/sharexe_background2.dart';
+import '../../widgets/passenger_details_card.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class DriverRideDetailScreen extends StatefulWidget {
   final dynamic ride;
@@ -27,6 +29,7 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
   bool _isCompleting = false;
   bool _isConfirming = false;
   List<Booking> _bookings = [];
+  List<BookingDTO> _bookingsDTO = [];
   
   // Theo dõi trạng thái xác nhận của tài xế
   bool _driverConfirmed = false;
@@ -45,7 +48,7 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
 
     try {
       // Tải danh sách các booking cho chuyến đi này
-      final bookings = await _bookingService.getBookingsForDriver();
+      final bookings = await _bookingService.getDriverBookingsDTO();
 
       // Lọc theo rideId của chuyến đi hiện tại
       final Ride rideData = widget.ride as Ride;
@@ -53,7 +56,8 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
           bookings.where((b) => b.rideId == rideData.id).toList();
 
       setState(() {
-        _bookings = filteredBookings;
+        _bookings = filteredBookings.map((dto) => dto.toBooking()).toList();
+        _bookingsDTO = filteredBookings;
         _isLoading = false;
       });
     } catch (e) {
@@ -563,6 +567,137 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
     }
   }
 
+  // Add these methods for calling and messaging passenger
+  void _callPassenger(String phoneNumber) async {
+    final Uri phoneUri = Uri(scheme: 'tel', path: phoneNumber);
+    if (await canLaunchUrl(phoneUri)) {
+      await launchUrl(phoneUri);
+    } else {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Không thể gọi đến số điện thoại: $phoneNumber')),
+      );
+    }
+  }
+
+  void _messagePassenger(String phoneNumber) async {
+    final Uri smsUri = Uri(scheme: 'sms', path: phoneNumber);
+    if (await canLaunchUrl(smsUri)) {
+      await launchUrl(smsUri);
+    } else {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Không thể nhắn tin đến số: $phoneNumber')),
+      );
+    }
+  }
+  
+  // Accept booking method
+  Future<void> _acceptBooking(Booking booking) async {
+    setState(() {
+      _isLoading = true;
+    });
+    
+    try {
+      final success = await _bookingService.acceptBooking(booking.id);
+      
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Đã chấp nhận yêu cầu đặt chỗ'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        _loadBookings(); // Reload bookings list
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Không thể chấp nhận yêu cầu. Vui lòng thử lại.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Lỗi: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+  
+  // Reject booking method
+  Future<void> _rejectBooking(Booking booking) async {
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Xác nhận từ chối'),
+        content: const Text('Bạn có chắc chắn muốn từ chối yêu cầu đặt chỗ này?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
+            ),
+            child: const Text('Từ chối'),
+          ),
+        ],
+      ),
+    );
+    
+    if (confirmed != true) return;
+    
+    setState(() {
+      _isLoading = true;
+    });
+    
+    try {
+      final success = await _bookingService.rejectBooking(booking.id);
+      
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Đã từ chối yêu cầu đặt chỗ'),
+            backgroundColor: Colors.blue,
+          ),
+        );
+        _loadBookings(); // Reload bookings list
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Không thể từ chối yêu cầu. Vui lòng thử lại.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Lỗi: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
@@ -947,145 +1082,188 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
                           physics: const NeverScrollableScrollPhysics(),
                           itemCount: _bookings.length,
                           itemBuilder: (context, index) {
-                            final booking = _bookings[index];
-                            return Card(
-                              margin: const EdgeInsets.only(bottom: 8),
-                              child: Padding(
-                                padding: const EdgeInsets.all(12.0),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          'Đặt chỗ #${booking.id}',
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 16,
+                            // Use DTO if available, otherwise fall back to regular booking
+                            if (index < _bookingsDTO.length) {
+                              final bookingDTO = _bookingsDTO[index];
+                              final booking = _bookings[index];
+                              
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        'Đặt chỗ #${booking.id}',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 3,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color:
+                                              booking.status.toUpperCase() ==
+                                                      'PENDING'
+                                                  ? Colors.orange.withOpacity(
+                                                    0.2,
+                                                  )
+                                                  : booking.status
+                                                          .toUpperCase() ==
+                                                      'APPROVED'
+                                                  ? Colors.green.withOpacity(
+                                                    0.2,
+                                                  )
+                                                  : Colors.red.withOpacity(0.2),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
                                           ),
                                         ),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 3,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color:
-                                                booking.status.toUpperCase() ==
-                                                        'PENDING'
-                                                    ? Colors.orange.withOpacity(
-                                                      0.2,
-                                                    )
-                                                    : booking.status
-                                                            .toUpperCase() ==
-                                                        'APPROVED'
-                                                    ? Colors.green.withOpacity(
-                                                      0.2,
-                                                    )
-                                                    : Colors.red.withOpacity(0.2),
-                                            borderRadius: BorderRadius.circular(
-                                              12,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            booking.status.toUpperCase() ==
+                                        child: Text(
+                                          booking.status.toUpperCase() == 'PENDING'
+                                              ? 'Chờ duyệt'
+                                              : booking.status.toUpperCase() ==
+                                                      'APPROVED'
+                                                  ? 'Đã duyệt'
+                                                  : booking.status.toUpperCase() ==
+                                                      'REJECTED'
+                                                  ? 'Đã từ chối'
+                                                  : booking.status,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: booking.status.toUpperCase() ==
                                                     'PENDING'
-                                                ? 'Chờ duyệt'
+                                                ? Colors.orange
                                                 : booking.status.toUpperCase() ==
-                                                    'APPROVED'
-                                                ? 'Đã duyệt'
-                                                : 'Từ chối',
-                                            style: TextStyle(
-                                              color:
-                                                  booking.status.toUpperCase() ==
-                                                          'PENDING'
-                                                      ? Colors.orange
-                                                      : booking.status
-                                                              .toUpperCase() ==
-                                                          'APPROVED'
-                                                      ? Colors.green
-                                                      : Colors.red,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold,
-                                            ),
+                                                        'APPROVED'
+                                                    ? Colors.green
+                                                    : Colors.red,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  
+                                  // Use our new PassengerDetailsCard widget
+                                  PassengerDetailsCard.fromBookingDTO(
+                                    bookingDTO,
+                                    onCall: () => _callPassenger(bookingDTO.passengerPhone),
+                                    onMessage: () => _messagePassenger(bookingDTO.passengerPhone),
+                                  ),
+                                  
+                                  const SizedBox(height: 16),
+                                  
+                                  // Show action buttons based on booking status
+                                  if (booking.status.toUpperCase() == 'PENDING')
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        OutlinedButton.icon(
+                                          onPressed: () => _rejectBooking(booking),
+                                          icon: const Icon(Icons.cancel),
+                                          label: const Text('Từ chối'),
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: Colors.red,
+                                          ),
+                                        ),
+                                        ElevatedButton.icon(
+                                          onPressed: () => _acceptBooking(booking),
+                                          icon: const Icon(Icons.check),
+                                          label: const Text('Chấp nhận'),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.green,
                                           ),
                                         ),
                                       ],
                                     ),
-                                    const SizedBox(height: 8),
-                                    Text('Hành khách: ${booking.passengerName}'),
-                                    Text('Số ghế: ${booking.seatsBooked}'),
-                                    Text(
-                                      'Thời gian đặt: ${_formatTime(booking.createdAt)}',
-                                    ),
-
-                                    if (booking.status.toUpperCase() ==
-                                            'PENDING' &&
-                                        !isCompletedOrCancelled) ...[
-                                      const SizedBox(height: 8),
+                                    
+                                  const SizedBox(height: 8),
+                                ],
+                              );
+                            } else {
+                              // Fallback to old display if BookingDTO isn't available
+                              final booking = _bookings[index];
+                              return Card(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12.0),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
                                       Row(
-                                        mainAxisAlignment: MainAxisAlignment.end,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
                                         children: [
-                                          TextButton.icon(
-                                            onPressed: () async {
-                                              // Từ chối yêu cầu
-                                              await _bookingService.rejectBooking(
-                                                booking.id,
-                                              );
-                                              _loadBookings();
-                                            },
-                                            icon: const Icon(
-                                              Icons.close,
-                                              color: Colors.red,
-                                            ),
-                                            label: const Text(
-                                              'Từ chối',
-                                              style: TextStyle(color: Colors.red),
-                                            ),
-                                            style: TextButton.styleFrom(
-                                              backgroundColor: Colors.white,
+                                          Text(
+                                            'Đặt chỗ #${booking.id}',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16,
                                             ),
                                           ),
-                                          const SizedBox(width: 8),
-                                          ElevatedButton.icon(
-                                            onPressed: () async {
-                                              // Chấp nhận yêu cầu
-                                              final success =
-                                                  await _bookingService
-                                                      .acceptBooking(booking.id);
-                                              if (success) {
-                                                ScaffoldMessenger.of(
-                                                  context,
-                                                ).showSnackBar(
-                                                  const SnackBar(
-                                                    content: Text(
-                                                      'Đã chấp nhận yêu cầu',
-                                                      style: TextStyle(
-                                                        color: Colors.white,
-                                                      ),
-                                                    ),
-                                                    backgroundColor: Colors.green,
-                                                  ),
-                                                );
-                                                _loadBookings();
-                                              }
-                                            },
-                                            icon: const Icon(Icons.check),
-                                            label: const Text('Chấp nhận'),
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: Colors.green,
-                                              foregroundColor: Colors.white,
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 3,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color:
+                                                  booking.status.toUpperCase() ==
+                                                          'PENDING'
+                                                      ? Colors.orange.withOpacity(
+                                                        0.2,
+                                                      )
+                                                      : booking.status
+                                                              .toUpperCase() ==
+                                                          'APPROVED'
+                                                      ? Colors.green.withOpacity(
+                                                        0.2,
+                                                      )
+                                                      : Colors.red.withOpacity(0.2),
+                                              borderRadius: BorderRadius.circular(
+                                                12,
+                                              ),
+                                            ),
+                                            child: Text(
+                                              booking.status.toUpperCase() ==
+                                                      'PENDING'
+                                                  ? 'Chờ duyệt'
+                                                  : booking.status.toUpperCase() ==
+                                                          'APPROVED'
+                                                      ? 'Đã duyệt'
+                                                      : 'Từ chối',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: booking.status.toUpperCase() ==
+                                                        'PENDING'
+                                                    ? Colors.orange
+                                                    : booking.status.toUpperCase() ==
+                                                            'APPROVED'
+                                                        ? Colors.green
+                                                        : Colors.red,
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
                                           ),
                                         ],
                                       ),
+                                      const SizedBox(height: 8),
+                                      Text('Hành khách: ${booking.passengerName}'),
+                                      Text('Số ghế: ${booking.seatsBooked}'),
+                                      Text(
+                                        'Thời gian đặt: ${_formatTime(booking.createdAt)}',
+                                      ),
                                     ],
-                                  ],
+                                  ),
                                 ),
-                              ),
-                            );
+                              );
+                            }
                           },
                         ),
                   ],

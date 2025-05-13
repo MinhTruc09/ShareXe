@@ -83,11 +83,18 @@ class RideService {
         // Create a set of ride IDs that should be filtered out
         Set<int> bookedRideIds = {};
         
-        // 1. Add ride IDs from API bookings (if any)
+        // Log all bookings for debugging
+        print('🔍 Tìm thấy ${userBookings.length} bookings cho người dùng hiện tại');
+        for (final booking in userBookings) {
+          print('📖 Booking #${booking.id} cho chuyến đi #${booking.rideId} - trạng thái: ${booking.status}');
+        }
+        
+        // 1. Add ride IDs from API bookings (CHỈLẤY BOOKING ĐANG HOẠT ĐỘNG)
         if (userBookings.isNotEmpty) {
           final apiBookedRideIds = userBookings
               .where((booking) => 
-                // Only filter out active bookings (PENDING, ACCEPTED, IN_PROGRESS)
+                // Chỉ lọc bỏ các booking có trạng thái đang hoạt động (PENDING, ACCEPTED, IN_PROGRESS)
+                // Không lọc bỏ các booking đã bị hủy (CANCELLED) hoặc bị từ chối (REJECTED)
                 booking.status.toUpperCase() == 'PENDING' || 
                 booking.status.toUpperCase() == 'ACCEPTED' ||
                 booking.status.toUpperCase() == 'APPROVED' ||
@@ -95,28 +102,46 @@ class RideService {
               .map((booking) => booking.rideId)
               .toSet();
           
+          print('🔍 Lọc bỏ ${apiBookedRideIds.length} chuyến đi đã đặt: $apiBookedRideIds');
           bookedRideIds.addAll(apiBookedRideIds);
         }
         
         // 2. Add ride ID from most recent booking if it's active
         final lastCreatedBooking = _bookingService.getLastCreatedBooking();
-        if (lastCreatedBooking != null && 
-            lastCreatedBooking.status.toUpperCase() != 'CANCELLED' &&
-            lastCreatedBooking.status.toUpperCase() != 'REJECTED') {
-          bookedRideIds.add(lastCreatedBooking.rideId);
+        if (lastCreatedBooking != null) {
+          // Chỉ lọc bỏ nếu trạng thái booking là PENDING, ACCEPTED hoặc IN_PROGRESS
+          // Kiểm tra rõ ràng trạng thái hủy để đảm bảo không lọc bỏ chuyến đã hủy
+          final status = lastCreatedBooking.status.toUpperCase();
+          final isActive = status == 'PENDING' || status == 'ACCEPTED' || 
+                          status == 'APPROVED' || status == 'IN_PROGRESS';
+                          
+          if (isActive) {
+            print('📱 Booking gần đây nhất #${lastCreatedBooking.id} đang hoạt động với trạng thái $status, lọc bỏ chuyến đi ${lastCreatedBooking.rideId}');
+            bookedRideIds.add(lastCreatedBooking.rideId);
+          } else {
+            print('📱 Booking gần đây nhất #${lastCreatedBooking.id} có trạng thái $status, không lọc bỏ chuyến đi ${lastCreatedBooking.rideId}');
+          }
+        } else {
+          print('📱 Không có booking gần đây nào được lưu trong bộ nhớ cục bộ');
         }
         
         // Filter out booked rides if any
         if (bookedRideIds.isNotEmpty) {
+          print('🔍 Trước khi lọc có ${availableRides.length} chuyến đi');
+          
           final filteredRides = availableRides
               .where((ride) => !bookedRideIds.contains(ride.id))
               .toList();
+          
+          print('🔍 Sau khi lọc còn ${filteredRides.length} chuyến đi');
               
           availableRides = filteredRides;
           
           // Update the cache with filtered data
           _cachedAvailableRides = List.from(availableRides);
           _lastCacheTime = DateTime.now();
+        } else {
+          print('🔍 Không có chuyến đi nào cần lọc bỏ');
         }
       } catch (e) {
         debugPrint('Error filtering booked rides: $e');
@@ -124,19 +149,23 @@ class RideService {
         // Try with the most recent booking as fallback
         try {
           final lastCreatedBooking = _bookingService.getLastCreatedBooking();
-          if (lastCreatedBooking != null && 
-              lastCreatedBooking.status.toUpperCase() != 'CANCELLED' &&
-              lastCreatedBooking.status.toUpperCase() != 'REJECTED') {
-            
-            final filteredRides = availableRides
-                .where((ride) => ride.id != lastCreatedBooking.rideId)
-                .toList();
-                
-            availableRides = filteredRides;
-            
-            // Update the cache with filtered data
-            _cachedAvailableRides = List.from(availableRides);
-            _lastCacheTime = DateTime.now();
+          if (lastCreatedBooking != null) {
+            // Chỉ lọc bỏ nếu booking đang active
+            final status = lastCreatedBooking.status.toUpperCase();
+            final isActive = status == 'PENDING' || status == 'ACCEPTED' || 
+                           status == 'APPROVED' || status == 'IN_PROGRESS';
+                           
+            if (isActive) {
+              final filteredRides = availableRides
+                  .where((ride) => ride.id != lastCreatedBooking.rideId)
+                  .toList();
+                  
+              availableRides = filteredRides;
+              
+              // Update the cache with filtered data
+              _cachedAvailableRides = List.from(availableRides);
+              _lastCacheTime = DateTime.now();
+            }
           }
         } catch (e2) {
           debugPrint('Error checking local booking data: $e2');
@@ -316,6 +345,13 @@ class RideService {
 
   // Helper to get min value
   int min(int a, int b) => a < b ? a : b;
+
+  // Xóa cache để force load lại danh sách rides có sẵn
+  void clearAvailableRidesCache() {
+    print('🧹 Xóa cache danh sách chuyến đi có sẵn');
+    _cachedAvailableRides = [];
+    _lastCacheTime = DateTime(1970); // Reset về epoch
+  }
 
   // Get ride details
   Future<Ride?> getRideDetails(int rideId) async {

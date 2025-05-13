@@ -348,7 +348,7 @@ class AppConfig {
         }
         
       case BOOKING_STATUS_IN_PROGRESS:
-        return "Đang diễn ra";
+        return "Đang đi";
         
       case BOOKING_STATUS_PASSENGER_CONFIRMED:
         return "Đã xác nhận từ khách";

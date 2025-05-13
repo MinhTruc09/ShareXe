@@ -131,12 +131,17 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
       final allRideIds = bookings.map((b) => b.rideId).toList();
       print('📋 Danh sách rideId từ tất cả bookings: $allRideIds');
       
-      final existingBooking = bookings.where((booking) => booking.rideId == rideId).toList();
+      // Chỉ lấy booking đang hoạt động (không bị hủy hoặc từ chối)
+      final activeBookings = bookings.where((booking) => 
+          booking.rideId == rideId && 
+          booking.status.toUpperCase() != 'CANCELLED' && 
+          booking.status.toUpperCase() != 'REJECTED'
+      ).toList();
       
-      if (existingBooking.isNotEmpty) {
-        // Nếu đã tồn tại booking cho chuyến đi này
-        final booking = existingBooking.first;
-        print('✅ Đã tìm thấy booking cho chuyến đi #$rideId: ${booking.id} - trạng thái: ${booking.status}');
+      if (activeBookings.isNotEmpty) {
+        // Nếu đã tồn tại booking đang hoạt động cho chuyến đi này
+        final booking = activeBookings.first;
+        print('✅ Đã tìm thấy booking đang hoạt động cho chuyến đi #$rideId: ${booking.id} - trạng thái: ${booking.status}');
         
         if (!mounted) return;
         setState(() {
@@ -147,13 +152,32 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
           _setupBookingStatusListener(_booking!.id);
         });
       } else {
-        print('ℹ️ Không có booking nào cho chuyến đi #$rideId');
-        if (!mounted) return;
-        setState(() {
-          // Đảm bảo rằng _isBooked được đặt thành false nếu không tìm thấy booking
-          _isBooked = false;
-          _booking = null;
-        });
+        // Kiểm tra booking gần đây nhất trong bộ nhớ local
+        final lastCreatedBooking = _bookingService.getLastCreatedBooking();
+        if (lastCreatedBooking != null && 
+            lastCreatedBooking.rideId == rideId && 
+            lastCreatedBooking.status.toUpperCase() != 'CANCELLED' && 
+            lastCreatedBooking.status.toUpperCase() != 'REJECTED') {
+          
+          print('✅ Tìm thấy booking local cho chuyến đi #$rideId: ${lastCreatedBooking.id} - trạng thái: ${lastCreatedBooking.status}');
+          
+          if (!mounted) return;
+          setState(() {
+            _isBooked = true;
+            _booking = lastCreatedBooking;
+            
+            // Set up real-time listener for this booking
+            _setupBookingStatusListener(_booking!.id);
+          });
+        } else {
+          print('ℹ️ Không có booking đang hoạt động nào cho chuyến đi #$rideId');
+          if (!mounted) return;
+          setState(() {
+            // Đảm bảo rằng _isBooked được đặt thành false nếu không tìm thấy booking
+            _isBooked = false;
+            _booking = null;
+          });
+        }
       }
     } catch (e) {
       print('❌ Lỗi khi kiểm tra booking hiện có: $e');
@@ -1030,12 +1054,13 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
   
   // Hàm hủy đặt chỗ
   Future<void> _cancelBooking(Booking booking) async {
-    // Hiển thị dialog xác nhận
-    bool confirm = await showDialog(
+    final bool confirm = await showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Xác nhận hủy'),
-        content: const Text('Bạn có chắc muốn hủy đặt chỗ này?'),
+        content: const Text(
+          'Bạn có chắc chắn muốn hủy đặt chỗ không?'
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -1068,10 +1093,25 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
       if (success) {
         print('✅ Hủy đặt chỗ thành công');
         
+        // Xóa thông tin booking khỏi Firebase để đảm bảo không còn dữ liệu cũ
+        try {
+          final DatabaseReference bookingRef = FirebaseDatabase.instance.ref('bookings/${booking.id}');
+          await bookingRef.remove();
+          print('✅ Đã xóa booking #${booking.id} khỏi Firebase');
+          
+          // Đảm bảo hủy subscription hiện tại
+          _bookingStatusSubscription?.cancel();
+          _bookingStatusSubscription = null;
+        } catch (e) {
+          print('⚠️ Lỗi khi xóa booking khỏi Firebase: $e');
+          // Không dừng quy trình vì đây không phải lỗi chính
+        }
+        
         if (mounted) {
           // Cập nhật trạng thái booking locally để hiển thị trạng thái "Đã hủy"
           setState(() {
-            _booking = booking.copyWith(status: 'CANCELLED');
+            _booking = null;  // Xóa booking hoàn toàn thay vì chỉ cập nhật trạng thái
+            _isBooked = false;  // Đặt lại trạng thái là chưa đặt
             _isLoading = false;
           });
           
@@ -1085,6 +1125,10 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
           
           // Đợi 2 giây để hiển thị trạng thái đã hủy trước khi quay lại màn hình trước
           await Future.delayed(const Duration(seconds: 2));
+          
+          // Force xóa cache để load lại danh sách chuyến đi có sẵn
+          final rideService = RideService();
+          rideService.clearAvailableRidesCache();
           
           // Đặt kết quả và quay về màn hình trước đó
           // Giá trị true sẽ trigger việc refresh danh sách chuyến đi trên màn hình trước
