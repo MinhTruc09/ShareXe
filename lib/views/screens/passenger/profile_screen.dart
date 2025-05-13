@@ -6,6 +6,8 @@ import '../../../controllers/auth_controller.dart';
 import '../../../app_route.dart';
 import '../../../views/screens/passenger/edit_profile_screen.dart';
 import 'change_password_screen.dart';
+import '../../screens/common/about_app_screen.dart';
+import '../../screens/common/support_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -59,6 +61,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _logout() async {
+    // Hiển thị dialog xác nhận trước khi đăng xuất
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Xác nhận đăng xuất'),
+          content: const Text('Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng không?'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Đóng dialog
+              },
+              child: const Text('Hủy'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.of(context).pop(); // Đóng dialog
+                
+                // Tiến hành đăng xuất
     try {
       await _authController.logout(context);
       // NavigationHelper sẽ xử lý việc điều hướng, không cần NavigatorPushReplacement
@@ -69,6 +90,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
         );
       }
     }
+              },
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.red,
+              ),
+              child: const Text('Đăng xuất'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   // Xử lý phiên đăng nhập hết hạn
@@ -286,6 +317,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                             ),
                             _buildMenuItem(
+                              icon: Icons.info_outline,
+                              title: 'Giới thiệu ứng dụng',
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const AboutAppScreen(),
+                                  ),
+                                );
+                              },
+                            ),
+                            _buildMenuItem(
                               icon: Icons.history,
                               title: 'Lịch sử chuyến đi',
                               onTap: () {
@@ -379,7 +422,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               icon: Icons.support,
                               title: 'Trung tâm hỗ trợ',
                               onTap: () {
-                                // Help center
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const SupportScreen(),
+                                  ),
+                                );
                               },
                             ),
                             _buildMenuItem(

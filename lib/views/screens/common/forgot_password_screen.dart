@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
-import '../../../views/widgets/forgot_password_form.dart';
 import '../../../views/widgets/sharexe_background2.dart';
 import '../../../services/auth_service.dart';
 import 'dart:developer' as developer;

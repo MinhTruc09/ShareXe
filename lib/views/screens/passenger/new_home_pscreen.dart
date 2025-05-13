@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import 'package:flutter/material.dart';
 import 'package:sharexe/views/widgets/sharexe_background1.dart';
 import 'package:sharexe/services/auth_service.dart';
@@ -5,16 +7,15 @@ import 'package:sharexe/controllers/auth_controller.dart';
 import 'package:sharexe/app_route.dart';
 import 'package:sharexe/models/ride.dart';
 import 'package:sharexe/services/notification_service.dart';
-import 'package:intl/intl.dart';
 import '../../../services/profile_service.dart';
 import '../../../models/user_profile.dart';
 import '../../../services/auth_manager.dart';
-import 'package:flutter/foundation.dart';
 import '../../../services/ride_service.dart';
 import '../../widgets/location_picker.dart';
 import '../../widgets/date_picker.dart';
 import '../../widgets/passenger_counter.dart';
 import '../../widgets/ride_card.dart';
+import 'package:intl/intl.dart';
 import 'passenger_main_screen.dart'; // Import TabNavigator từ passenger_main_screen.dart
 
 class NewHomePscreen extends StatefulWidget {
@@ -25,7 +26,7 @@ class NewHomePscreen extends StatefulWidget {
 }
 
 // Expose the state class to allow access from outside
-class NewHomePscreenState extends State<NewHomePscreen> {
+class NewHomePscreenState extends State<NewHomePscreen> with WidgetsBindingObserver {
   late AuthController _authController;
   final NotificationService _notificationService = NotificationService();
   final ProfileService _profileService = ProfileService();
@@ -49,6 +50,31 @@ class NewHomePscreenState extends State<NewHomePscreen> {
     _authController = AuthController(AuthService());
     loadAvailableRides();
     _loadUserProfile();
+    
+    // Add listener for app lifecycle state changes to optimize memory usage
+    WidgetsBinding.instance.addObserver(this);
+  }
+  
+  @override
+  void dispose() {
+    // Remove lifecycle observer
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+  
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // When app goes to background, clear memory-intensive data
+    if (state == AppLifecycleState.paused) {
+      debugPrint('App paused: clearing cached ride images');
+      // Clear any cached images or heavy data (if applicable)
+    }
+    
+    // When app comes back to foreground, refresh data
+    if (state == AppLifecycleState.resumed) {
+      debugPrint('App resumed: refreshing ride data');
+      _refreshRides();
+    }
   }
 
   Future<void> _loadUserProfile() async {

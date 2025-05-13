@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../../models/notification_model.dart';
 import '../../../services/notification_service.dart';
 import '../../../services/ride_service.dart';
-import '../../../views/screens/notifications/notifications_screen.dart';
 import '../../../app_route.dart' show AppRoute, DriverRoutes;
 
 class NotificationTabsScreen extends StatefulWidget {

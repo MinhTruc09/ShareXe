@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:sharexe/models/registration_data.dart';
-import 'package:sharexe/views/widgets/sharexe_background1.dart';
 import 'package:sharexe/views/widgets/register_form_step1.dart';
 import 'package:sharexe/app_route.dart';
 import 'package:sharexe/views/widgets/sharexe_background2.dart';

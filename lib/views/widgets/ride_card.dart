@@ -14,6 +14,9 @@ class RideCard extends StatelessWidget {
   final Function()? onConfirmComplete;
   final bool isDriverView;
   final AppConfig _appConfig = AppConfig();
+  
+  // Add a static cache for formatted time strings
+  static final Map<String, String> _timeFormatCache = {};
 
   RideCard({
     Key? key,
@@ -28,12 +31,24 @@ class RideCard extends StatelessWidget {
   }) : super(key: key);
 
   String _formatTime(String timeString) {
+    // Check if this timestamp is already in the cache
+    if (_timeFormatCache.containsKey(timeString)) {
+      return _timeFormatCache[timeString]!;
+    }
+    
     try {
       // Parse the date string in ISO format
       final dateTime = DateTime.parse(timeString);
       // Format to display date and time
-      return DateFormat('HH:mm dd/MM/yyyy').format(dateTime);
+      final formatted = DateFormat('HH:mm dd/MM/yyyy').format(dateTime);
+      
+      // Store in cache for future use
+      _timeFormatCache[timeString] = formatted;
+      
+      return formatted;
     } catch (e) {
+      // Cache the error result too to avoid repeated parsing attempts
+      _timeFormatCache[timeString] = timeString;
       return timeString;
     }
   }
@@ -41,18 +56,23 @@ class RideCard extends StatelessWidget {
   String _formatBookingTime() {
     if (bookingDTO != null) {
       try {
-        return DateFormat('HH:mm dd/MM/yyyy').format(bookingDTO!.createdAt);
+        final key = 'bookingDTO_${bookingDTO!.createdAt.toIso8601String()}';
+        
+        // Check cache first
+        if (_timeFormatCache.containsKey(key)) {
+          return _timeFormatCache[key]!;
+        }
+        
+        final formatted = DateFormat('HH:mm dd/MM/yyyy').format(bookingDTO!.createdAt);
+        _timeFormatCache[key] = formatted;
+        return formatted;
       } catch (e) {
         print('Error formatting bookingDTO createdAt: $e');
       }
     }
     
     if (booking != null) {
-      try {
-        return _formatTime(booking!.createdAt);
-      } catch (e) {
-        print('Error formatting booking createdAt: $e');
-      }
+      return _formatTime(booking!.createdAt);
     }
     
     return "N/A";
@@ -171,17 +191,34 @@ class RideCard extends StatelessWidget {
 
     // Format giá tiền với xử lý số lớn
     String formatPrice(double price) {
+      if (price == 0) return "0 đ";
+      
       try {
-        return currencyFormat.format(price);
-      } catch (e) {
-        print('Error formatting price: $e');
-        // Fallback for very large numbers
-        if (price > 1000000000) {
-          return '${(price / 1000000000).toStringAsFixed(1)}B đ';
-        } else if (price > 1000000) {
-          return '${(price / 1000000).toStringAsFixed(1)}M đ';
+        // Handle large numbers gracefully
+        if (price >= 1000000000) {
+          // For billions, use B suffix
+          return '${(price / 1000000000).toStringAsFixed(price % 1000000000 > 0 ? 2 : 0).replaceAll(RegExp(r'\.0+$'), '')}B đ';
+        } else if (price >= 1000000) {
+          // For millions, use M suffix
+          return '${(price / 1000000).toStringAsFixed(price % 1000000 > 0 ? 1 : 0).replaceAll(RegExp(r'\.0+$'), '')}M đ';
+        } else if (price >= 1000) {
+          // For thousands, use K suffix
+          return '${(price / 1000).toStringAsFixed(price % 1000 > 0 ? 1 : 0).replaceAll(RegExp(r'\.0+$'), '')}K đ';
         } else {
-          return '$price đ';
+          // Use NumberFormat only for smaller numbers to avoid overflow
+          return currencyFormat.format(price);
+        }
+      } catch (e) {
+        debugPrint('Error formatting price: $e');
+        // Even simpler fallback with manual formatting
+        if (price >= 1000000000) {
+          return '${(price / 1000000000).toStringAsFixed(1)}B đ';
+        } else if (price >= 1000000) {
+          return '${(price / 1000000).toStringAsFixed(1)}M đ';
+        } else if (price >= 1000) {
+          return '${(price / 1000).toStringAsFixed(1)}K đ';
+        } else {
+          return '${price.toStringAsFixed(0)} đ';
         }
       }
     }
@@ -310,29 +347,71 @@ class RideCard extends StatelessWidget {
                   // Số ghế và giá - Sửa để xử lý giá lớn
                   Row(
                     children: [
+                      // Số lượng ghế
                       Expanded(
-                        flex: 3,
-                        child: Text(
-                          '${ride.totalSeat - (ride.availableSeats ?? 0)} ghế × ${formatPrice(ride.pricePerSeat ?? 0)}',
-                          style: const TextStyle(
-                            color: Colors.black87,
-                            fontSize: 14,
-                          ),
-                          overflow: TextOverflow.ellipsis,
+                        flex: 1,
+                        child: Row(
+                          children: [
+                            Icon(Icons.event_seat, color: Colors.blue.shade700, size: 18),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${ride.totalSeat - (ride.availableSeats ?? 0)} ghế',
+                              style: const TextStyle(
+                                color: Colors.black87,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      
+                      // Giá mỗi ghế
                       Expanded(
-                        flex: 2,
-                        child: Text(
-                          formatPrice(totalPrice),
-                          style: const TextStyle(
-                            color: Colors.black,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                          textAlign: TextAlign.right,
-                          overflow: TextOverflow.ellipsis,
+                        flex: 1,
+                        child: Row(
+                          children: [
+                            Icon(Icons.attach_money, color: Colors.green.shade700, size: 18),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                formatPrice(ride.pricePerSeat ?? 0),
+                                style: const TextStyle(
+                                  color: Colors.black87,
+                                  fontSize: 14,
+                                ),
+                                overflow: TextOverflow.ellipsis, 
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      
+                      // Tổng tiền
+                      Expanded(
+                        flex: 1,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Text(
+                              'Tổng: ',
+                              style: TextStyle(
+                                color: Colors.grey.shade700,
+                                fontSize: 14,
+                              ),
+                            ),
+                            Flexible(
+                              child: Text(
+                                formatPrice(totalPrice),
+                                style: TextStyle(
+                                  color: Colors.deepOrange.shade700,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],

@@ -3,7 +3,6 @@ import '../../../models/user_profile.dart';
 import '../../../services/profile_service.dart';
 import '../../../services/auth_service.dart';
 import '../../../controllers/auth_controller.dart';
-import '../../../app_route.dart';
 import '../../widgets/sharexe_background2.dart';
 import 'dart:developer' as developer;
 import 'change_password_screen.dart';

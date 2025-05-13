@@ -1,40 +1,46 @@
 import 'dart:io';
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 
 class AppConfig {
   static final AppConfig _instance = AppConfig._internal();
   factory AppConfig() => _instance;
+  
+  // Private constructor
   AppConfig._internal();
 
-  // API Base URL - Primary URL (Ngrok)
+  // API URLs with automatic backup URLs
   String apiBaseUrl = 'https://ec9c-58-186-196-182.ngrok-free.app';
-  
-  // Fallback API URL - Secondary URL when Ngrok is down
   String fallbackApiUrl = 'https://sharexe-api.onrender.com';
   
   // Flag to indicate if using fallback URL
   bool isUsingFallback = false;
+  
+  // URL checking cache data
+  DateTime _lastUrlCheckTime = DateTime(1970);
+  bool _lastPrimaryUrlStatus = false;
+  bool _lastFallbackUrlStatus = false;
+  
+  // Cache duration
+  final Duration _urlCheckCacheDuration = const Duration(minutes: 5);
 
-  // API Base Path - Đường dẫn API cơ sở
+  // API Base Path
   String apiBasePath = '/api';
 
-  // Full API URL (apiBaseUrl + apiBasePath)
+  // Full API URL - Computed property with fallback logic
   String get fullApiUrl => '${isUsingFallback ? fallbackApiUrl : apiBaseUrl}$apiBasePath';
 
-  // WebSocket URL
+  // WebSocket URL with improved computation
   String get webSocketUrl {
+    // Base URL selection
     String baseUrl = isUsingFallback ? fallbackApiUrl : apiBaseUrl;
     
-    // Remove any port specification with :0
-    if (baseUrl.contains(':0')) {
-      baseUrl = baseUrl.replaceAll(':0', '');
-    }
-    
-    // Ensure baseUrl doesn't end with a slash
+    // Clean up URL - remove trailing slash
     if (baseUrl.endsWith('/')) {
       baseUrl = baseUrl.substring(0, baseUrl.length - 1);
     }
     
-    // Convert HTTP/HTTPS to WebSocket protocol
+    // Protocol conversion
     String wsUrl;
     if (baseUrl.startsWith('https://')) {
       wsUrl = baseUrl.replaceFirst('https://', 'wss://');
@@ -45,18 +51,22 @@ class AppConfig {
       wsUrl = 'wss://$baseUrl';
     }
     
-    // For Ngrok URLs, use specific WebSocket endpoint path 
-    // Check if using Ngrok (containing ngrok in URL)
-    if (baseUrl.contains('ngrok')) {
-      return '$wsUrl/ws/websocket'; // Correct endpoint for Ngrok WebSocket
-    } else {
-      return '$wsUrl/ws'; // Regular WebSocket endpoint
-    }
+    // Endpoint selection based on URL
+    return baseUrl.contains('ngrok') 
+        ? '$wsUrl/ws/websocket'  // Ngrok specific endpoint
+        : '$wsUrl/ws';          // Standard endpoint
   }
 
-  // FCM server key
-  String fcmServerKey = 'YOUR_FCM_SERVER_KEY';
+  // Computed property getters for API endpoints
+  String get loginEndpoint => '$fullApiUrl/auth/login';
+  String get registerEndpoint => '$fullApiUrl/auth/register';
+  String get userProfileEndpoint => '$fullApiUrl/user/profile';
+  String get notificationsEndpoint => '$fullApiUrl/notifications';
+  String get chatEndpoint => '$fullApiUrl/chat';
+  String get availableRidesEndpoint => '$fullApiUrl/ride/available';
+  String get searchRidesEndpoint => '$fullApiUrl/ride/search';
 
+  // Notification constants - stored as static to avoid duplication
   // FCM topics
   String fcmTopicAllUsers = 'all_users';
   String fcmTopicDrivers = 'drivers';
@@ -68,85 +78,86 @@ class AppConfig {
   // Chat settings
   int chatHistoryLimit = 50; // Số lượng tin nhắn tải mỗi lần
 
-  // Ride status constants - Chuẩn hóa theo yêu cầu
-  static const String RIDE_STATUS_ACTIVE = "ACTIVE";           // Chuyến đi sắp tới (chưa bắt đầu)
-  static const String RIDE_STATUS_DRIVER_CONFIRMED = "DRIVER_CONFIRMED";  // Tài xế xác nhận hoàn thành
-  static const String RIDE_STATUS_COMPLETED = "COMPLETED";     // Cả tài xế và hành khách đều xác nhận
-  static const String RIDE_STATUS_CANCELLED = "CANCELLED";     // Chuyến đi bị hủy
-  
-  // Booking status constants - Chuẩn hóa theo yêu cầu
-  static const String BOOKING_STATUS_PENDING = "PENDING";      // Vừa đặt
-  static const String BOOKING_STATUS_ACCEPTED = "ACCEPTED";    // Đã được duyệt
-  static const String BOOKING_STATUS_IN_PROGRESS = "IN_PROGRESS"; // Đang diễn ra
-  static const String BOOKING_STATUS_PASSENGER_CONFIRMED = "PASSENGER_CONFIRMED"; // Hành khách xác nhận
-  static const String BOOKING_STATUS_DRIVER_CONFIRMED = "DRIVER_CONFIRMED";       // Tài xế xác nhận
-  static const String BOOKING_STATUS_COMPLETED = "COMPLETED";  // Hoàn thành
-  static const String BOOKING_STATUS_CANCELLED = "CANCELLED";  // Đã hủy
-  static const String BOOKING_STATUS_REJECTED = "REJECTED";    // Bị từ chối
-  
   // Time buffer in minutes to determine if a ride is about to start
   int rideStartTimeBuffer = 5; // 5 minutes buffer
 
-  // Notification types - Các loại thông báo
-  // Thông báo liên quan đến booking
-  static const String NOTIFICATION_BOOKING_REQUEST = "BOOKING_REQUEST";       // Có người đặt chỗ mới
-  static const String NOTIFICATION_BOOKING_ACCEPTED = "BOOKING_ACCEPTED";     // Tài xế chấp nhận booking
-  static const String NOTIFICATION_BOOKING_REJECTED = "BOOKING_REJECTED";     // Tài xế từ chối booking
-  static const String NOTIFICATION_BOOKING_CANCELLED = "BOOKING_CANCELLED";   // Hành khách hủy booking
+  // Ride status constants - Standardized
+  static const String RIDE_STATUS_ACTIVE = "ACTIVE";            
+  static const String RIDE_STATUS_DRIVER_CONFIRMED = "DRIVER_CONFIRMED";  
+  static const String RIDE_STATUS_COMPLETED = "COMPLETED";      
+  static const String RIDE_STATUS_CANCELLED = "CANCELLED";      
   
-  // Thông báo liên quan đến chuyến đi
-  static const String NOTIFICATION_RIDE_CREATED = "RIDE_CREATED";            // Tài xế tạo chuyến đi mới
-  static const String NOTIFICATION_RIDE_STARTED = "RIDE_STARTED";            // Chuyến đi bắt đầu
-  static const String NOTIFICATION_DRIVER_CONFIRMED = "DRIVER_CONFIRMED";    // Tài xế xác nhận hoàn thành
-  static const String NOTIFICATION_PASSENGER_CONFIRMED = "PASSENGER_CONFIRMED"; // Hành khách xác nhận hoàn thành
-  static const String NOTIFICATION_RIDE_COMPLETED = "RIDE_COMPLETED";        // Chuyến đi hoàn thành
-  static const String NOTIFICATION_RIDE_CANCELLED = "RIDE_CANCELLED";        // Chuyến đi bị hủy
+  // Booking status constants - Standardized 
+  static const String BOOKING_STATUS_PENDING = "PENDING";       
+  static const String BOOKING_STATUS_ACCEPTED = "ACCEPTED";     
+  static const String BOOKING_STATUS_IN_PROGRESS = "IN_PROGRESS"; 
+  static const String BOOKING_STATUS_PASSENGER_CONFIRMED = "PASSENGER_CONFIRMED"; 
+  static const String BOOKING_STATUS_DRIVER_CONFIRMED = "DRIVER_CONFIRMED";       
+  static const String BOOKING_STATUS_COMPLETED = "COMPLETED";   
+  static const String BOOKING_STATUS_CANCELLED = "CANCELLED";   
+  static const String BOOKING_STATUS_REJECTED = "REJECTED";     
   
-  // Thông báo liên quan đến tài xế
-  static const String NOTIFICATION_DRIVER_APPROVED = "DRIVER_APPROVED";      // Hồ sơ tài xế được duyệt
-  static const String NOTIFICATION_DRIVER_REJECTED = "DRIVER_REJECTED";      // Hồ sơ tài xế bị từ chối
+  // Notification types - Standardized
+  static const String NOTIFICATION_BOOKING_REQUEST = "BOOKING_REQUEST";      
+  static const String NOTIFICATION_BOOKING_ACCEPTED = "BOOKING_ACCEPTED";     
+  static const String NOTIFICATION_BOOKING_REJECTED = "BOOKING_REJECTED";     
+  static const String NOTIFICATION_BOOKING_CANCELLED = "BOOKING_CANCELLED";   
   
-  // Thông báo hệ thống
-  static const String NOTIFICATION_SYSTEM = "SYSTEM";                        // Thông báo hệ thống
-  static const String NOTIFICATION_CHAT_MESSAGE = "CHAT_MESSAGE";            // Tin nhắn chat
+  // Ride notifications
+  static const String NOTIFICATION_RIDE_CREATED = "RIDE_CREATED";            
+  static const String NOTIFICATION_RIDE_STARTED = "RIDE_STARTED";            
+  static const String NOTIFICATION_DRIVER_CONFIRMED = "DRIVER_CONFIRMED";    
+  static const String NOTIFICATION_PASSENGER_CONFIRMED = "PASSENGER_CONFIRMED"; 
+  static const String NOTIFICATION_RIDE_COMPLETED = "RIDE_COMPLETED";        
+  static const String NOTIFICATION_RIDE_CANCELLED = "RIDE_CANCELLED";        
+  
+  // Driver notifications
+  static const String NOTIFICATION_DRIVER_APPROVED = "DRIVER_APPROVED";      
+  static const String NOTIFICATION_DRIVER_REJECTED = "DRIVER_REJECTED";      
+  
+  // System notifications
+  static const String NOTIFICATION_SYSTEM = "SYSTEM";                        
+  static const String NOTIFICATION_CHAT_MESSAGE = "CHAT_MESSAGE";            
 
-  // Các endpoint API
-  String get loginEndpoint => '$fullApiUrl/auth/login';
-  String get registerEndpoint => '$fullApiUrl/auth/register';
-  String get userProfileEndpoint => '$fullApiUrl/user/profile';
-  String get notificationsEndpoint => '$fullApiUrl/notifications';
-  String get chatEndpoint => '$fullApiUrl/chat';
-  String get availableRidesEndpoint => '$fullApiUrl/ride/available';
-  String get searchRidesEndpoint => '$fullApiUrl/ride/search';
+  // Build dynamic endpoint
+  String getEndpoint(String path) {
+    // Normalize path to prevent double slashes
+    if (path.startsWith('/')) {
+      path = path.substring(1);
+    }
+    return '$fullApiUrl/$path';
+  }
 
-  // Build endpoint động
-  String getEndpoint(String path) => '$fullApiUrl/$path';
-
-  // Các route của WebSocket
+  // WebSocket route constants
   String get notificationTopic => '/topic/notifications';
   String get chatTopic => '/topic/chat';
 
-  // Cập nhật URL gốc
+  // Update URL with proper error checking
   void updateBaseUrl(String newUrl) {
-    if (newUrl.isNotEmpty) {
-      // Đảm bảo URL không có dấu / ở cuối
-      apiBaseUrl =
-          newUrl.endsWith('/')
-              ? newUrl.substring(0, newUrl.length - 1)
-              : newUrl;
-
-      print('API Base URL đã được cập nhật: $apiBaseUrl');
-      print('WebSocket URL: $webSocketUrl');
-      print('Full API URL: $fullApiUrl');
+    if (newUrl.isEmpty) return;
+    
+    // Clean URL format
+    if (newUrl.endsWith('/')) {
+      newUrl = newUrl.substring(0, newUrl.length - 1);
     }
+    
+    // Add https:// if protocol is missing
+    if (!newUrl.startsWith('http://') && !newUrl.startsWith('https://')) {
+      newUrl = 'https://$newUrl';
+    }
+    
+    apiBaseUrl = newUrl;
+    
+    // Reset URL check cache
+    _lastUrlCheckTime = DateTime(1970);
   }
 
-  // Trả về URL cơ sở
+  // Return the current base URL
   String getBaseUrl() {
     return isUsingFallback ? fallbackApiUrl : apiBaseUrl;
   }
 
-  // Check if a URL is working with timeout
+  // Check if a URL is working with optimized caching and timeout
   Future<bool> isUrlWorking(String url, {int timeoutSeconds = 5}) async {
     try {
       final client = HttpClient();
@@ -154,56 +165,117 @@ class AppConfig {
       
       final request = await client.getUrl(Uri.parse(url));
       request.headers.add('Connection', 'close');
-      final response = await request.close().timeout(Duration(seconds: timeoutSeconds));
+      
+      final response = await request.close().timeout(
+        Duration(seconds: timeoutSeconds),
+        onTimeout: () {
+          throw TimeoutException('URL check timed out after $timeoutSeconds seconds');
+        }
+      );
       
       await response.drain<void>();
       client.close();
       return response.statusCode < 400;
     } catch (e) {
-      print('Lỗi khi kiểm tra URL $url: $e');
+      debugPrint('URL check error for $url: $e');
       return false;
     }
   }
 
-  // Kiểm tra xem URL ngrok có đang hoạt động hay không
+  // Check primary URL with caching
   Future<bool> isNgrokUrlWorking() async {
-    return await isUrlWorking(apiBaseUrl);
+    final now = DateTime.now();
+    // Return cached result if recent
+    if (now.difference(_lastUrlCheckTime) < _urlCheckCacheDuration) {
+      return _lastPrimaryUrlStatus;
+    }
+    
+    // Check URL
+    final result = await isUrlWorking(apiBaseUrl);
+    
+    // Update cache
+    _lastPrimaryUrlStatus = result;
+    _lastUrlCheckTime = now;
+    
+    return result;
   }
   
-  // Kiểm tra URL dự phòng có đang hoạt động hay không
+  // Check fallback URL with caching
   Future<bool> isFallbackUrlWorking() async {
-    return await isUrlWorking(fallbackApiUrl);
+    final now = DateTime.now();
+    // Return cached result if recent
+    if (now.difference(_lastUrlCheckTime) < _urlCheckCacheDuration) {
+      return _lastFallbackUrlStatus;
+    }
+    
+    // Check URL
+    final result = await isUrlWorking(fallbackApiUrl);
+    
+    // Update cache
+    _lastFallbackUrlStatus = result;
+    _lastUrlCheckTime = now;
+    
+    return result;
   }
   
-  // Automatically switch to fallback URL if primary is not working
+  // Smartly switch to the working URL
   Future<bool> switchToWorkingUrl() async {
+    final now = DateTime.now();
+    final needToCheckUrls = now.difference(_lastUrlCheckTime) >= _urlCheckCacheDuration;
+    
+    // If currently using primary URL
     if (!isUsingFallback) {
-      // Check if primary URL is working
-      if (await isNgrokUrlWorking()) {
-        return true; // Already using working primary URL
-      } else {
-        // Check if fallback URL is working
-        if (await isFallbackUrlWorking()) {
-          isUsingFallback = true;
-          print('Đã chuyển sang dùng URL dự phòng: $fallbackApiUrl');
+      // Check if we need to verify the URL again
+      if (needToCheckUrls) {
+        _lastPrimaryUrlStatus = await isUrlWorking(apiBaseUrl);
+        _lastUrlCheckTime = now;
+        
+        // Stay on primary URL if it's working
+        if (_lastPrimaryUrlStatus) {
           return true;
-        } else {
-          print('Cả URL chính và URL dự phòng đều không hoạt động!');
-          return false;
         }
-      }
-    } else {
-      // Check if primary URL is working again to switch back
-      if (await isNgrokUrlWorking()) {
-        isUsingFallback = false;
-        print('Đã chuyển lại URL chính: $apiBaseUrl');
-        return true;
-      } else if (await isFallbackUrlWorking()) {
-        return true; // Continue using working fallback URL
-      } else {
-        print('Cả URL chính và URL dự phòng đều không hoạt động!');
+        
+        // Check fallback URL
+        _lastFallbackUrlStatus = await isUrlWorking(fallbackApiUrl);
+        
+        // Switch to fallback if it's working
+        if (_lastFallbackUrlStatus) {
+          isUsingFallback = true;
+          debugPrint('Switched to fallback URL: $fallbackApiUrl');
+          return true;
+        }
+        
+        debugPrint('Both primary and fallback URLs are unavailable!');
         return false;
+      } else {
+        // Use cached status if we checked recently
+        if (!_lastPrimaryUrlStatus && _lastFallbackUrlStatus) {
+          isUsingFallback = true;
+          debugPrint('Switched to fallback URL: $fallbackApiUrl (cached status)');
+        }
+        return _lastPrimaryUrlStatus || _lastFallbackUrlStatus;
       }
+    } 
+    // Currently using fallback
+    else {
+      // Periodically check if primary URL is back online
+      if (needToCheckUrls) {
+        _lastPrimaryUrlStatus = await isUrlWorking(apiBaseUrl);
+        _lastUrlCheckTime = now;
+        
+        // If primary URL is now working again, switch back
+        if (_lastPrimaryUrlStatus) {
+          isUsingFallback = false;
+          debugPrint('Switched back to primary URL: $apiBaseUrl');
+          return true;
+        }
+        
+        // Check if fallback is still working
+        _lastFallbackUrlStatus = await isUrlWorking(fallbackApiUrl);
+        return _lastFallbackUrlStatus;
+      }
+      
+      return _lastFallbackUrlStatus;
     }
   }
   

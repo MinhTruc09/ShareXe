@@ -3,8 +3,6 @@ import 'package:sharexe/app_route.dart';
 import 'package:sharexe/controllers/login_controller.dart';
 import 'package:sharexe/services/auth_service.dart';
 import 'package:sharexe/views/widgets/login_form_container1.dart';
-import 'package:sharexe/views/widgets/sharexe_background1.dart';
-import 'package:sharexe/views/widgets/login_form_container.dart';
 import 'package:sharexe/views/widgets/sharexe_background2.dart';
 
 class LoginDriver extends StatefulWidget {

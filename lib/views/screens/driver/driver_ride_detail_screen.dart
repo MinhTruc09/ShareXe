@@ -6,9 +6,7 @@ import '../../../services/booking_service.dart';
 import '../../../services/notification_service.dart';
 import '../../../services/ride_service.dart';
 import '../../../utils/app_config.dart';
-import '../../widgets/ride_card.dart';
 import 'dart:async';
-import 'package:firebase_database/firebase_database.dart';
 import '../../widgets/sharexe_background2.dart';
 
 class DriverRideDetailScreen extends StatefulWidget {

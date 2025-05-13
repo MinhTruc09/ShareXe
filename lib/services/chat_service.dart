@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 import '../models/chat_message_model.dart';
 import 'auth_manager.dart';

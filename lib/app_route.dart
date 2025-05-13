@@ -9,7 +9,6 @@ import 'views/screens/common/forgot_password_screen.dart';
 // Passenger screens
 import 'views/screens/passenger/splash_pscreen.dart';
 import 'views/screens/passenger/login_passenger.dart';
-import 'views/screens/passenger/home_pscreen.dart';
 import 'views/screens/passenger/register_passenger_step1.dart';
 import 'views/screens/passenger/register_user_step2.dart';
 import 'views/screens/passenger/profile_screen.dart';
@@ -20,7 +19,6 @@ import 'views/screens/passenger/passenger_bookings_screen.dart';
 // Driver screens
 import 'views/screens/driver/splash_dscreen.dart';
 import 'views/screens/driver/login_driver.dart';
-import 'views/screens/driver/home_dscreen.dart';
 import 'views/screens/driver/register_driver_step1.dart';
 import 'views/screens/driver/register_driver_step2.dart';
 import 'views/screens/driver/profile_screen.dart';

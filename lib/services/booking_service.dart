@@ -4,10 +4,7 @@ import 'dart:async';  // Add this import for TimeoutException
 import 'dart:io';     // Add this import for SocketException
 import '../utils/http_client.dart';
 import '../models/booking.dart';
-import '../models/ride.dart';
 import '../services/auth_manager.dart';
-import 'package:flutter/foundation.dart';
-import '../utils/app_config.dart';
 import 'package:firebase_database/firebase_database.dart';
 
 // API Response model

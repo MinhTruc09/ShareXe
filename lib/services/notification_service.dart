@@ -6,7 +6,6 @@ import '../models/booking.dart';
 import '../models/ride.dart';
 import '../utils/http_client.dart';
 import 'auth_manager.dart';
-import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 import '../models/notification_model.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -14,6 +13,7 @@ import '../utils/app_config.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/io.dart';
 import 'dart:async';
+import 'dart:math';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -30,6 +30,13 @@ class NotificationService {
   // Thêm WebSocket để nhận thông báo realtime
   WebSocketChannel? _socketChannel;
   StreamSubscription? _socketSubscription;
+  
+  // Add new fields for WebSocket connection management
+  bool _isConnecting = false;
+  int _reconnectAttempt = 0;
+  Timer? _reconnectTimer;
+  final int _maxReconnectDelay = 300; // Maximum delay of 5 minutes (300 seconds)
+  final bool _isConnected = false;
 
   // Stream controller để phát thông báo mới đến toàn bộ ứng dụng
   final _notificationController =
@@ -158,25 +165,41 @@ class NotificationService {
 
   // Thiết lập kết nối WebSocket
   Future<void> _setupWebSocketConnection() async {
+    // Don't try to connect if already connecting
+    if (_isConnecting) return;
+    
+    _isConnecting = true;
+    
     try {
       // Lấy token JWT từ AuthManager
       final token = await _authManager.getAccessToken();
-      if (token == null) return;
+      if (token == null) {
+        _isConnecting = false;
+        return;
+      }
 
       // Lấy baseUrl từ AppConfig và chuyển từ HTTP sang WebSocket
       String baseUrl = _appConfig.getBaseUrl().replaceFirst('http', 'ws');
 
+      if (kDebugMode) {
+        print('📞 Connecting to WebSocket: $baseUrl/ws/notifications');
+      }
+      
       // Kết nối đến WebSocket endpoint với token xác thực
       _socketChannel = IOWebSocketChannel.connect(
         Uri.parse('$baseUrl/ws/notifications'),
         headers: {'Authorization': 'Bearer $token'},
+        pingInterval: const Duration(seconds: 30), // Keep connection alive with pings
       );
 
       // Đăng ký lắng nghe tin nhắn từ WebSocket
       _socketSubscription = _socketChannel!.stream.listen(
         (dynamic message) {
+          // Reset reconnect attempt on successful message
+          _reconnectAttempt = 0;
+          
           if (kDebugMode) {
-            print('Received WebSocket message: $message');
+            print('📥 Received WebSocket message: $message');
           }
 
           try {
@@ -194,46 +217,67 @@ class NotificationService {
             }
           } catch (e) {
             if (kDebugMode) {
-              print('Lỗi khi xử lý WebSocket message: $e');
+              print('⚠️ Lỗi khi xử lý WebSocket message: $e');
             }
           }
         },
         onError: (error) {
           if (kDebugMode) {
-            print('WebSocket error: $error');
+            print('⚠️ WebSocket error: $error');
           }
-          // Thử kết nối lại sau 5 giây
-          Future.delayed(const Duration(seconds: 5), () {
-            _setupWebSocketConnection();
-          });
+          _handleWebSocketDisconnect();
         },
         onDone: () {
           if (kDebugMode) {
-            print('WebSocket connection closed');
+            print('📴 WebSocket connection closed');
           }
-          // Thử kết nối lại sau 5 giây
-          Future.delayed(const Duration(seconds: 5), () {
-            _setupWebSocketConnection();
-          });
+          _handleWebSocketDisconnect();
         },
       );
 
       if (kDebugMode) {
-        print('WebSocket connection established');
+        print('✅ WebSocket connection established');
       }
+      
+      _isConnecting = false;
+      
     } catch (e) {
       if (kDebugMode) {
-        print('Lỗi khi thiết lập WebSocket: $e');
+        print('⚠️ Lỗi khi thiết lập WebSocket: $e');
       }
-      // Thử kết nối lại sau 5 giây
-      Future.delayed(const Duration(seconds: 5), () {
-        _setupWebSocketConnection();
-      });
+      _isConnecting = false;
+      _handleWebSocketDisconnect();
     }
+  }
+  
+  // Handle WebSocket disconnection with exponential backoff
+  void _handleWebSocketDisconnect() {
+    // Cancel any existing reconnect timer
+    _reconnectTimer?.cancel();
+    
+    // Calculate backoff delay with exponential increase but max limit
+    // Formula: min(2^attempt * baseDelay, maxDelay)
+    final baseDelay = 1.0; // Start with 1 second
+    final randomFactor = 0.5 * Random().nextDouble(); // Add some randomness (0-0.5)
+    
+    double delaySeconds = baseDelay * pow(1.5, _reconnectAttempt) + randomFactor;
+    delaySeconds = min(delaySeconds, _maxReconnectDelay.toDouble());
+    
+    if (kDebugMode) {
+      print('🔄 Will attempt to reconnect in ${delaySeconds.toStringAsFixed(1)} seconds (attempt ${_reconnectAttempt + 1})');
+    }
+    
+    _reconnectTimer = Timer(Duration(milliseconds: (delaySeconds * 1000).toInt()), () {
+      _reconnectAttempt++;
+      closeWebSocketConnection(); // Ensure previous connection is fully closed
+      _setupWebSocketConnection();
+    });
   }
 
   // Đóng kết nối WebSocket
   void closeWebSocketConnection() {
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
     _socketSubscription?.cancel();
     _socketChannel?.sink.close();
     _socketChannel = null;

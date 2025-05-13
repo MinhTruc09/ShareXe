@@ -1,15 +1,13 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'views/theme/app_theme.dart';
 import 'app_route.dart';
-import 'utils/token_tester.dart';
 import 'services/notification_service.dart';
 import 'firebase_options.dart';
 import 'utils/app_config.dart';
-import 'views/screens/chat/user_list_screen.dart';
-import 'views/screens/chat/chat_room_screen.dart';
-import 'views/screens/common/splash_screen.dart';
+
 
 // Required for handling background messages
 @pragma('vm:entry-point')
@@ -19,9 +17,9 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    print("Handling a background message: ${message.messageId}");
+    debugPrint("Handling a background message: ${message.messageId}");
   } catch (e) { 
-    print("Error handling background message: $e");
+    debugPrint("Error handling background message: $e");
   }
 }
 
@@ -29,8 +27,22 @@ Future<void> main() async {
   // For testing JWT parsing
   // TokenTester.runTest();
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Set preferred orientations for better performance
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
 
   // Initialize Firebase with error handling
+  _initializeFirebase();
+
+  // Run the app
+  runApp(const MyApp());
+}
+
+// Extract Firebase initialization to a separate method
+Future<void> _initializeFirebase() async {
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
@@ -39,14 +51,24 @@ Future<void> main() async {
     // Set up background message handler
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
+    // Request notification permissions
+    await FirebaseMessaging.instance.requestPermission(
+      alert: true,
+      announcement: false,
+      badge: true,
+      carPlay: false,
+      criticalAlert: false,
+      provisional: true,
+      sound: true,
+    );
+
     // Get FCM token
-    await FirebaseMessaging.instance.getToken();
+    final token = await FirebaseMessaging.instance.getToken();
+    debugPrint('FCM Token: ${token?.substring(0, 10)}...');
   } catch (e) {
-    print("Error initializing Firebase: $e");
+    debugPrint("Error initializing Firebase: $e");
     // Continue without Firebase if initialization fails
   }
-
-  runApp(const MyApp());
 }
 
 class MyApp extends StatefulWidget {
@@ -58,6 +80,8 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+  final AppConfig _appConfig = AppConfig();
+  bool _isInitialized = false;
 
   @override
   void initState() {
@@ -66,19 +90,36 @@ class _MyAppState extends State<MyApp> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeNotifications();
     });
+    
+    // Pre-check API URL health
+    _checkApiUrls();
   }
-
+  
   // Initialize the notification service with the current context
   Future<void> _initializeNotifications() async {
     try {
-      final appConfig = AppConfig();
       await NotificationService().initialize(
         navigatorKey.currentContext,
-        appConfig.apiBaseUrl,
+        _appConfig.apiBaseUrl,
       );
+      setState(() {
+        _isInitialized = true;
+      });
     } catch (e) {
-      print("Error initializing notifications: $e");
+      debugPrint("Error initializing notifications: $e");
       // Continue without notifications if initialization fails
+      setState(() {
+        _isInitialized = true;
+      });
+    }
+  }
+  
+  // Check API URLs health at startup
+  Future<void> _checkApiUrls() async {
+    try {
+      await _appConfig.switchToWorkingUrl();
+    } catch (e) {
+      debugPrint("Error checking API URLs: $e");
     }
   }
 
@@ -91,8 +132,12 @@ class _MyAppState extends State<MyApp> {
       theme: appTheme,
       initialRoute: AppRoute.splash,
       onGenerateRoute: AppRoute.onGenerateRoute,
-      routes: {
-        '/': (context) => const SplashScreen(),
+      builder: (context, child) {
+        return MediaQuery(
+          // Set text scaling to prevent layout issues
+          data: MediaQuery.of(context).copyWith(textScaleFactor: 1.0),
+          child: child!,
+        );
       },
     );
   }

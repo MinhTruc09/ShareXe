@@ -2,8 +2,6 @@ import 'dart:convert';
 import 'dart:async';
 import 'dart:io';      // Add this import for SocketException
 import 'dart:developer' as developer;
-import 'dart:math';
-import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 import '../models/ride.dart';
 import '../models/booking.dart';
@@ -31,37 +29,29 @@ class RideService {
   
   // Get available rides
   Future<List<Ride>> getAvailableRides() async {
-    print('🔍 Fetching available rides from API...');
+    debugPrint('Fetching available rides from API...');
     
     // Always refresh data when this method is called - don't use cache
     // This ensures that when a booking is cancelled, the ride appears again
-    print('🔍 Starting to fetch available rides...');
-    print('🌐 API URL: ${_appConfig.availableRidesEndpoint}');
-
-    // Check token validity
-    await _authManager.checkAndPrintTokenValidity();
+    
+    // Check token validity quietly (don't log detailed token info)
+    await _authManager.checkAndPrintTokenValidity(verbose: false);
     
     List<Ride> availableRides = [];
 
     try {
-      // Bước 1: Lấy danh sách tất cả các chuyến đi có sẵn
-      print('📡 Attempting API call through ApiClient...');
+      // Step 1: Get all available rides
+      final response = await _apiClient.get(
+        '/ride/available',
+        timeout: const Duration(seconds: 5),
+      );
       
-      final response = await _apiClient.get('/ride/available')
-          .timeout(const Duration(seconds: 5), onTimeout: () {
-        print('⏱️ API request timed out after 5 seconds');
-        throw TimeoutException('API request timed out');
-      });
-      
-      print('📡 Response received - Status: ${response.statusCode}');
-
       if (response.statusCode == 200) {
         try {
           final responseData = json.decode(response.body);
           if (responseData['success'] == true && responseData['data'] != null) {
             final List<dynamic> ridesData = responseData['data'] as List;
             availableRides = ridesData.map((json) => Ride.fromJson(json)).toList();
-            print('✅ Lấy được ${availableRides.length} chuyến đi từ API');
             
             // Sort rides with newest (highest ID) first
             availableRides.sort((a, b) => b.id.compareTo(a.id));
@@ -69,11 +59,9 @@ class RideService {
             // Update the cache with new data
             _cachedAvailableRides = List.from(availableRides);
             _lastCacheTime = DateTime.now();
-          } else {
-            print('❌ API response format not as expected: ${responseData['message']}');
           }
         } catch (e) {
-          print('❌ Error parsing API response: $e');
+          debugPrint('Error parsing API response: $e');
           
           // Fallback to direct API call if parsing fails
           final fallbackRides = await _tryDirectApiCall();
@@ -81,89 +69,76 @@ class RideService {
             availableRides = fallbackRides;
             
             // Update the cache with fallback data
-            _cachedAvailableRides = List.from(fallbackRides);
+            _cachedAvailableRides = List.from(availableRides);
             _lastCacheTime = DateTime.now();
           } else if (_cachedAvailableRides.isNotEmpty) {
             // Use stale cache if we have it rather than no data
-            print('📦 Using stale cached data as fallback');
+            debugPrint('Using stale cached data as fallback');
             return _cachedAvailableRides;
           }
         }
       } else if (_cachedAvailableRides.isNotEmpty) {
         // Use stale cache if API returns error but we have cached data
-        print('📦 Using stale cached data due to API error');
+        debugPrint('Using stale cached data due to API error');
         return _cachedAvailableRides;
       }
       
-      // Bước 2: Lấy danh sách bookings của người dùng
+      // Step 2: Get user's bookings and filter out booked rides
       try {
-        print('🔍 Lấy danh sách bookings để lọc chuyến đi đã đặt...');
         final userBookings = await _bookingService.getPassengerBookings();
         
-        // Đã phát hiện vấn đề: API passenger/bookings đang sử dụng hàm getBookingsForDriver
-        // Không nhận được booking hoặc nhận được booking không đúng
-        print('📦 Nhận được ${userBookings.length} bookings từ API passenger/bookings');
-        
-        // Chiến lược: Kết hợp cả bookings từ API và mock booking mới nhất
+        // Create a set of ride IDs that should be filtered out
         Set<int> bookedRideIds = {};
         
-        // 1. Thêm rideId từ các bookings API trả về (nếu có)
+        // 1. Add ride IDs from API bookings (if any)
         if (userBookings.isNotEmpty) {
           final apiBookedRideIds = userBookings
               .where((booking) => 
-                // Only filter out PENDING or ACCEPTED bookings, not CANCELLED ones
+                // Only filter out active bookings (PENDING, ACCEPTED, IN_PROGRESS)
                 booking.status.toUpperCase() == 'PENDING' || 
                 booking.status.toUpperCase() == 'ACCEPTED' ||
-                booking.status.toUpperCase() == 'APPROVED')
+                booking.status.toUpperCase() == 'APPROVED' ||
+                booking.status.toUpperCase() == 'IN_PROGRESS')
               .map((booking) => booking.rideId)
               .toSet();
           
           bookedRideIds.addAll(apiBookedRideIds);
-          print('📋 Danh sách rideId đã đặt từ API: $apiBookedRideIds');
         }
         
-        // 2. Thêm rideId từ mock booking gần nhất (nếu có và không phải đã hủy)
+        // 2. Add ride ID from most recent booking if it's active
         final lastCreatedBooking = _bookingService.getLastCreatedBooking();
         if (lastCreatedBooking != null && 
             lastCreatedBooking.status.toUpperCase() != 'CANCELLED' &&
             lastCreatedBooking.status.toUpperCase() != 'REJECTED') {
-          print('🔍 Tìm thấy mock booking gần đây: #${lastCreatedBooking.id} cho chuyến #${lastCreatedBooking.rideId}');
           bookedRideIds.add(lastCreatedBooking.rideId);
         }
         
-        // Lọc bỏ các chuyến đi đã đặt
+        // Filter out booked rides if any
         if (bookedRideIds.isNotEmpty) {
-          print('📋 Tổng số rideId cần lọc: ${bookedRideIds.length} - Danh sách: $bookedRideIds');
-          
           final filteredRides = availableRides
               .where((ride) => !bookedRideIds.contains(ride.id))
               .toList();
               
-          print('🔄 Đã lọc bỏ ${availableRides.length - filteredRides.length} chuyến đi đã đặt');
           availableRides = filteredRides;
           
           // Update the cache with filtered data
           _cachedAvailableRides = List.from(availableRides);
           _lastCacheTime = DateTime.now();
-        } else {
-          print('ℹ️ Không có chuyến đi nào cần lọc bỏ');
         }
       } catch (e) {
-        print('⚠️ Không thể lấy danh sách bookings để lọc: $e');
+        debugPrint('Error filtering booked rides: $e');
         
-        // Vẫn thử kiểm tra mock booking trong trường hợp lỗi API
+        // Try with the most recent booking as fallback
         try {
           final lastCreatedBooking = _bookingService.getLastCreatedBooking();
           if (lastCreatedBooking != null && 
               lastCreatedBooking.status.toUpperCase() != 'CANCELLED' &&
               lastCreatedBooking.status.toUpperCase() != 'REJECTED') {
-            print('🔍 Vẫn dùng mock booking để lọc: #${lastCreatedBooking.id} cho chuyến #${lastCreatedBooking.rideId}');
             
             final filteredRides = availableRides
                 .where((ride) => ride.id != lastCreatedBooking.rideId)
                 .toList();
                 
-            print('🔄 Đã lọc bỏ 1 chuyến đi dựa trên mock booking');
             availableRides = filteredRides;
             
             // Update the cache with filtered data
@@ -171,18 +146,18 @@ class RideService {
             _lastCacheTime = DateTime.now();
           }
         } catch (e2) {
-          print('⚠️ Không thể kiểm tra mock booking: $e2');
+          debugPrint('Error checking local booking data: $e2');
         }
       }
       
       return availableRides;
       
     } catch (e) {
-      print('❌ Exception in getAvailableRides: $e');
+      debugPrint('Exception in getAvailableRides: $e');
       
       // Return cached data in case of error
       if (_cachedAvailableRides.isNotEmpty) {
-        print('📦 Using cached data due to exception');
+        debugPrint('Using cached data due to exception');
         return _cachedAvailableRides;
       }
       

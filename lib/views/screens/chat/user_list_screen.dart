@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'dart:async';
-import '../../../models/chat_message_model.dart';
 import '../../../services/chat_service.dart';
 import '../../../services/auth_manager.dart';
 import 'chat_room_screen.dart';

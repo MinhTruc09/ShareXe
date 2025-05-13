@@ -10,7 +10,6 @@ import 'package:sharexe/services/booking_service.dart';
 import 'package:intl/intl.dart';
 import '../../../services/profile_service.dart';
 import '../../../models/user_profile.dart';
-import '../../../models/notification_model.dart';
 import '../../../services/auth_manager.dart';
 import 'package:flutter/foundation.dart';
 import '../../../services/ride_service.dart';

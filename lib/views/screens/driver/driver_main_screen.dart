@@ -3,7 +3,6 @@ import 'package:sharexe/app_route.dart';
 import 'home_dscreen.dart';
 import '../chat/user_list_screen.dart';
 import 'driver_profile_screen.dart';
-import '../../widgets/notification_badge.dart';
 import 'my_rides_screen.dart';
 import '../../../utils/navigation_helper.dart';
 

@@ -3,7 +3,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:sharexe/controllers/register_controller.dart';
 import 'package:sharexe/models/registration_data.dart';
 import 'package:sharexe/services/auth_service.dart';
-import 'package:sharexe/views/widgets/sharexe_background1.dart';
 import 'package:sharexe/views/widgets/register_driver_form_step2.dart';
 import 'package:sharexe/app_route.dart';
 import 'package:flutter/foundation.dart';

@@ -3,13 +3,13 @@ import '../../../models/user_profile.dart';
 import '../../../services/profile_service.dart';
 import '../../../services/auth_service.dart';
 import '../../../controllers/auth_controller.dart';
-import '../../../app_route.dart';
-import '../../../models/notification_model.dart';
 import '../../../services/notification_service.dart';
 import '../../widgets/sharexe_background2.dart';
 import 'edit_profile_screen.dart';
 import 'vehicle_info_screen.dart';
 import 'change_password_screen.dart';
+import '../../screens/common/about_app_screen.dart';
+import '../../screens/common/support_screen.dart';
 
 class DriverProfileScreen extends StatefulWidget {
   const DriverProfileScreen({Key? key}) : super(key: key);
@@ -514,6 +514,18 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
                               ),
                             ),
                             _buildMenuItem(
+                              icon: Icons.info_outline,
+                              title: 'Giới thiệu ứng dụng',
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const AboutAppScreen(),
+                                  ),
+                                );
+                              },
+                            ),
+                            _buildMenuItem(
                               icon: Icons.history,
                               title: 'Lịch sử chuyến',
                               onTap: () {
@@ -632,7 +644,12 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
                               icon: Icons.support,
                               title: 'Trung tâm hỗ trợ',
                               onTap: () {
-                                // Help center
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const SupportScreen(),
+                                  ),
+                                );
                               },
                             ),
                             _buildMenuItem(
