@@ -170,19 +170,52 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
       final completed = <Booking>[];
       final cancelled = <Booking>[];
 
+      final now = DateTime.now();
+
       for (var booking in bookings) {
         final status = booking.status.toUpperCase();
-        if (status == 'PENDING') {
-          pending.add(booking);
-        } else if (status == 'ACCEPTED' || status == 'APPROVED') {
-          accepted.add(booking);
-        } else if (status == 'IN_PROGRESS' || status == 'ONGOING' || status == 'DRIVER_CONFIRMED') {
+        DateTime startTime;
+        
+        try {
+          startTime = booking.startTime != null && booking.startTime!.isNotEmpty
+              ? DateTime.parse(booking.startTime!)
+              : DateTime(2000); // Fallback to past date
+        } catch (e) {
+          developer.log('Lỗi parse startTime cho booking #${booking.id}: ${booking.startTime}', 
+              name: 'driver_bookings', error: e);
+          // Fallback to current time
+          startTime = DateTime.now();
+        }
+        
+        // "Đang đi": IN_PROGRESS, DRIVER_CONFIRMED, PASSENGER_CONFIRMED, ACCEPTED (đã đến giờ)
+        if (status == 'IN_PROGRESS' || status == 'DRIVER_CONFIRMED' || 
+            status == 'PASSENGER_CONFIRMED' || status == 'ONGOING') {
           ongoing.add(booking);
-        } else if (status == 'COMPLETED' || status == 'DONE' || status == 'PASSENGER_CONFIRMED') {
+        } 
+        // "Sắp tới": PENDING, ACCEPTED/APPROVED (chưa đến giờ)
+        else if (status == 'PENDING') {
+          pending.add(booking);
+        }
+        // ACCEPTED/APPROVED: phân loại dựa vào thời gian
+        else if (status == 'ACCEPTED' || status == 'APPROVED') {
+          // Đã đến giờ -> đang đi
+          if (now.isAfter(startTime)) {
+            ongoing.add(booking);
+          } 
+          // Chưa đến giờ -> sắp tới
+          else {
+            accepted.add(booking);
+          }
+        } 
+        // "Hoàn thành": COMPLETED
+        else if (status == 'COMPLETED' || status == 'DONE') {
           completed.add(booking);
-        } else if (status == 'CANCELLED' || status == 'REJECTED' || status == 'CANCEL') {
+        } 
+        // "Đã hủy": CANCELLED, REJECTED
+        else if (status == 'CANCELLED' || status == 'REJECTED' || status == 'CANCEL') {
           cancelled.add(booking);
-        } else {
+        } 
+        else {
           // Fallback for unknown status
           developer.log('Booking #${booking.id} has unknown status: $status', name: 'driver_bookings');
           pending.add(booking); // Default to pending

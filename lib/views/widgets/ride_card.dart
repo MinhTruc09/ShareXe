@@ -126,6 +126,7 @@ class RideCard extends StatelessWidget {
       // Xác định màu sắc
       switch (statusLabel) {
         case "Tài xế xác nhận":
+        case "Tài xế xác nhận - Đợi bạn xác nhận":
           statusColor = Colors.green;
           break;
         case "Đang đi":
@@ -142,6 +143,7 @@ class RideCard extends StatelessWidget {
           statusColor = Colors.blue;
           break;
         case "Khách đã xác nhận":
+        case "Bạn đã xác nhận - Đợi tài xế xác nhận":
           statusColor = Colors.teal;
           break;
         case "Đã hoàn thành":
@@ -157,11 +159,11 @@ class RideCard extends StatelessWidget {
       // Fallback khi không có startTime
       switch (ride.status.toUpperCase()) {
         case 'DRIVER_CONFIRMED':
-          statusLabel = 'Tài xế xác nhận';
+          statusLabel = 'Tài xế xác nhận - Đợi bạn xác nhận';
           statusColor = Colors.green;
           break;
         case 'PASSENGER_CONFIRMED':
-          statusLabel = 'Khách đã xác nhận';
+          statusLabel = 'Bạn đã xác nhận - Đợi tài xế xác nhận';
           statusColor = Colors.teal;
           break;
         case 'PENDING':

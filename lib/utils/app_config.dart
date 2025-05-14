@@ -366,10 +366,10 @@ class AppConfig {
         return "Đang đi";
 
       case BOOKING_STATUS_PASSENGER_CONFIRMED:
-        return "Khách đã xác nhận";
+        return "Bạn đã xác nhận - Đợi tài xế xác nhận";
 
       case BOOKING_STATUS_DRIVER_CONFIRMED:
-        return "Tài xế xác nhận";
+        return "Tài xế xác nhận - Đợi bạn xác nhận";
 
       case BOOKING_STATUS_COMPLETED:
         return "Đã hoàn thành";
@@ -403,12 +403,18 @@ class AppConfig {
     // PENDING (đang chờ duyệt) - yêu cầu mới
     // ACCEPTED (đã được duyệt)
     // APPROVED (đã được duyệt - cũ)
-    // IN_PROGRESS (đang diễn ra) 
+    // IN_PROGRESS (đang diễn ra)
+    // DRIVER_CONFIRMED (tài xế đã xác nhận, đợi khách xác nhận)
     // và đã qua thời gian khởi hành
+    // 
+    // KHÔNG hiển thị nút xác nhận khi đã là PASSENGER_CONFIRMED hoặc COMPLETED
     return (status == BOOKING_STATUS_PENDING ||
             status == BOOKING_STATUS_ACCEPTED ||
             status == "APPROVED" ||
-            status == BOOKING_STATUS_IN_PROGRESS) &&
+            status == BOOKING_STATUS_IN_PROGRESS ||
+            status == BOOKING_STATUS_DRIVER_CONFIRMED) &&
+            status != BOOKING_STATUS_PASSENGER_CONFIRMED &&
+            status != BOOKING_STATUS_COMPLETED &&
         now.isAfter(startTime);
   }
 }
