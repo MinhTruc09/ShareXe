@@ -11,8 +11,7 @@ import '../../widgets/sharexe_background2.dart';
 import '../../../utils/app_config.dart';
 
 class CreateRideScreen extends StatefulWidget {
-  final Map<String, dynamic>?
-  existingRide; // null nếu tạo mới, có giá trị nếu cập nhật
+  final Map<String, dynamic>? existingRide; // null nếu tạo mới, có giá trị nếu cập nhật
 
   const CreateRideScreen({Key? key, this.existingRide}) : super(key: key);
 
@@ -49,9 +48,10 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
     if (widget.existingRide != null) {
       _isEditMode = true;
       _loadExistingRideData();
-      
+
       // Kiểm tra trạng thái của chuyến đi
-      if (widget.existingRide?['status']?.toString().toUpperCase() == 'CANCELLED') {
+      if (widget.existingRide?['status']?.toString().toUpperCase() ==
+          'CANCELLED') {
         // Sử dụng WidgetsBinding để đảm bảo dialog được hiển thị sau khi build hoàn tất
         WidgetsBinding.instance.addPostFrameCallback((_) {
           showDialog(
@@ -82,54 +82,60 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
 
   Future<void> _checkDriverStatus() async {
     try {
-      setState(() {
-        _isLoading = true;
-      });
-      
+      if (mounted) {
+        setState(() {
+          _isLoading = true;
+        });
+      }
+
       final response = await _profileService.getUserProfile();
-      
-      setState(() {
-        _isLoading = false;
-        
-        if (response.success && response.data != null) {
-          final UserProfile userProfile = response.data!;
-          _driverStatus = userProfile.status;
-          _isDriverApproved = userProfile.status == 'APPROVED';
-          
-          // Nếu không phải là chế độ chỉnh sửa chuyến và tài xế chưa được duyệt,
-          // hiển thị thông báo
-          if (!_isEditMode && !_isDriverApproved) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              _showDriverNotApprovedDialog();
-            });
+
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+
+          if (response.success && response.data != null) {
+            final UserProfile userProfile = response.data!;
+            _driverStatus = userProfile.status;
+            _isDriverApproved = userProfile.status == 'APPROVED';
+
+            // Nếu không phải là chế độ chỉnh sửa chuyến và tài xế chưa được duyệt,
+            // hiển thị thông báo
+            if (!_isEditMode && !_isDriverApproved) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) _showDriverNotApprovedDialog();
+              });
+            }
+          } else {
+            // Nếu không lấy được thông tin hồ sơ, giả định tài xế chưa được duyệt
+            _isDriverApproved = false;
+            _driverStatus = 'UNKNOWN';
+
+            if (!_isEditMode) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) _showDriverNotApprovedDialog();
+              });
+            }
           }
-        } else {
-          // Nếu không lấy được thông tin hồ sơ, giả định tài xế chưa được duyệt
-          _isDriverApproved = false;
-          _driverStatus = 'UNKNOWN';
-          
-          if (!_isEditMode) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              _showDriverNotApprovedDialog();
-            });
-          }
-        }
-      });
+        });
+      }
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _isDriverApproved = false;
-        _driverStatus = 'ERROR';
-      });
-      
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isDriverApproved = false;
+          _driverStatus = 'ERROR';
+        });
+      }
+
       if (!_isEditMode) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          _showDriverNotApprovedDialog();
+          if (mounted) _showDriverNotApprovedDialog();
         });
       }
     }
   }
-  
+
   void _showDriverNotApprovedDialog() {
     showDialog(
       context: context,
@@ -142,10 +148,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
                 _driverStatus == 'PENDING'
                     ? Icons.hourglass_top
                     : Icons.error_outline,
-                color:
-                    _driverStatus == 'PENDING'
-                        ? Colors.orange
-                        : Colors.red,
+                color: _driverStatus == 'PENDING' ? Colors.orange : Colors.red,
               ),
               const SizedBox(width: 8),
               Text(
@@ -196,30 +199,49 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
   void _loadExistingRideData() {
     final ride = widget.existingRide!;
 
-    _rideId = ride['id'];
-    _departure = ride['departure'] ?? '';
-    _destination = ride['destination'] ?? '';
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() {
+        _rideId = ride['id'];
+        _departure = ride['departure'] ?? '';
+        _destination = ride['destination'] ?? '';
 
-    if (ride['startTime'] != null) {
-      try {
-        _departureDate = DateTime.parse(ride['startTime']);
-      } catch (e) {
-        print('Error parsing date: $e');
-      }
-    }
+        if (ride['startTime'] != null) {
+          try {
+            _departureDate = DateTime.parse(ride['startTime']);
+          } catch (e) {
+            print('Error parsing date: $e');
+          }
+        }
 
-    _totalSeats = ride['totalSeat'] ?? 4;
-    _pricePerSeat = (ride['pricePerSeat'] ?? 0).toDouble();
-    _priceController.text = _pricePerSeat.toString();
+        _totalSeats = ride['totalSeat'] ?? 4;
+        _pricePerSeat = (ride['pricePerSeat'] ?? 0).toDouble();
+        _priceController.text = _pricePerSeat.toString();
+      });
+    });
   }
 
   Future<void> _submitRide() async {
+    // Chỉ cho phép chỉnh sửa nếu trạng thái chuyến đi là ACTIVE
+    if (_isEditMode && widget.existingRide != null) {
+      final rideStatus = widget.existingRide?['status']?.toString().toUpperCase();
+      if (rideStatus != AppConfig.RIDE_STATUS_ACTIVE) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Chỉ có thể chỉnh sửa chuyến đi khi trạng thái là "Đang mở" (ACTIVE)'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+    }
+
     // Kiểm tra trạng thái tài xế trước khi tạo chuyến mới
     if (!_isEditMode && !_isDriverApproved) {
       _showDriverNotApprovedDialog();
       return;
     }
-    
+
     if (_formKey.currentState?.validate() != true) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Vui lòng điền đầy đủ thông tin')),
@@ -235,56 +257,61 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
       );
       return;
     }
-    
+
     // Kiểm tra trạng thái của chuyến đi nếu đang ở chế độ chỉnh sửa
     if (_isEditMode && widget.existingRide != null) {
-      final rideStatus = widget.existingRide?['status']?.toString().toUpperCase();
-      
+      final rideStatus =
+          widget.existingRide?['status']?.toString().toUpperCase();
+
       // Danh sách các trạng thái không được phép chỉnh sửa
       final List<String> nonEditableStatuses = [
         AppConfig.RIDE_STATUS_DRIVER_CONFIRMED,
-        AppConfig.RIDE_STATUS_COMPLETED, 
+        AppConfig.RIDE_STATUS_COMPLETED,
         AppConfig.RIDE_STATUS_CANCELLED,
         'IN_PROGRESS',
-        'PASSENGER_CONFIRMED'
+        'PASSENGER_CONFIRMED',
       ];
-      
+
       // Kiểm tra nếu trạng thái của chuyến đi không cho phép chỉnh sửa
       if (nonEditableStatuses.contains(rideStatus)) {
-        String statusMessage = 'Không thể chỉnh sửa chuyến đi trong trạng thái hiện tại';
-        
+        String statusMessage =
+            'Không thể chỉnh sửa chuyến đi trong trạng thái hiện tại';
+
         if (rideStatus == AppConfig.RIDE_STATUS_CANCELLED) {
           statusMessage = 'Không thể chỉnh sửa chuyến đi đã hủy';
         } else if (rideStatus == AppConfig.RIDE_STATUS_COMPLETED) {
           statusMessage = 'Không thể chỉnh sửa chuyến đi đã hoàn thành';
         } else if (rideStatus == AppConfig.RIDE_STATUS_DRIVER_CONFIRMED) {
-          statusMessage = 'Không thể chỉnh sửa chuyến đi đã xác nhận hoàn thành';
+          statusMessage =
+              'Không thể chỉnh sửa chuyến đi đã xác nhận hoàn thành';
         } else if (rideStatus == 'IN_PROGRESS') {
           statusMessage = 'Không thể chỉnh sửa chuyến đi đang diễn ra';
         } else if (rideStatus == 'PASSENGER_CONFIRMED') {
-          statusMessage = 'Không thể chỉnh sửa chuyến đi đã được hành khách xác nhận';
+          statusMessage =
+              'Không thể chỉnh sửa chuyến đi đã được hành khách xác nhận';
         }
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(statusMessage),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text(statusMessage), backgroundColor: Colors.red),
         );
         return;
       }
-      
-      // Kiểm tra thời gian bắt đầu 
+
+      // Kiểm tra thời gian bắt đầu
       if (widget.existingRide?['startTime'] != null) {
         try {
-          final DateTime startTime = DateTime.parse(widget.existingRide!['startTime']);
+          final DateTime startTime = DateTime.parse(
+            widget.existingRide!['startTime'],
+          );
           final DateTime now = DateTime.now();
-          
+
           // Không cho phép chỉnh sửa nếu chuyến đi sắp bắt đầu trong vòng 30 phút
           if (now.isAfter(startTime.subtract(const Duration(minutes: 30)))) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Không thể chỉnh sửa chuyến đi đã hoặc sắp diễn ra (trong vòng 30 phút)'),
+                content: Text(
+                  'Không thể chỉnh sửa chuyến đi đã hoặc sắp diễn ra (trong vòng 30 phút)',
+                ),
                 backgroundColor: Colors.red,
               ),
             );
@@ -307,7 +334,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
         setState(() {
           _isSubmitting = false;
         });
-        
+
         // Hiển thị cảnh báo nếu thời gian đã qua
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -317,7 +344,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
         );
         return;
       }
-      
+
       // Chuẩn bị dữ liệu chuyến đi
       final rideData = {
         'departure': _departure,
@@ -329,7 +356,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
       };
 
       print('📝 Đang gửi dữ liệu chuyến đi: $rideData');
-      
+
       // Hiển thị dialog để người dùng biết đang xử lý
       showDialog(
         context: context,
@@ -343,7 +370,8 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
                 children: [
                   CircularProgressIndicator(),
                   SizedBox(height: 20),
-                  Text('Đang xử lý, vui lòng đợi...',
+                  Text(
+                    'Đang xử lý, vui lòng đợi...',
                     style: TextStyle(fontSize: 16),
                   ),
                 ],
@@ -376,15 +404,23 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
           context: context,
           builder: (BuildContext context) {
             return AlertDialog(
-              title: Text(_isEditMode ? 'Cập nhật thành công' : 'Tạo chuyến đi thành công'),
-              content: Text(_isEditMode 
-                  ? 'Thông tin chuyến đi đã được cập nhật.'
-                  : 'Chuyến đi mới đã được tạo thành công và đã có trong danh sách chuyến đi của bạn.'),
+              title: Text(
+                _isEditMode
+                    ? 'Cập nhật thành công'
+                    : 'Tạo chuyến đi thành công',
+              ),
+              content: Text(
+                _isEditMode
+                    ? 'Thông tin chuyến đi đã được cập nhật.'
+                    : 'Chuyến đi mới đã được tạo thành công và đã có trong danh sách chuyến đi của bạn.',
+              ),
               actions: [
                 TextButton(
                   onPressed: () {
                     Navigator.of(context).pop(); // Đóng dialog
-                    Navigator.of(context).pop(true); // Quay lại màn hình trước với kết quả thành công
+                    Navigator.of(context).pop(
+                      true,
+                    ); // Quay lại màn hình trước với kết quả thành công
                   },
                   child: Text('OK'),
                 ),
@@ -409,19 +445,18 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
             print('Lỗi khi kiểm tra lại trạng thái tài xế: $e');
           }
         }
-        
+
         // Hiển thị thông báo lỗi mặc định
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(_isEditMode 
-                ? 'Không thể cập nhật chuyến đi. Vui lòng kiểm tra kết nối mạng và thử lại.'
-                : 'Không thể tạo chuyến đi. Vui lòng kiểm tra kết nối mạng và thử lại.'),
+            content: Text(
+              _isEditMode
+                  ? 'Không thể cập nhật chuyến đi. Vui lòng kiểm tra kết nối mạng và thử lại.'
+                  : 'Không thể tạo chuyến đi. Vui lòng kiểm tra kết nối mạng và thử lại.',
+            ),
             backgroundColor: Colors.red,
             duration: Duration(seconds: 4),
-            action: SnackBarAction(
-              label: 'Thử lại',
-              onPressed: _submitRide,
-            ),
+            action: SnackBarAction(label: 'Thử lại', onPressed: _submitRide),
           ),
         );
       }
@@ -429,14 +464,14 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
       setState(() {
         _isSubmitting = false;
       });
-      
+
       // Đóng dialog xử lý nếu đang hiển thị
       if (Navigator.of(context).canPop()) {
         Navigator.of(context).pop();
       }
-      
+
       // Kiểm tra lỗi để hiển thị thông báo phù hợp
-      if (e.toString().contains('permission') || 
+      if (e.toString().contains('permission') ||
           e.toString().contains('unauthorized') ||
           e.toString().contains('approved')) {
         // Hiển thị thông báo tài xế chưa được duyệt
@@ -510,7 +545,9 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
                           onDateSelected: (date) {
                             setState(() {
                               _departureDate = date;
-                              print('Đã chọn thời gian: ${DateFormat('dd/MM/yyyy HH:mm').format(date)}');
+                              print(
+                                'Đã chọn thời gian: ${DateFormat('dd/MM/yyyy HH:mm').format(date)}',
+                              );
                             });
                           },
                         ),
@@ -570,26 +607,31 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
                   width: double.infinity,
                   height: 50,
                   child: ElevatedButton(
-                    onPressed: _isSubmitting ? null : _submitRide,
+                    onPressed: (_isSubmitting || (_isEditMode && widget.existingRide != null && widget.existingRide?['status']?.toString().toUpperCase() != AppConfig.RIDE_STATUS_ACTIVE))
+                        ? null
+                        : _submitRide,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF002D72),
+                      backgroundColor: (_isEditMode && widget.existingRide != null && widget.existingRide?['status']?.toString().toUpperCase() != AppConfig.RIDE_STATUS_ACTIVE)
+                          ? Colors.grey.shade400
+                          : const Color(0xFF002D72),
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    child:
-                        _isSubmitting
-                            ? const CircularProgressIndicator(color: Colors.white)
-                            : Text(
-                              _isEditMode
-                                  ? 'Cập nhật chuyến đi'
-                                  : 'Tạo chuyến đi',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
+                    child: _isSubmitting
+                        ? const CircularProgressIndicator(
+                            color: Colors.white,
+                          )
+                        : Text(
+                            _isEditMode
+                                ? 'Cập nhật chuyến đi'
+                                : 'Tạo chuyến đi',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
                             ),
+                          ),
                   ),
                 ),
               ],

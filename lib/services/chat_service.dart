@@ -185,38 +185,40 @@ class ChatService {
     
     // First check if WebSocket is connected
     final bool wsConnected = _webSocketService.isConnected();
+    bool sent = false;
     
     if (!wsConnected) {
       if (kDebugMode) {
         print('ℹ️ WebSocket not connected, using REST API fallback');
       }
-      return _sendMessageViaRest(roomId, receiverEmail, content);
+      sent = await _sendMessageViaRest(roomId, receiverEmail, content);
+    } else {
+      try {
+        if (kDebugMode) {
+          print('📤 Sending message via WebSocket to room: $roomId');
+        }
+        _webSocketService.sendChatMessage(roomId, receiverEmail, content);
+        // Still send via REST API as a backup to ensure delivery
+        bool restSent = await _sendMessageViaRest(roomId, receiverEmail, content);
+        if (kDebugMode && !restSent) {
+          print('⚠️ WebSocket message sent but REST API backup failed');
+        }
+        sent = true;
+      } catch (e) {
+        if (kDebugMode) {
+          print('❌ Error sending message via WebSocket: $e');
+          print('⚠️ Falling back to REST API');
+        }
+        sent = await _sendMessageViaRest(roomId, receiverEmail, content);
+      }
     }
-
-    try {
-      if (kDebugMode) {
-        print('📤 Sending message via WebSocket to room: $roomId');
-      }
-      
-      _webSocketService.sendChatMessage(roomId, receiverEmail, content);
-      
-      // Still send via REST API as a backup to ensure delivery
-      // This helps in case the WebSocket message gets lost
-      bool restSent = await _sendMessageViaRest(roomId, receiverEmail, content);
-      
-      if (kDebugMode && !restSent) {
-        print('⚠️ WebSocket message sent but REST API backup failed');
-      }
-      
-      return true;
-    } catch (e) {
-      if (kDebugMode) {
-        print('❌ Error sending message via WebSocket: $e');
-        print('⚠️ Falling back to REST API');
-      }
-      // Fallback to REST API if WebSocket fails
-      return _sendMessageViaRest(roomId, receiverEmail, content);
+    // Sau khi gửi, luôn reload lại lịch sử chat để đảm bảo đồng bộ
+    if (sent) {
+      try {
+        await getChatHistory(roomId);
+      } catch (_) {}
     }
+    return sent;
   }
 
   // Gửi tin nhắn qua REST API (fallback khi WebSocket không hoạt động)
