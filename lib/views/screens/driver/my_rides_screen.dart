@@ -52,7 +52,7 @@ class _MyRidesScreenState extends State<MyRidesScreen>
   // Kiểm tra nếu chuyến đi đang diễn ra
   bool _isRideInProgress(Ride ride) {
     try {
-      // Sử dụng trạng thái IN_PROGRESS mới từ backend
+      // Trạng thái IN_PROGRESS - đang đi
       return ride.status.toUpperCase() == 'IN_PROGRESS';
     } catch (e) {
       developer.log('❌ Lỗi khi kiểm tra trạng thái chuyến đi: $e', name: 'my_rides');
@@ -97,7 +97,8 @@ class _MyRidesScreenState extends State<MyRidesScreen>
         final status = ride.status.toUpperCase();
         return status == 'COMPLETED' ||
             status == 'DONE' ||
-            status == 'FINISHED';
+            status == 'FINISHED' ||
+            status == 'PASSENGER_CONFIRMED';
       }).toList()
       ..sort(_compareRidesByDate);
 
@@ -682,85 +683,6 @@ class _MyRidesScreenState extends State<MyRidesScreen>
     }
   }
 
-  Future<void> _editRide(Ride ride) async {
-    // Kiểm tra trạng thái của chuyến đi
-    final String status = ride.status.toUpperCase();
-    
-    // Các trạng thái không cho phép chỉnh sửa
-    final List<String> nonEditableStatuses = [
-      AppConfig.RIDE_STATUS_DRIVER_CONFIRMED,
-      AppConfig.RIDE_STATUS_COMPLETED,
-      AppConfig.RIDE_STATUS_CANCELLED,
-      'IN_PROGRESS', // Trạng thái IN_PROGRESS của ride
-      'PASSENGER_CONFIRMED'
-    ];
-    
-    // Kiểm tra nếu booking thuộc các trạng thái không cho phép chỉnh sửa
-    if (nonEditableStatuses.contains(status)) {
-      // Hiển thị thông báo không thể chỉnh sửa 
-      String statusMessage = 'Không thể chỉnh sửa chuyến đi trong trạng thái hiện tại';
-      
-      if (status == AppConfig.RIDE_STATUS_CANCELLED) {
-        statusMessage = 'Không thể chỉnh sửa chuyến đi đã hủy';
-      } else if (status == AppConfig.RIDE_STATUS_COMPLETED) {
-        statusMessage = 'Không thể chỉnh sửa chuyến đi đã hoàn thành';
-      } else if (status == AppConfig.RIDE_STATUS_DRIVER_CONFIRMED) {
-        statusMessage = 'Không thể chỉnh sửa chuyến đi đã xác nhận hoàn thành';
-      } else if (status == 'IN_PROGRESS') {
-        statusMessage = 'Không thể chỉnh sửa chuyến đi đang diễn ra';
-      }
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(statusMessage),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return; // Ngừng thực hiện phương thức
-    }
-
-    // Kiểm tra thời gian bắt đầu của chuyến đi
-    try {
-      final DateTime startTime = DateTime.parse(ride.startTime);
-      final DateTime now = DateTime.now();
-      
-      // Nếu chuyến đã bắt đầu (hoặc sắp bắt đầu trong vòng 30 phút), không cho phép chỉnh sửa
-      if (now.isAfter(startTime.subtract(const Duration(minutes: 30)))) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Không thể chỉnh sửa chuyến đi đã hoặc sắp diễn ra (trong vòng 30 phút)'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return; // Ngừng thực hiện phương thức
-      }
-    } catch (e) {
-      // Xử lý lỗi nếu không thể phân tích thời gian
-      print('Lỗi khi kiểm tra thời gian: $e');
-    }
-
-    final Map<String, dynamic> rideData = {
-      'id': ride.id,
-      'departure': ride.departure,
-      'destination': ride.destination,
-      'startTime': ride.startTime,
-      'totalSeat': ride.totalSeat,
-      'pricePerSeat': ride.pricePerSeat,
-      'status': ride.status,
-    };
-
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => CreateRideScreen(existingRide: rideData),
-      ),
-    );
-
-    if (result == true) {
-      _loadRides(); // Refresh the list if edit was successful
-    }
-  }
-
   Future<void> _createNewRide() async {
     // Sử dụng NavigationHelper để điều hướng đến trang tạo chuyến đi
     final result = await Navigator.pushNamed(
@@ -809,8 +731,8 @@ class _MyRidesScreenState extends State<MyRidesScreen>
         // Cập nhật danh sách 
         await _loadRides();
 
-        // Chuyển sang tab "Đã xác nhận"
-        _tabController.animateTo(3); // Index 3 là tab "Đã xác nhận" 
+        // Chuyển sang tab "Tài xế xác nhận"
+        _tabController.animateTo(3); // Index 3 là tab "Tài xế xác nhận" 
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -843,6 +765,30 @@ class _MyRidesScreenState extends State<MyRidesScreen>
           ),
         );
       }
+    }
+  }
+
+  // Phương thức chỉnh sửa chuyến đi - chỉ được gọi khi đã thỏa điều kiện
+  Future<void> _editRide(Ride ride) async {
+    final Map<String, dynamic> rideData = {
+      'id': ride.id,
+      'departure': ride.departure,
+      'destination': ride.destination,
+      'startTime': ride.startTime,
+      'totalSeat': ride.totalSeat,
+      'pricePerSeat': ride.pricePerSeat,
+      'status': ride.status,
+    };
+
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CreateRideScreen(existingRide: rideData),
+      ),
+    );
+
+    if (result == true) {
+      _loadRides(); // Refresh the list if edit was successful
     }
   }
 
@@ -925,8 +871,8 @@ class _MyRidesScreenState extends State<MyRidesScreen>
                   tabs: [
                     _buildTabItem(Icons.pending_actions, 'Chờ duyệt', _pendingRides.length),
                     _buildTabItem(Icons.schedule, 'Sắp tới', _activeRides.length),
-                    _buildTabItem(Icons.directions_car, 'Đang diễn ra', _inProgressRides.length),
-                    _buildTabItem(Icons.verified, 'Đã xác nhận', _driverConfirmedRides.length),
+                    _buildTabItem(Icons.directions_car, 'Đang đi', _inProgressRides.length),
+                    _buildTabItem(Icons.verified, 'Tài xế xác nhận', _driverConfirmedRides.length),
                     _buildTabItem(Icons.cancel_outlined, 'Đã hủy', _canceledRides.length),
                     _buildTabItem(Icons.done_all, 'Đã hoàn thành', _completedRides.length),
                   ],
@@ -1163,6 +1109,9 @@ class _MyRidesScreenState extends State<MyRidesScreen>
     String emptyMessage;
     IconData emptyIcon;
     
+    // Kiểm tra nếu đang ở tab Active - chỉ hiển thị nút chỉnh sửa ở tab này
+    final bool isActiveTab = status == 'ACTIVE';
+    
     switch (status) {
       case 'PENDING':
         emptyMessage = 'Không có chuyến đi nào đang chờ duyệt';
@@ -1173,11 +1122,11 @@ class _MyRidesScreenState extends State<MyRidesScreen>
         emptyIcon = Icons.schedule;
         break;
       case 'IN_PROGRESS':
-        emptyMessage = 'Không có chuyến đi nào đang diễn ra';
+        emptyMessage = 'Không có chuyến đi nào đang đi';
         emptyIcon = Icons.directions_car;
         break;
       case 'DRIVER_CONFIRMED':
-        emptyMessage = 'Không có chuyến đi nào đã được xác nhận';
+        emptyMessage = 'Không có chuyến đi nào được tài xế xác nhận hoàn thành';
         emptyIcon = Icons.verified;
         break;
       case 'CANCELLED':
@@ -1252,18 +1201,6 @@ class _MyRidesScreenState extends State<MyRidesScreen>
         // Xác định các hành động dựa trên trạng thái
         final bool canCancel = status == 'ACTIVE' || status == 'PENDING';
         
-        // Danh sách trạng thái không được phép chỉnh sửa
-        final List<String> nonEditableStatuses = [
-          AppConfig.RIDE_STATUS_DRIVER_CONFIRMED,
-          AppConfig.RIDE_STATUS_COMPLETED, 
-          AppConfig.RIDE_STATUS_CANCELLED,
-          'IN_PROGRESS',
-          'PASSENGER_CONFIRMED'
-        ];
-        
-        // Kiểm tra xem ride có thuộc trạng thái không được phép chỉnh sửa không
-        final bool canEdit = !nonEditableStatuses.contains(ride.status.toUpperCase());
-        
         // Kiểm tra thời gian bắt đầu
         bool isStartingSoon = false;
         try {
@@ -1276,8 +1213,13 @@ class _MyRidesScreenState extends State<MyRidesScreen>
           print('Lỗi khi kiểm tra thời gian bắt đầu: $e');
         }
         
-        // Chỉ cho phép chỉnh sửa nếu trạng thái cho phép VÀ chuyến đi chưa bắt đầu/sắp bắt đầu
-        final bool canReallyEdit = canEdit && !isStartingSoon;
+        // Chỉ cho phép chỉnh sửa nếu:
+        // 1. Đang ở tab ACTIVE (isActiveTab = true)
+        // 2. Chuyến đi có trạng thái ACTIVE 
+        // 3. Chuyến đi chưa bắt đầu hoặc sắp bắt đầu
+        final bool canReallyEdit = isActiveTab && 
+                                   ride.status.toUpperCase() == 'ACTIVE' && 
+                                   !isStartingSoon;
         
         final bool canConfirm = status == 'IN_PROGRESS'; // Chỉ IN_PROGRESS mới có thể xác nhận
         
@@ -1302,7 +1244,11 @@ class _MyRidesScreenState extends State<MyRidesScreen>
             ),
             
             // Hiển thị các nút hành động với thiết kế đẹp hơn
-            if (canCancel || canReallyEdit)
+            // Chỉ hiển thị khi là tab Active hoặc Pending và có quyền thích hợp
+            if ((canCancel || canReallyEdit) && 
+                ride.status.toUpperCase() != 'DRIVER_CONFIRMED' &&  // Không hiển thị nút với trạng thái DRIVER_CONFIRMED
+                ride.status.toUpperCase() != 'PASSENGER_CONFIRMED' && // Không hiển thị nút với trạng thái PASSENGER_CONFIRMED
+                !_isRideInProgress(ride)) // Không hiển thị nút với chuyến đi đang diễn ra
               Container(
                 margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
@@ -1383,15 +1329,28 @@ class _MyRidesScreenState extends State<MyRidesScreen>
         r.status.toUpperCase() == 'DRIVER_CONFIRMED').toList();
     
     if (driverConfirmedRides.isNotEmpty) {
-      developer.log('Tìm thấy ${driverConfirmedRides.length} chuyến ở trạng thái DRIVER_CONFIRMED:',
+      developer.log('Tìm thấy ${driverConfirmedRides.length} chuyến ở trạng thái DRIVER_CONFIRMED (tài xế xác nhận):',
           name: 'my_rides');
       for (var ride in driverConfirmedRides) {
         developer.log('Driver confirmed ride #${ride.id}: ${ride.departure} -> ${ride.destination}',
             name: 'my_rides');
       }
     } else {
-      developer.log('Không tìm thấy chuyến nào ở trạng thái DRIVER_CONFIRMED',
+      developer.log('Không tìm thấy chuyến nào ở trạng thái DRIVER_CONFIRMED (tài xế xác nhận)',
           name: 'my_rides');
+    }
+    
+    // Tìm và in các chuyến đi ở trạng thái PASSENGER_CONFIRMED nếu có
+    final passengerConfirmedRides = rides.where((r) => 
+        r.status.toUpperCase() == 'PASSENGER_CONFIRMED').toList();
+    
+    if (passengerConfirmedRides.isNotEmpty) {
+      developer.log('Tìm thấy ${passengerConfirmedRides.length} chuyến ở trạng thái PASSENGER_CONFIRMED (khách xác nhận):',
+          name: 'my_rides');
+      for (var ride in passengerConfirmedRides) {
+        developer.log('Passenger confirmed ride #${ride.id}: ${ride.departure} -> ${ride.destination}',
+            name: 'my_rides');
+      }
     }
   }
 }

@@ -418,8 +418,8 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen> with 
                     // Hoàn thành
                     _buildBookingsList(_completedBookings, false, false),
                     
-                    // Đã hủy
-                    _buildBookingsList(_cancelledOrExpiredBookings, false, false),
+                    // Đã hủy - forceDisableInteraction = true để vô hiệu hóa tương tác
+                    _buildBookingsList(_cancelledOrExpiredBookings, false, false, forceDisableInteraction: true),
                   ],
                 ),
               ),
@@ -427,7 +427,7 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen> with 
     );
   }
 
-  Widget _buildBookingsList(List<BookingDTO> bookings, bool showCancelButton, bool showConfirmButton) {
+  Widget _buildBookingsList(List<BookingDTO> bookings, bool showCancelButton, bool showConfirmButton, {bool forceDisableInteraction = false}) {
     if (bookings.isEmpty) {
       return Center(
         child: Column(
@@ -472,6 +472,18 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen> with 
           status: booking.rideStatus,
         );
         
+        // Kiểm tra xem booking có thuộc danh sách đã hủy không hoặc tab Đã hủy
+        final bool isCancelled = booking.status.toUpperCase() == 'CANCELLED' || 
+                                 booking.status.toUpperCase() == 'REJECTED' ||
+                                 forceDisableInteraction;
+        
+        // Kiểm tra xem đã quá thời gian khởi hành chưa để hiển thị nút xác nhận
+        final bool isPastDepartureTime = DateTime.now().isAfter(booking.startTime);
+        
+        // Xác định xem có hiển thị nút xác nhận hoàn thành không
+        final bool shouldShowConfirmButton = (showConfirmButton || 
+            (showCancelButton && isPastDepartureTime)) && !isCancelled;
+        
         return Card(
           margin: const EdgeInsets.only(bottom: 16),
           shape: RoundedRectangleBorder(
@@ -479,9 +491,13 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen> with 
           ),
           elevation: 4,
           child: InkWell(
-            onTap: () {
+            // Vô hiệu hóa onTap cho booking đã hủy
+            onTap: isCancelled ? null : () {
               _viewBookingDetails(booking);
             },
+            // Giảm độ trong suốt của ripple effect nếu booking đã bị hủy
+            splashColor: isCancelled ? Colors.transparent : null,
+            highlightColor: isCancelled ? Colors.transparent : null,
             child: Column(
               children: [
                 // Use the updated RideCard
@@ -489,15 +505,38 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen> with 
                   ride: ride,
                   bookingDTO: booking,
                   showFavorite: false,
-                  onTap: () {
+                  // Vô hiệu hóa onTap cho booking đã hủy
+                  onTap: isCancelled ? null : () {
                     _viewBookingDetails(booking);
                   },
-                  onConfirmComplete: showConfirmButton ? 
+                  onConfirmComplete: shouldShowConfirmButton ? 
                     () => _confirmRideCompletion(booking) : null,
                 ),
                 
+                // Hiển thị nút xác nhận nếu đã quá thời gian khởi hành nhưng đang ở tab Sắp tới
+                if (showCancelButton && isPastDepartureTime && !isCancelled)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            icon: const Icon(Icons.check_circle),
+                            label: const Text('Xác nhận hoàn thành chuyến đi'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            onPressed: () => _confirmRideCompletion(booking),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                
                 // Cancel button if needed
-                if (showCancelButton)
+                if (showCancelButton && !isCancelled)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8.0, right: 8.0),
                     child: Align(
@@ -509,6 +548,32 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen> with 
                           style: TextStyle(color: Colors.red),
                         ),
                         onPressed: () => _handleCancelBooking(booking),
+                      ),
+                    ),
+                  ),
+                
+                // Hiển thị thông báo nếu booking đã hủy
+                if (isCancelled)
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: Text(
+                        forceDisableInteraction && booking.status.toUpperCase() != 'CANCELLED' && booking.status.toUpperCase() != 'REJECTED'
+                          ? 'Chuyến đi ở mục Đã hủy không thể xem chi tiết'
+                          : 'Booking đã bị hủy, không thể xem chi tiết',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 12,
+                          fontStyle: FontStyle.italic,
+                        ),
                       ),
                     ),
                   ),

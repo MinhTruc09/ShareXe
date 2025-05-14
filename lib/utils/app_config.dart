@@ -313,18 +313,21 @@ class AppConfig {
   // Get appropriate ride status text based on status and time
   String getRideStatusText(String rideStatus, DateTime startTime) {
     final now = DateTime.now();
+    final status = rideStatus.toUpperCase();
 
-    if (rideStatus == RIDE_STATUS_ACTIVE) {
+    if (status == RIDE_STATUS_ACTIVE) {
       if (now.isAfter(startTime)) {
-        return "Đang diễn ra";
+        return "Đang đi";
       } else {
-        return "Sắp diễn ra";
+        return "Sắp tới";
       }
-    } else if (rideStatus == RIDE_STATUS_DRIVER_CONFIRMED) {
-      return "Tài xế đã xác nhận";
-    } else if (rideStatus == RIDE_STATUS_COMPLETED) {
+    } else if (status == RIDE_STATUS_DRIVER_CONFIRMED) {
+      return "Tài xế xác nhận";
+    } else if (status == "PASSENGER_CONFIRMED") { 
+      return "Khách đã xác nhận";
+    } else if (status == RIDE_STATUS_COMPLETED) {
       return "Đã hoàn thành";
-    } else if (rideStatus == RIDE_STATUS_CANCELLED) {
+    } else if (status == RIDE_STATUS_CANCELLED) {
       return "Đã hủy";
     } else {
       return "Không xác định";
@@ -339,9 +342,10 @@ class AppConfig {
   ) {
     final now = DateTime.now();
     final status = bookingStatus.toUpperCase();
+    final rideStatusUpper = rideStatus.toUpperCase();
 
     // Nếu chuyến đi đã hoàn thành, hiển thị trạng thái của chuyến đi
-    if (rideStatus.toUpperCase() == RIDE_STATUS_COMPLETED) {
+    if (rideStatusUpper == RIDE_STATUS_COMPLETED) {
       return "Đã hoàn thành";
     }
 
@@ -355,17 +359,17 @@ class AppConfig {
         if (now.isAfter(startTime)) {
           return "Đang đi";
         } else {
-          return "Đã được duyệt - sắp diễn ra";
+          return "Đã được duyệt - sắp tới";
         }
 
       case BOOKING_STATUS_IN_PROGRESS:
         return "Đang đi";
 
       case BOOKING_STATUS_PASSENGER_CONFIRMED:
-        return "Đã xác nhận từ khách";
+        return "Khách đã xác nhận";
 
       case BOOKING_STATUS_DRIVER_CONFIRMED:
-        return "Tài xế đã xác nhận";
+        return "Tài xế xác nhận";
 
       case BOOKING_STATUS_COMPLETED:
         return "Đã hoàn thành";
@@ -395,10 +399,14 @@ class AppConfig {
     final now = DateTime.now();
     final status = bookingStatus.toUpperCase();
 
-    // Hiển thị nút xác nhận khi trạng thái là ACCEPTED (đã được duyệt)
-    // hoặc APPROVED (đã được duyệt - cũ)
-    // hoặc IN_PROGRESS (đang diễn ra) và đã qua thời gian khởi hành
-    return (status == BOOKING_STATUS_ACCEPTED ||
+    // Hiển thị nút xác nhận khi trạng thái là:
+    // PENDING (đang chờ duyệt) - yêu cầu mới
+    // ACCEPTED (đã được duyệt)
+    // APPROVED (đã được duyệt - cũ)
+    // IN_PROGRESS (đang diễn ra) 
+    // và đã qua thời gian khởi hành
+    return (status == BOOKING_STATUS_PENDING ||
+            status == BOOKING_STATUS_ACCEPTED ||
             status == "APPROVED" ||
             status == BOOKING_STATUS_IN_PROGRESS) &&
         now.isAfter(startTime);

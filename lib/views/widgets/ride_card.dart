@@ -97,10 +97,12 @@ class RideCard extends StatelessWidget {
         // Tài xế: Hiển thị nút khi chuyến đi đang diễn ra và chưa xác nhận
         shouldShowConfirmButton = _appConfig.shouldShowDriverConfirmButton(ride.status, startDateTime);
       } else if (booking != null) {
-        // Hành khách (legacy Booking): Hiển thị nút khi booking đã được duyệt và đến giờ
+        // Hành khách (legacy Booking): Hiển thị nút khi booking đã qua thời gian khởi hành
+        // Bao gồm cả trạng thái PENDING đã qua thời gian khởi hành
         shouldShowConfirmButton = _appConfig.shouldShowPassengerConfirmButton(booking!.status, startDateTime);
       } else if (bookingDTO != null) {
-        // Hành khách (BookingDTO): Hiển thị nút khi booking đã được duyệt và đến giờ
+        // Hành khách (BookingDTO): Hiển thị nút khi booking đã qua thời gian khởi hành
+        // Bao gồm cả trạng thái PENDING đã qua thời gian khởi hành
         shouldShowConfirmButton = _appConfig.shouldShowPassengerConfirmButton(bookingDTO!.status, startDateTime);
       }
     }
@@ -123,10 +125,10 @@ class RideCard extends StatelessWidget {
       
       // Xác định màu sắc
       switch (statusLabel) {
-        case "Tài xế đã xác nhận":
+        case "Tài xế xác nhận":
           statusColor = Colors.green;
           break;
-        case "Đang diễn ra":
+        case "Đang đi":
           statusColor = Colors.orange;
           break;
         case "Đã hủy":
@@ -136,10 +138,10 @@ class RideCard extends StatelessWidget {
         case "Đang chờ tài xế duyệt":
           statusColor = Colors.amber;
           break;
-        case "Đã được duyệt - sắp diễn ra":
+        case "Đã được duyệt - sắp tới":
           statusColor = Colors.blue;
           break;
-        case "Đã xác nhận từ khách":
+        case "Khách đã xác nhận":
           statusColor = Colors.teal;
           break;
         case "Đã hoàn thành":
@@ -155,8 +157,12 @@ class RideCard extends StatelessWidget {
       // Fallback khi không có startTime
       switch (ride.status.toUpperCase()) {
         case 'DRIVER_CONFIRMED':
-          statusLabel = 'Tài xế đã xác nhận';
+          statusLabel = 'Tài xế xác nhận';
           statusColor = Colors.green;
+          break;
+        case 'PASSENGER_CONFIRMED':
+          statusLabel = 'Khách đã xác nhận';
+          statusColor = Colors.teal;
           break;
         case 'PENDING':
           statusLabel = 'Chờ xác nhận';

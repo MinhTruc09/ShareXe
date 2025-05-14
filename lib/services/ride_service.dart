@@ -1165,19 +1165,116 @@ class RideService {
   Future<bool> passengerConfirmCompletion(int rideId) async {
     try {
       print('🚘 Hành khách xác nhận hoàn thành chuyến đi #$rideId');
+      print('🔄 API Endpoint: ${_appConfig.fullApiUrl}/passenger/passenger-confirm/$rideId');
 
-      final response = await _apiClient.put(
-        '/passenger/passenger-confirm/$rideId',
-        requireAuth: true,
-      );
+      final token = await _authManager.getToken();
+      print('🔑 Token: ${token != null ? "Hợp lệ (${token.substring(0, min(10, token.length))}...)" : "Không có token"}');
 
-      if (response.statusCode == 200) {
-        print('✅ Hành khách xác nhận hoàn thành thành công');
-        return true;
-      } else {
-        print('❌ Lỗi khi hành khách xác nhận hoàn thành: ${response.statusCode}');
-        return false;
+      // Endpoint chính
+      try {
+        final response = await _apiClient.put(
+          '/passenger/passenger-confirm/$rideId',
+          requireAuth: true,
+        ).timeout(const Duration(seconds: 8), onTimeout: () {
+          print('⏱️ Timeout cho endpoint chính sau 8 giây');
+          throw TimeoutException('API request timed out after 8 seconds');
+        });
+
+        print('📡 Response status: ${response.statusCode}');
+        if (response.body.isNotEmpty) {
+          try {
+            final jsonResponse = json.decode(response.body);
+            print('📡 Response body: $jsonResponse');
+          } catch (e) {
+            print('⚠️ Không thể parse response body: ${response.body}');
+          }
+        }
+
+        if (response.statusCode == 200) {
+          print('✅ Hành khách xác nhận hoàn thành thành công');
+          return true;
+        } else {
+          print('⚠️ Lỗi khi hành khách xác nhận hoàn thành: ${response.statusCode}');
+        }
+      } catch (e) {
+        print('⚠️ Lỗi với endpoint chính: $e');
       }
+
+      // Endpoint dự phòng 1
+      print('🔄 Thử endpoint dự phòng 1...');
+      try {
+        final altResponse = await _apiClient.put(
+          '/passenger/confirm-completion/$rideId',
+          requireAuth: true,
+        ).timeout(const Duration(seconds: 8), onTimeout: () {
+          print('⏱️ Timeout cho endpoint dự phòng 1 sau 8 giây');
+          throw TimeoutException('API request timed out after 8 seconds');
+        });
+        
+        if (altResponse.statusCode == 200) {
+          print('✅ Hành khách xác nhận hoàn thành thành công với endpoint dự phòng 1');
+          return true;
+        } else {
+          print('⚠️ Lỗi với endpoint dự phòng 1: ${altResponse.statusCode}');
+        }
+      } catch (e) {
+        print('⚠️ Lỗi với endpoint dự phòng 1: $e');
+      }
+      
+      // Endpoint dự phòng 2 
+      print('🔄 Thử endpoint dự phòng 2...');
+      try {
+        final altResponse2 = await _apiClient.put(
+          '/ride/passenger-confirm/$rideId',
+          requireAuth: true,
+        ).timeout(const Duration(seconds: 8), onTimeout: () {
+          print('⏱️ Timeout cho endpoint dự phòng 2 sau 8 giây');
+          throw TimeoutException('API request timed out after 8 seconds');
+        });
+        
+        if (altResponse2.statusCode == 200) {
+          print('✅ Hành khách xác nhận hoàn thành thành công với endpoint dự phòng 2');
+          return true;
+        } else {
+          print('⚠️ Lỗi với endpoint dự phòng 2: ${altResponse2.statusCode}');
+        }
+      } catch (e) {
+        print('⚠️ Lỗi với endpoint dự phòng 2: $e');
+      }
+
+      // Gọi API trực tiếp nếu các phương thức trên đều thất bại
+      print('🔄 Thử gọi API trực tiếp...');
+      try {
+        final directUrl = '${_appConfig.apiBaseUrl}/api/passenger/passenger-confirm/$rideId';
+        print('🌐 Direct API URL: $directUrl');
+        
+        final directResponse = await http.put(
+          Uri.parse(directUrl),
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+        ).timeout(
+          const Duration(seconds: 10),
+          onTimeout: () {
+            print('⌛ Direct API timeout sau 10 giây');
+            throw TimeoutException('Direct API timeout');
+          },
+        );
+        
+        if (directResponse.statusCode == 200) {
+          print('✅ Hành khách xác nhận hoàn thành thành công qua direct API call');
+          return true;
+        } else {
+          print('⚠️ Direct API không thành công: ${directResponse.statusCode}');
+        }
+      } catch (e) {
+        print('⚠️ Lỗi khi gọi API trực tiếp: $e');
+      }
+
+      print('❌ Tất cả các phương thức xác nhận đều thất bại!');
+      return false;
     } catch (e) {
       print('❌ Exception khi hành khách xác nhận hoàn thành: $e');
       return false;

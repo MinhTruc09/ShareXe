@@ -252,17 +252,6 @@ class NewHomePscreenState extends State<NewHomePscreen> with WidgetsBindingObser
     final tabNavigator = TabNavigator.of(context);
 
     switch (routeName) {
-      case DriverRoutes.bookings:
-        if (tabNavigator != null) {
-          // Chuyển đến tab 1 (Đặt chỗ)
-          tabNavigator.navigateToTab(1);
-          // Đóng drawer nếu đang mở
-          Navigator.maybePop(context);
-        } else {
-          // Fallback to normal navigation
-          Navigator.pushNamed(context, routeName);
-        }
-        break;
       case PassengerRoutes.profile:
         if (tabNavigator != null) {
           // Chuyển đến tab 3 (Cá nhân)
@@ -333,14 +322,6 @@ class NewHomePscreenState extends State<NewHomePscreen> with WidgetsBindingObser
                 onTap: () {
                   Navigator.pop(context);
                   _navigateToScreen(context, PassengerRoutes.home);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.history, color: Color(0xFF00AEEF)),
-                title: const Text('Chuyến đi của tôi'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _navigateToScreen(context, DriverRoutes.bookings);
                 },
               ),
               ListTile(
@@ -541,235 +522,93 @@ class NewHomePscreenState extends State<NewHomePscreen> with WidgetsBindingObser
 
                         const SizedBox(height: 24),
 
-                        // Thêm nút "Chuyến đi của tôi"
-                        Container(
-                          width: double.infinity,
-                          margin: const EdgeInsets.only(bottom: 10),
-                          child: Card(
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            color: Colors.white,
-                            elevation: 2,
-                            child: InkWell(
-                              onTap: () {
-                                Navigator.pushNamed(
-                                  context,
-                                  DriverRoutes.bookings,
-                                );
-                              },
-                              borderRadius: BorderRadius.circular(16),
-                              child: Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(10),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF00AEEF).withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      child: const Icon(
-                                        Icons.history,
-                                        color: Color(0xFF00AEEF),
-                                        size: 24,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    const Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'Chuyến đi của tôi',
-                                            style: TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold,
-                                              color: Color(0xFF00AEEF),
-                                            ),
-                                          ),
-                                          Text(
-                                            'Xem các chuyến đi đã đặt và lịch sử',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              color: Colors.grey,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const Icon(
-                                      Icons.arrow_forward_ios,
-                                      color: Color(0xFF00AEEF),
-                                      size: 16,
-                                    ),
-                                  ],
+                        // Danh sách các chuyến xe hiện có
+                        if (_availableRides.isEmpty && !_isLoading)
+                          Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(
+                                  Icons.no_transfer,
+                                  size: 70,
+                                  color: Colors.white54,
                                 ),
+                                const SizedBox(height: 20),
+                                const Text(
+                                  'Không tìm thấy chuyến đi nào',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                const Text(
+                                  'Hiện không có chuyến đi nào phù hợp với yêu cầu',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.white70,
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+                                ElevatedButton.icon(
+                                  onPressed: _refreshRides,
+                                  icon: const Icon(Icons.refresh),
+                                  label: const Text('Làm mới'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF00AEEF),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 24,
+                                      vertical: 12,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        else if (_isLoading)
+                          const Center(
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(vertical: 30),
+                              child: CircularProgressIndicator(
+                                color: Color(0xFF00AEEF),
                               ),
                             ),
-                          ),
-                        ),
+                          )
+                        else
+                          ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: _availableRides.length,
+                            separatorBuilder: (context, index) => const SizedBox(height: 10),
+                            itemBuilder: (context, index) {
+                              final ride = _availableRides[index];
+                              return RideCard(
+                                ride: ride,
+                                onTap: () async {
+                                  // Load ride details when tapped
+                                  final rideDetails = await _rideService.getRideDetails(ride.id);
 
-                        const SizedBox(height: 24),
-
-                        // Phần danh sách chuyến đi với thiết kế mới
-                        Container(
-                          padding: const EdgeInsets.all(15),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(15),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                blurRadius: 8,
-                                offset: const Offset(0, 3),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.all(8),
-                                        decoration: BoxDecoration(
-                                          color: const Color(
-                                            0xFF00AEEF,
-                                          ).withOpacity(0.2),
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
-                                        ),
-                                        child: const Icon(
-                                          Icons.directions_car_filled,
-                                          color: Color(0xFF00AEEF),
-                                          size: 20,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      const Text(
-                                        'Chuyến đi gần đây',
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                          color: Color(0xFF00AEEF),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  IconButton(
-                                    icon: _isRefreshing 
-                                        ? const SizedBox(
-                                            width: 20,
-                                            height: 20,
-                                            child: CircularProgressIndicator(
-                                              color: Color(0xFF00AEEF),
-                                              strokeWidth: 2,
-                                            ),
-                                          )
-                                        : const Icon(
-                                            Icons.refresh,
-                                            color: Color(0xFF00AEEF),
-                                          ),
-                                    onPressed: _isRefreshing ? null : _refreshRides,
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 15),
-
-                              if (_availableRides.isEmpty && !_isLoading)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 20,
-                                  ),
-                                  width: double.infinity,
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey[100],
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Column(
-                                    children: [
-                                      Icon(
-                                        Icons.car_crash,
-                                        size: 40,
-                                        color: Colors.grey[500],
-                                      ),
-                                      const SizedBox(height: 10),
-                                      Text(
-                                        'Không có chuyến đi nào',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          color: Colors.grey[700],
-                                        ),
-                                      ),
-                                      const SizedBox(height: 15),
-                                      ElevatedButton(
-                                        onPressed: () {
-                                          _searchRides();
-                                        },
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color(0xFF00AEEF),
-                                          foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 20,
-                                            vertical: 10,
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(30),
-                                          ),
-                                        ),
-                                        child: const Text('Tìm chuyến đi'),
-                                      ),
-                                    ],
-                                  ),
-                                )
-                              else if (_isLoading)
-                                const Center(
-                                  child: Padding(
-                                    padding: EdgeInsets.symmetric(vertical: 30),
-                                    child: CircularProgressIndicator(
-                                      color: Color(0xFF00AEEF),
-                                    ),
-                                  ),
-                                )
-                              else
-                                ListView.separated(
-                                  shrinkWrap: true,
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  itemCount: _availableRides.length,
-                                  separatorBuilder: (context, index) => const SizedBox(height: 10),
-                                  itemBuilder: (context, index) {
-                                    final ride = _availableRides[index];
-                                    return RideCard(
-                                      ride: ride,
-                                      onTap: () async {
-                                        // Load ride details when tapped
-                                        final rideDetails = await _rideService.getRideDetails(ride.id);
-
-                                        if (mounted && rideDetails != null) {
-                                          // Navigate to ride details screen and expect a result
-                                          final result = await Navigator.pushNamed(
-                                            context,
-                                            AppRoute.rideDetails,
-                                            arguments: rideDetails,
-                                          );
-                                          
-                                          // Refresh rides list if booking was canceled
-                                          if (result == true && mounted) {
-                                            print('🔄 Booking đã hủy, làm mới danh sách chuyến đi');
-                                            loadAvailableRides();
-                                          }
-                                        }
-                                      },
+                                  if (mounted && rideDetails != null) {
+                                    // Navigate to ride details screen and expect a result
+                                    final result = await Navigator.pushNamed(
+                                      context,
+                                      AppRoute.rideDetails,
+                                      arguments: rideDetails,
                                     );
-                                  },
-                                ),
-                            ],
+                                    
+                                    // Refresh rides list if booking was canceled
+                                    if (result == true && mounted) {
+                                      print('🔄 Booking đã hủy, làm mới danh sách chuyến đi');
+                                      loadAvailableRides();
+                                    }
+                                  }
+                                },
+                              );
+                            },
                           ),
-                        ),
                       ],
                     ),
                   ),

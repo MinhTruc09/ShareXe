@@ -585,7 +585,7 @@ class BookingService {
 
       // Use PUT method with path parameter
       final response = await _apiClient.put(
-        '/booking/cancel/$rideId',
+        '/passenger/cancel-bookings/$rideId',
         requireAuth: true,
       );
 
