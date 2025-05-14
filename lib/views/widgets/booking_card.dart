@@ -461,7 +461,7 @@ class BookingCard extends StatelessWidget {
               ),
             
             // Hiển thị nút xác nhận hoàn thành cho hành khách (nếu trạng thái phù hợp)
-            else if (shouldShowPassengerConfirmButton && 
+            if (shouldShowPassengerConfirmButton && 
                 booking.status.toUpperCase() != 'DRIVER_CONFIRMED' &&
                 !isCancelled)
               Padding(

@@ -541,7 +541,7 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen> with 
       }
       
       // Gọi API để xác nhận hoàn thành 
-      final result = await _bookingService.passengerConfirmCompletion(booking.rideId);
+      final result = await _rideService.passengerConfirmCompletion(booking.rideId);
       
       if (result) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -550,6 +550,23 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen> with 
             backgroundColor: Colors.green,
           ),
         );
+        
+        // Gửi thông báo cho tài xế (nếu cần)
+        try {
+          await _notificationService.sendNotification(
+            'Hành khách đã xác nhận hoàn thành',
+            'Hành khách ${booking.passengerName} đã xác nhận hoàn thành chuyến đi.',
+            'PASSENGER_CONFIRMED',
+            {
+              'bookingId': booking.id,
+              'rideId': booking.rideId,
+            },
+            recipientEmail: booking.driverEmail,
+          );
+        } catch (e) {
+          print('❌ Lỗi khi gửi thông báo: $e');
+          // Không dừng quy trình vì đây không phải lỗi chính
+        }
         
         // Làm mới danh sách bookings
         await _loadBookings();
