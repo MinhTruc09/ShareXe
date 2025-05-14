@@ -326,14 +326,35 @@ class ChatService {
         
         // Gửi một tin nhắn hệ thống ẩn để đảm bảo phòng chat được tạo trên server
         // Tin nhắn này sẽ không hiển thị cho người dùng
-        await _apiClient.post(
-          '/chat/ensure-room',
-          body: {
-            'roomId': roomId,
-            'receiverEmail': receiverEmail,
-          },
-          requireAuth: true,
-        );
+        try {
+          final response = await _apiClient.post(
+            '/chat/ensure-room',
+            body: {
+              'roomId': roomId,
+              'receiverEmail': receiverEmail,
+            },
+            requireAuth: true,
+          );
+          
+          if (kDebugMode) {
+            print('✅ Đã gửi yêu cầu đảm bảo phòng chat: ${response.statusCode}');
+          }
+          
+          // Đồng bộ hóa lịch sử chat từ server
+          await getChatHistory(roomId);
+          
+          // Thử gửi tin nhắn trống để kích hoạt đồng bộ hóa nếu cần
+          if (response.statusCode != 200) {
+            // Thử phương pháp khác để đảm bảo phòng chat được tạo
+            await _triggerChatRoomSync(roomId, receiverEmail);
+          }
+        } catch (e) {
+          if (kDebugMode) {
+            print('⚠️ Lỗi khi gửi yêu cầu đảm bảo phòng chat: $e');
+          }
+          // Thử phương pháp khác để đảm bảo phòng chat được tạo
+          await _triggerChatRoomSync(roomId, receiverEmail);
+        }
       } else {
         if (kDebugMode) {
           print('⚠️ Không thể tạo phòng chat với: $receiverEmail');
@@ -342,6 +363,36 @@ class ChatService {
     } catch (e) {
       if (kDebugMode) {
         print('❌ Lỗi khi đảm bảo phòng chat tồn tại: $e');
+      }
+    }
+  }
+  
+  // Phương thức giúp kích hoạt đồng bộ hóa phòng chat
+  Future<void> _triggerChatRoomSync(String roomId, String receiverEmail) async {
+    try {
+      if (kDebugMode) {
+        print('🔄 Kích hoạt đồng bộ hóa phòng chat: $roomId');
+      }
+      
+      // Gửi tin nhắn hệ thống ẩn để đồng bộ hóa
+      await _apiClient.post(
+        '/chat/trigger-sync',
+        body: {
+          'roomId': roomId,
+          'receiverEmail': receiverEmail,
+          'systemMessage': true,
+          'content': '_SYNC_REQUEST_',
+        },
+        requireAuth: true,
+      );
+      
+      // Tải lại lịch sử chat sau khi kích hoạt đồng bộ
+      await Future.delayed(const Duration(seconds: 1));
+      await getChatHistory(roomId);
+      
+    } catch (e) {
+      if (kDebugMode) {
+        print('⚠️ Lỗi khi kích hoạt đồng bộ hóa phòng chat: $e');
       }
     }
   }

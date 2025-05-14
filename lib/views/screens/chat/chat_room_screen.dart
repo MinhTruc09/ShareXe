@@ -417,16 +417,19 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
         print('🌐 Đang tải tin nhắn từ server...');
       }
       
+      // Đảm bảo phòng chat được tạo cho cả hai bên trước khi tải tin nhắn
+      await _chatService.ensureChatRoomIsCreated(widget.partnerEmail);
+      
       // Tăng số lần thử tải dữ liệu để đảm bảo ổn định
       int retryCount = 0;
       List<ChatMessageModel> serverMessages = [];
       
-      while (retryCount < 3 && serverMessages.isEmpty) {
+      while (retryCount < 3) {
         serverMessages = await _chatService.getChatHistory(widget.roomId);
         
         if (serverMessages.isEmpty && retryCount < 2) {
           // Thử tải lại sau một khoảng thời gian ngắn
-          await Future.delayed(const Duration(milliseconds: 500));
+          await Future.delayed(const Duration(milliseconds: 800));
           retryCount++;
           
           if (foundation.kDebugMode) {
@@ -447,10 +450,9 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
 
         if (mounted) {
           setState(() {
-            // Đảm bảo tin nhắn được sắp xếp theo thời gian tăng dần
-            _messages =
-                serverMessages
-                  ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+            // Sử dụng tin nhắn từ server và sắp xếp theo thời gian
+            _messages = serverMessages
+              ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
             _isLoading = false;
           });
 
@@ -458,8 +460,48 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
             print('✅ Đã cập nhật danh sách tin nhắn với dữ liệu từ server');
           }
         }
-      } else if (foundation.kDebugMode) {
-        print('ℹ️ Không có tin nhắn mới từ server');
+      } 
+      // Nếu không có tin nhắn từ server nhưng có tin nhắn cục bộ, vẫn thử gửi yêu cầu đồng bộ
+      else if (_messages.isEmpty) {
+        if (foundation.kDebugMode) {
+          print('⚠️ Không có tin nhắn từ server, thử kích hoạt đồng bộ');
+        }
+        
+        // Gửi yêu cầu đồng bộ qua Chat service
+        try {
+          // Gửi tin nhắn hệ thống ẩn để kích hoạt đồng bộ
+          await _chatService.triggerChatSync(widget.roomId, widget.partnerEmail);
+          
+          // Thử tải lại sau khi kích hoạt đồng bộ
+          await Future.delayed(const Duration(seconds: 1));
+          final syncedMessages = await _chatService.getChatHistory(widget.roomId);
+          
+          if (syncedMessages.isNotEmpty && mounted) {
+            setState(() {
+              _messages = syncedMessages
+                ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+              _isLoading = false;
+            });
+            
+            // Lưu tin nhắn vào bộ nhớ cục bộ
+            await _chatLocalStorage.saveMessages(widget.roomId, syncedMessages);
+          } else {
+            setState(() {
+              _isLoading = false;
+            });
+          }
+        } catch (syncError) {
+          if (foundation.kDebugMode) {
+            print('❌ Lỗi khi kích hoạt đồng bộ: $syncError');
+          }
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      } else {
+        setState(() {
+          _isLoading = false;
+        });
       }
 
       // Cuộn xuống để hiển thị tin nhắn mới nhất sau khi tải xong
@@ -505,68 +547,45 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
           );
         }
       }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
     }
   }
 
-  // Method to refresh messages more aggressively
   Future<void> _loadMessages() async {
     if (!mounted) return;
-
+    
     try {
       if (foundation.kDebugMode) {
-        print('🔄 Tự động làm mới tin nhắn cho phòng ${widget.roomId}');
+        print('🔍 Đang làm mới tin nhắn cho phòng chat ${widget.roomId}...');
       }
       
-      // Luôn tải mới tin nhắn từ server mà không cần so sánh
+      // Tải lịch sử tin nhắn mới từ server
       final messages = await _chatService.getChatHistory(widget.roomId);
       
-      if (mounted && messages.isNotEmpty) {
-        // Phát hiện các tin nhắn mới bằng cách so sánh ID và thời gian
-        bool hasNewMessages = false;
+      if (messages.isNotEmpty) {
+        // Đánh dấu đã đọc
+        await _chatService.markMessagesAsRead(widget.roomId);
         
-        if (_messages.isEmpty) {
-          hasNewMessages = true;
-        } else {
-          // Kiểm tra xem có tin nhắn mới không
-          final latestCurrentTimestamp = _messages.isNotEmpty 
-              ? _messages.map((m) => m.timestamp.millisecondsSinceEpoch).reduce((a, b) => a > b ? a : b)
-              : 0;
-              
-          for (var msg in messages) {
-            if (msg.timestamp.millisecondsSinceEpoch > latestCurrentTimestamp) {
-              hasNewMessages = true;
-              break;
-            }
-          }
-        }
-        
-        // Cập nhật danh sách tin nhắn
-        setState(() {
-          _messages = messages..sort((a, b) => a.timestamp.compareTo(b.timestamp));
-        });
-        
-        // Cuộn xuống tin nhắn cuối cùng nếu có tin nhắn mới
-        if (hasNewMessages) {
-          _scrollToBottom();
-        }
-        
-        // Lưu trữ tin nhắn vào local storage
+        // Lưu tin nhắn vào bộ nhớ cục bộ
         await _chatLocalStorage.saveMessages(widget.roomId, messages);
         
-        // Đánh dấu tin nhắn đã đọc
-        await _chatService.markMessagesAsRead(widget.roomId);
+        // Cập nhật UI
+        if (mounted) {
+          setState(() {
+            _messages = messages;
+            _messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+            _isLoading = false;
+          });
+          
+          // Scroll to bottom sau một khoảng thời gian ngắn
+          Future.delayed(const Duration(milliseconds: 100), () {
+            _scrollToBottom();
+          });
+        }
       }
     } catch (e) {
       if (foundation.kDebugMode) {
         print('❌ Lỗi khi làm mới tin nhắn: $e');
       }
-      // Không hiển thị thông báo lỗi cho việc làm mới tự động
     }
   }
 

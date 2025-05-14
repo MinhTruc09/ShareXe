@@ -87,9 +87,9 @@ class BookingCard extends StatelessWidget {
       case 'IN_PROGRESS':
         return "Đang đi";
       case 'PASSENGER_CONFIRMED':
-        return "Bạn đã xác nhận - Đợi tài xế xác nhận";
+        return "Đợi tài xế xác nhận";
       case 'DRIVER_CONFIRMED':
-        return "Tài xế xác nhận - Đợi bạn xác nhận";
+        return "Đợi hành khách xác nhận";
       case 'COMPLETED':
         return "Đã hoàn thành";
       case 'CANCELLED':
@@ -101,31 +101,28 @@ class BookingCard extends StatelessWidget {
     }
   }
 
-  // Kiểm tra xem có nên hiển thị nút xác nhận cho tài xế không
-  bool _shouldShowDriverConfirmButton() {
-    if (onConfirmComplete == null) return false;
-    
-    final status = booking.status.toUpperCase();
-    
-    // Chỉ hiển thị nút xác nhận khi trạng thái là IN_PROGRESS hoặc PASSENGER_CONFIRMED
-    return status == 'IN_PROGRESS' || status == 'PASSENGER_CONFIRMED';
-  }
-
-  // Kiểm tra xem có nên hiển thị nút xác nhận cho hành khách không
-  bool _shouldShowPassengerConfirmButton() {
+  // Kiểm tra xem có nên hiển thị nút xác nhận không
+  bool _shouldShowConfirmButton() {
     if (onConfirmComplete == null) return false;
     
     final status = booking.status.toUpperCase();
     final now = DateTime.now();
     
-    return (status == 'PENDING' ||
-            status == 'ACCEPTED' ||
-            status == 'APPROVED' ||
-            status == 'IN_PROGRESS' ||
-            status == 'DRIVER_CONFIRMED') &&
-            status != 'PASSENGER_CONFIRMED' &&
-            status != 'COMPLETED' &&
-            now.isAfter(booking.startTime);
+    // Dành cho hành khách: IN_PROGRESS, DRIVER_CONFIRMED hoặc đã đến thời điểm khởi hành
+    if (status == 'DRIVER_CONFIRMED') {
+      return true;  // Hành khách cần xác nhận sau khi tài xế đã xác nhận
+    }
+    
+    if ((status == 'IN_PROGRESS' || 
+         status == 'ACCEPTED' || 
+         status == 'APPROVED') && 
+        now.isAfter(booking.startTime) &&
+        status != 'PASSENGER_CONFIRMED' &&
+        status != 'COMPLETED') {
+      return true;  // Có thể xác nhận khi đang đi và đã đến giờ
+    }
+    
+    return false;
   }
 
   @override
@@ -136,12 +133,6 @@ class BookingCard extends StatelessWidget {
     // Kiểm tra xem booking có bị hủy không
     final bool isCancelled = booking.status.toUpperCase() == 'CANCELLED' || 
                            booking.status.toUpperCase() == 'REJECTED';
-    
-    // Kiểm tra nếu nên hiển thị nút xác nhận cho hành khách
-    final bool shouldShowPassengerConfirmButton = _shouldShowPassengerConfirmButton();
-    
-    // Kiểm tra nếu nên hiển thị nút xác nhận cho tài xế
-    final bool shouldShowDriverConfirmButton = _shouldShowDriverConfirmButton();
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -442,26 +433,8 @@ class BookingCard extends StatelessWidget {
               ),
             ),
             
-            // Hiển thị nút xác nhận hoàn thành cho tài xế (nếu trạng thái phù hợp)
-            if (shouldShowDriverConfirmButton && !isCancelled)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: onConfirmComplete,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    child: const Text('Xác nhận hoàn thành'),
-                  ),
-                ),
-              ),
-            
-            // Hiển thị nút xác nhận hoàn thành cho hành khách (nếu trạng thái phù hợp)
-            if (shouldShowPassengerConfirmButton && 
+            // Hiển thị nút xác nhận hoàn thành (khi không phải là DRIVER_CONFIRMED)
+            if (_shouldShowConfirmButton() && 
                 booking.status.toUpperCase() != 'DRIVER_CONFIRMED' &&
                 !isCancelled)
               Padding(
