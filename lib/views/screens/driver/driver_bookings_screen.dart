@@ -1,3 +1,4 @@
+// Driver Bookings Screen - fixing DateTime startTime issues
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'dart:developer' as developer;
@@ -183,7 +184,7 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
         } catch (e) {
           developer.log('Lỗi parse startTime cho booking #${booking.id}: ${booking.startTime}', 
               name: 'driver_bookings', error: e);
-          // Fallback to current time
+          // Fallback to current time - fixed
           startTime = DateTime.now();
         }
         

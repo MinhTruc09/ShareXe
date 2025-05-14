@@ -346,14 +346,14 @@ class ChatService {
           // Thử gửi tin nhắn trống để kích hoạt đồng bộ hóa nếu cần
           if (response.statusCode != 200) {
             // Thử phương pháp khác để đảm bảo phòng chat được tạo
-            await _triggerChatRoomSync(roomId, receiverEmail);
+            await triggerChatRoomSync(roomId, receiverEmail);
           }
         } catch (e) {
           if (kDebugMode) {
             print('⚠️ Lỗi khi gửi yêu cầu đảm bảo phòng chat: $e');
           }
           // Thử phương pháp khác để đảm bảo phòng chat được tạo
-          await _triggerChatRoomSync(roomId, receiverEmail);
+          await triggerChatRoomSync(roomId, receiverEmail);
         }
       } else {
         if (kDebugMode) {
@@ -395,5 +395,10 @@ class ChatService {
         print('⚠️ Lỗi khi kích hoạt đồng bộ hóa phòng chat: $e');
       }
     }
+  }
+  
+  // Phương thức public để kích hoạt đồng bộ hóa phòng chat từ bên ngoài
+  Future<void> triggerChatRoomSync(String roomId, String receiverEmail) async {
+    await _triggerChatRoomSync(roomId, receiverEmail);
   }
 }

@@ -1,3 +1,4 @@
+// This comment forces a rebuild of the file to fix the triggerChatSync issue
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'dart:async';
@@ -470,7 +471,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
         // Gửi yêu cầu đồng bộ qua Chat service
         try {
           // Gửi tin nhắn hệ thống ẩn để kích hoạt đồng bộ
-          await _chatService.triggerChatSync(widget.roomId, widget.partnerEmail);
+          await _chatService.triggerChatRoomSync(widget.roomId, widget.partnerEmail);
           
           // Thử tải lại sau khi kích hoạt đồng bộ
           await Future.delayed(const Duration(seconds: 1));
