@@ -1,10 +1,29 @@
 # ShareXe - Ứng dụng Đi chung xe
 
-![ShareXe Logo](https://via.placeholder.com/150x50?text=ShareXe)
+<div align="center">
+  <img src="assets/images/logo.png" alt="ShareXe Logo" width="300"/>
+  
+  <br>
+  <p><b>Kết nối hành trình - Chia sẻ niềm vui</b></p>
+  
+  <div>
+    <img src="https://img.shields.io/badge/Flutter-3.0.0+-02569B?style=flat-square&logo=flutter" alt="Flutter 3.0.0+"/>
+    <img src="https://img.shields.io/badge/Dart-2.17.0+-0175C2?style=flat-square&logo=dart" alt="Dart 2.17.0+"/>
+    <img src="https://img.shields.io/badge/Version-1.0.0-brightgreen?style=flat-square" alt="Version 1.0.0"/>
+    <img src="https://img.shields.io/badge/License-UTH-blue?style=flat-square" alt="License UTH"/>
+  </div>
+</div>
+
+<br>
 
 ShareXe là ứng dụng di chuyển chung xe hơi (carpooling) kết nối những người có chung lộ trình di chuyển, giúp tối ưu chi phí di chuyển, giảm tắc nghẽn giao thông và góp phần bảo vệ môi trường.
 
 ## 📥 Tải xuống
+
+<div align="center">
+  <img src="assets/images/qr.png" alt="ShareXe QR Code" width="200"/>
+  <p>Quét mã QR để tải ứng dụng</p>
+</div>
 
 Bạn có thể tải xuống phiên bản mới nhất của ứng dụng ShareXe qua các cách sau:
 
@@ -30,6 +49,25 @@ Bạn có thể tải xuống phiên bản mới nhất của ứng dụng Share
 - Quản lý lịch sử chuyến đi
 - Nhắn tin với hành khách
 - Nhận đánh giá và phản hồi
+
+## 🌟 Ưu điểm
+
+- **Tối ưu chi phí**: Chia sẻ chi phí nhiên liệu và phí cầu đường
+- **Bảo vệ môi trường**: Giảm lượng khí thải CO2 bằng cách giảm số lượng xe trên đường
+- **Giảm kẹt xe**: Góp phần giảm áp lực giao thông trong giờ cao điểm
+- **An toàn đáng tin cậy**: Xác thực người dùng, đánh giá sau chuyến đi
+- **Kết nối cộng đồng**: Tạo cơ hội gặp gỡ những người mới có chung sở thích/công việc
+
+## 🛠️ Công nghệ sử dụng
+
+- **Frontend**: Flutter, Dart
+- **Backend**: Node.js, Express.js
+- **Database**: MongoDB
+- **Realtime Communication**: Socket.io
+- **Authentication**: JWT, Firebase Auth
+- **Payment Integration**: VNPay, MoMo
+- **Maps & Location**: Google Maps API
+- **Cloud Services**: Firebase, Render
 
 ## 🛠️ Yêu cầu hệ thống
 
@@ -125,6 +163,18 @@ lib/
     └── theme/                 # Cấu hình giao diện
 ```
 
+## 🚀 API Documentation
+
+ShareXe sử dụng REST API được xây dựng trên Node.js và Express. API cung cấp các endpoint để:
+- Xác thực người dùng (đăng ký, đăng nhập, làm mới token)
+- Quản lý thông tin cá nhân
+- Tìm kiếm và đặt chuyến đi
+- Quản lý chuyến đi (tạo, hủy, cập nhật trạng thái)
+- Giao tiếp thông qua chat
+- Thanh toán trực tuyến
+
+Xem tài liệu API đầy đủ tại [ShareXe API Documentation](assets/api.pdf).
+
 ## 🧪 Kiểm thử
 
 Chạy các bài kiểm thử tự động:
@@ -137,6 +187,7 @@ flutter test
 - Ứng dụng yêu cầu quyền truy cập vị trí để tìm kiếm chuyến đi gần bạn
 - Đối với tài xế, ứng dụng cần quyền truy cập camera để tải lên giấy phép lái xe
 - Dữ liệu người dùng được mã hóa và bảo vệ theo tiêu chuẩn ngành
+- Thông tin thanh toán được xử lý qua các cổng thanh toán an toàn
 
 ## 👨‍💻 Đội ngũ phát triển
 
@@ -148,6 +199,20 @@ flutter test
 
 Dự án thuộc sở hữu của Trường Đại học Giao thông vận tải TP.HCM (UTH) - Lớp CN22G
 
+## 🌎 Ngôn ngữ hỗ trợ
+
+- Tiếng Việt (mặc định)
+- Tiếng Anh
+
 ## 📞 Liên hệ hỗ trợ
 
-Email: sharexe.project@gmail.com
+- **Email**: sharexe.project@gmail.com
+- **Website**: [www.sharexe.vn](#)
+- **Facebook**: [ShareXe Vietnam](#)
+
+---
+
+<div align="center">
+  <p>© 2023 ShareXe - Phát triển bởi sinh viên ĐH Giao thông vận tải TP.HCM</p>
+  <p>🚗 Cùng nhau đi xa hơn, rẻ hơn, xanh hơn 🌳</p>
+</div>
