@@ -56,7 +56,7 @@ class ChatService {
       try {
         if (kDebugMode) {
           print('🔄 Đang tải lịch sử chat cho phòng: $roomId (lần thử ${retryCount + 1})');
-          print('🔄 API Endpoint: ${_appConfig.fullApiUrl}/chat/history/$roomId');
+          print('🔄 API Endpoint: ${_appConfig.fullApiUrl}/chat/$roomId');
         }
         
         // Kiểm tra xem roomId có hợp lệ không
@@ -71,7 +71,7 @@ class ChatService {
         await _appConfig.switchToWorkingUrl();
         
         final response = await _apiClient.get(
-          '/chat/history/$roomId',
+          '/chat/$roomId',
           requireAuth: true,
         );
 
@@ -198,12 +198,11 @@ class ChatService {
           print('📤 Sending message via WebSocket to room: $roomId');
         }
         _webSocketService.sendChatMessage(roomId, receiverEmail, content);
-        // Still send via REST API as a backup to ensure delivery
-        bool restSent = await _sendMessageViaRest(roomId, receiverEmail, content);
-        if (kDebugMode && !restSent) {
-          print('⚠️ WebSocket message sent but REST API backup failed');
-        }
+        // Mark as sent since WebSocket was successfully used
         sent = true;
+        
+        // No longer sending via REST API as a backup - this was causing duplicate messages
+        // If WebSocket fails, the catch block below will retry via REST API
       } catch (e) {
         if (kDebugMode) {
           print('❌ Error sending message via WebSocket: $e');
