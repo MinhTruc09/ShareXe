@@ -10,7 +10,7 @@ class AppConfig {
   AppConfig._internal();
 
   // API URLs with automatic backup URLs
-  String apiBaseUrl = 'https://2675-115-76-90-173.ngrok-free.app';
+  String apiBaseUrl = 'https://carpooling-j5xn.onrender.com';
   String fallbackApiUrl = 'https://sharexe-api.onrender.com';
 
   // Flag to indicate if using fallback URL
@@ -60,12 +60,68 @@ class AppConfig {
 
   // Computed property getters for API endpoints
   String get loginEndpoint => '$fullApiUrl/auth/login';
-  String get registerEndpoint => '$fullApiUrl/auth/register';
-  String get userProfileEndpoint => '$fullApiUrl/user/profile';
   String get notificationsEndpoint => '$fullApiUrl/notifications';
-  String get chatEndpoint => '$fullApiUrl/chat';
   String get availableRidesEndpoint => '$fullApiUrl/ride/available';
   String get searchRidesEndpoint => '$fullApiUrl/ride/search';
+
+  // Authentication endpoints
+  String get passengerRegisterEndpoint => '$fullApiUrl/auth/passenger-register';
+  String get driverRegisterEndpoint => '$fullApiUrl/auth/driver-register';
+
+  // Chat endpoints
+  String get chatRoomsEndpoint => '$fullApiUrl/chat/rooms';
+  String chatRoomByEmailEndpoint(String email) =>
+      '$fullApiUrl/chat/room/$email';
+  String chatMessagesEndpoint(int roomId) => '$fullApiUrl/chat/$roomId';
+  String sendChatMessageEndpoint(int roomId) => '$fullApiUrl/chat/test/$roomId';
+  String markChatReadEndpoint(int roomId) =>
+      '$fullApiUrl/chat/$roomId/mark-read';
+
+  // Driver endpoints
+  String get driverProfileEndpoint => '$fullApiUrl/driver/profile';
+  String get driverRidesEndpoint => '$fullApiUrl/driver/my-rides';
+  String get driverBookingsEndpoint => '$fullApiUrl/driver/bookings';
+  String driverAcceptBookingEndpoint(int bookingId) =>
+      '$fullApiUrl/driver/accept/$bookingId';
+  String driverRejectBookingEndpoint(int bookingId) =>
+      '$fullApiUrl/driver/reject/$bookingId';
+  String driverCompleteRideEndpoint(int rideId) =>
+      '$fullApiUrl/driver/complete/$rideId';
+
+  // Notifications endpoints
+  String get unreadNotificationCountEndpoint =>
+      '$fullApiUrl/notifications/unread-count';
+  String markNotificationReadEndpoint(int id) =>
+      '$fullApiUrl/notifications/$id/read';
+  String get markAllNotificationsReadEndpoint =>
+      '$fullApiUrl/notifications/read-all';
+
+  // Passenger endpoints
+  String get passengerProfileEndpoint => '$fullApiUrl/passenger/profile';
+  String get passengerBookingsEndpoint => '$fullApiUrl/passenger/bookings';
+  String passengerBookingDetailEndpoint(int bookingId) =>
+      '$fullApiUrl/passenger/booking/$bookingId';
+  String createPassengerBookingEndpoint(int rideId) =>
+      '$fullApiUrl/passenger/booking/$rideId';
+  String passengerConfirmRideEndpoint(int rideId) =>
+      '$fullApiUrl/passenger/passenger-confirm/$rideId';
+  String cancelPassengerBookingEndpoint(int rideId) =>
+      '$fullApiUrl/passenger/cancel-bookings/$rideId';
+
+  // Rides endpoints
+  String rideDetailEndpoint(int id) => '$fullApiUrl/ride/$id';
+  String get allRidesEndpoint => '$fullApiUrl/ride/all-rides';
+  String get createRideEndpoint => '$fullApiUrl/ride';
+  String updateRideEndpoint(int id) => '$fullApiUrl/ride/update/$id';
+  String cancelRideEndpoint(int id) => '$fullApiUrl/ride/cancel/$id';
+
+  // Tracking endpoints
+  String sendTrackingDataEndpoint(int rideId) =>
+      '$fullApiUrl/tracking/test/$rideId';
+
+  // User endpoints
+  String get updateUserProfileEndpoint => '$fullApiUrl/user/update-profile';
+  String get changePasswordEndpoint => '$fullApiUrl/user/change-pass';
 
   // Notification constants - stored as static to avoid duplication
   // FCM topics
@@ -323,7 +379,7 @@ class AppConfig {
       }
     } else if (status == RIDE_STATUS_DRIVER_CONFIRMED) {
       return "Tài xế xác nhận";
-    } else if (status == "PASSENGER_CONFIRMED") { 
+    } else if (status == "PASSENGER_CONFIRMED") {
       return "Khách đã xác nhận";
     } else if (status == RIDE_STATUS_COMPLETED) {
       return "Đã hoàn thành";
@@ -406,15 +462,15 @@ class AppConfig {
     // IN_PROGRESS (đang diễn ra)
     // DRIVER_CONFIRMED (tài xế đã xác nhận, đợi khách xác nhận)
     // và đã qua thời gian khởi hành
-    // 
+    //
     // KHÔNG hiển thị nút xác nhận khi đã là PASSENGER_CONFIRMED hoặc COMPLETED
     return (status == BOOKING_STATUS_PENDING ||
             status == BOOKING_STATUS_ACCEPTED ||
             status == "APPROVED" ||
             status == BOOKING_STATUS_IN_PROGRESS ||
             status == BOOKING_STATUS_DRIVER_CONFIRMED) &&
-            status != BOOKING_STATUS_PASSENGER_CONFIRMED &&
-            status != BOOKING_STATUS_COMPLETED &&
+        status != BOOKING_STATUS_PASSENGER_CONFIRMED &&
+        status != BOOKING_STATUS_COMPLETED &&
         now.isAfter(startTime);
   }
 }

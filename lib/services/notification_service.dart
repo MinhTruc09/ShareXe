@@ -30,12 +30,13 @@ class NotificationService {
   // Thêm WebSocket để nhận thông báo realtime
   WebSocketChannel? _socketChannel;
   StreamSubscription? _socketSubscription;
-  
+
   // Add new fields for WebSocket connection management
   bool _isConnecting = false;
   int _reconnectAttempt = 0;
   Timer? _reconnectTimer;
-  final int _maxReconnectDelay = 300; // Maximum delay of 5 minutes (300 seconds)
+  final int _maxReconnectDelay =
+      300; // Maximum delay of 5 minutes (300 seconds)
   final bool _isConnected = false;
 
   // Stream controller để phát thông báo mới đến toàn bộ ứng dụng
@@ -167,9 +168,9 @@ class NotificationService {
   Future<void> _setupWebSocketConnection() async {
     // Don't try to connect if already connecting
     if (_isConnecting) return;
-    
+
     _isConnecting = true;
-    
+
     try {
       // Lấy token JWT từ AuthManager
       final token = await _authManager.getAccessToken();
@@ -184,12 +185,14 @@ class NotificationService {
       if (kDebugMode) {
         print('📞 Connecting to WebSocket: $baseUrl/ws/notifications');
       }
-      
+
       // Kết nối đến WebSocket endpoint với token xác thực
       _socketChannel = IOWebSocketChannel.connect(
         Uri.parse('$baseUrl/ws/notifications'),
         headers: {'Authorization': 'Bearer $token'},
-        pingInterval: const Duration(seconds: 30), // Keep connection alive with pings
+        pingInterval: const Duration(
+          seconds: 30,
+        ), // Keep connection alive with pings
       );
 
       // Đăng ký lắng nghe tin nhắn từ WebSocket
@@ -197,7 +200,7 @@ class NotificationService {
         (dynamic message) {
           // Reset reconnect attempt on successful message
           _reconnectAttempt = 0;
-          
+
           if (kDebugMode) {
             print('📥 Received WebSocket message: $message');
           }
@@ -238,9 +241,8 @@ class NotificationService {
       if (kDebugMode) {
         print('✅ WebSocket connection established');
       }
-      
+
       _isConnecting = false;
-      
     } catch (e) {
       if (kDebugMode) {
         print('⚠️ Lỗi khi thiết lập WebSocket: $e');
@@ -249,29 +251,36 @@ class NotificationService {
       _handleWebSocketDisconnect();
     }
   }
-  
+
   // Handle WebSocket disconnection with exponential backoff
   void _handleWebSocketDisconnect() {
     // Cancel any existing reconnect timer
     _reconnectTimer?.cancel();
-    
+
     // Calculate backoff delay with exponential increase but max limit
     // Formula: min(2^attempt * baseDelay, maxDelay)
     final baseDelay = 1.0; // Start with 1 second
-    final randomFactor = 0.5 * Random().nextDouble(); // Add some randomness (0-0.5)
-    
-    double delaySeconds = baseDelay * pow(1.5, _reconnectAttempt) + randomFactor;
+    final randomFactor =
+        0.5 * Random().nextDouble(); // Add some randomness (0-0.5)
+
+    double delaySeconds =
+        baseDelay * pow(1.5, _reconnectAttempt) + randomFactor;
     delaySeconds = min(delaySeconds, _maxReconnectDelay.toDouble());
-    
+
     if (kDebugMode) {
-      print('🔄 Will attempt to reconnect in ${delaySeconds.toStringAsFixed(1)} seconds (attempt ${_reconnectAttempt + 1})');
+      print(
+        '🔄 Will attempt to reconnect in ${delaySeconds.toStringAsFixed(1)} seconds (attempt ${_reconnectAttempt + 1})',
+      );
     }
-    
-    _reconnectTimer = Timer(Duration(milliseconds: (delaySeconds * 1000).toInt()), () {
-      _reconnectAttempt++;
-      closeWebSocketConnection(); // Ensure previous connection is fully closed
-      _setupWebSocketConnection();
-    });
+
+    _reconnectTimer = Timer(
+      Duration(milliseconds: (delaySeconds * 1000).toInt()),
+      () {
+        _reconnectAttempt++;
+        closeWebSocketConnection(); // Ensure previous connection is fully closed
+        _setupWebSocketConnection();
+      },
+    );
   }
 
   // Đóng kết nối WebSocket
@@ -608,7 +617,10 @@ class NotificationService {
       final allNotifications = await getNotifications();
       // Lọc các thông báo có type là DRIVER_REJECTED
       return allNotifications
-          .where((notification) => notification.type == AppConfig.NOTIFICATION_DRIVER_REJECTED)
+          .where(
+            (notification) =>
+                notification.type == AppConfig.NOTIFICATION_DRIVER_REJECTED,
+          )
           .toList();
     } catch (e) {
       if (kDebugMode) {
@@ -1268,9 +1280,9 @@ class NotificationService {
     String title,
     String message,
     String type,
-    Map<String, dynamic> data,
-    {String? recipientEmail}
-  ) async {
+    Map<String, dynamic> data, {
+    String? recipientEmail,
+  }) async {
     try {
       if (kDebugMode) {
         print('Sending notification: $title, $message, $type');
@@ -1278,38 +1290,41 @@ class NotificationService {
           print('Recipient: $recipientEmail');
         }
       }
-      
+
       // Option 1: Use API to send notification
       final token = await _authManager.getToken();
       if (token == null) return false;
-      
+
       // Prepare request body
       final Map<String, dynamic> requestBody = {
         'title': title,
-        'content': message,  // Backend uses 'content' for message body
+        'content': message, // Backend uses 'content' for message body
         'type': type,
-        'referenceId': data['bookingId'] ?? data['rideId'] ?? 0,  // Backend expects referenceId directly, not nested in data
+        'referenceId':
+            data['bookingId'] ??
+            data['rideId'] ??
+            0, // Backend expects referenceId directly, not nested in data
       };
-      
+
       // Add recipient if specified
       if (recipientEmail != null && recipientEmail.isNotEmpty) {
         requestBody['recipientEmail'] = recipientEmail;
       }
-      
+
       // Use the correct API endpoint
       final response = await _apiClient.post(
-        '/notifications/send',  // Make sure this matches your backend endpoint
+        '/notifications/send', // Make sure this matches your backend endpoint
         body: requestBody,
         requireAuth: true,
       );
-      
+
       if (response.statusCode == 200) {
         if (kDebugMode) {
           print('Notification sent successfully via API');
         }
         return true;
       }
-      
+
       // If API failed, try local notification
       final notification = NotificationModel(
         id: DateTime.now().millisecondsSinceEpoch,
@@ -1321,13 +1336,13 @@ class NotificationService {
         read: false,
         createdAt: DateTime.now(),
       );
-      
+
       // Show local notification
       await showLocalNotification(notification);
-      
+
       // Broadcast to streams
       _broadcastNotification(notification);
-      
+
       return true;
     } catch (e) {
       if (kDebugMode) {
@@ -1338,16 +1353,17 @@ class NotificationService {
   }
 
   // Gửi thông báo khi tài xế được duyệt
-  Future<bool> sendDriverApprovalNotification(String driverEmail, String driverName) async {
+  Future<bool> sendDriverApprovalNotification(
+    String driverEmail,
+    String driverName,
+  ) async {
     try {
       return await sendNotification(
         'Hồ sơ tài xế đã được duyệt',
         'Chúc mừng $driverName! Bạn đã có thể bắt đầu nhận các chuyến đi với tư cách tài xế.',
         AppConfig.NOTIFICATION_DRIVER_APPROVED,
-        {
-          'status': 'APPROVED',
-        },
-        recipientEmail: driverEmail
+        {'status': 'APPROVED'},
+        recipientEmail: driverEmail,
       );
     } catch (e) {
       if (kDebugMode) {
@@ -1358,17 +1374,18 @@ class NotificationService {
   }
 
   // Gửi thông báo khi tài xế bị từ chối
-  Future<bool> sendDriverRejectionNotification(String driverEmail, String driverName, String reason) async {
+  Future<bool> sendDriverRejectionNotification(
+    String driverEmail,
+    String driverName,
+    String reason,
+  ) async {
     try {
       return await sendNotification(
         'Hồ sơ tài xế bị từ chối',
         'Hồ sơ tài xế của bạn chưa được phê duyệt. Lý do: $reason',
         AppConfig.NOTIFICATION_DRIVER_REJECTED,
-        {
-          'status': 'REJECTED',
-          'reason': reason,
-        },
-        recipientEmail: driverEmail
+        {'status': 'REJECTED', 'reason': reason},
+        recipientEmail: driverEmail,
       );
     } catch (e) {
       if (kDebugMode) {
@@ -1379,28 +1396,28 @@ class NotificationService {
   }
 
   // Gửi thông báo khi chuyến đi bị hủy
-  Future<bool> sendRideCancelledNotification(Ride ride, List<String> passengerEmails) async {
+  Future<bool> sendRideCancelledNotification(
+    Ride ride,
+    List<String> passengerEmails,
+  ) async {
     try {
       bool allSuccess = true;
-      
+
       // Gửi thông báo đến từng hành khách đã đặt chỗ
       for (String email in passengerEmails) {
         final success = await sendNotification(
           'Chuyến đi đã bị hủy',
           'Chuyến đi ${ride.departure} đến ${ride.destination} đã bị hủy bởi tài xế ${ride.driverName}.',
           AppConfig.NOTIFICATION_RIDE_CANCELLED,
-          {
-            'rideId': ride.id,
-            'status': 'CANCELLED',
-          },
-          recipientEmail: email
+          {'rideId': ride.id, 'status': 'CANCELLED'},
+          recipientEmail: email,
         );
-        
+
         if (!success) {
           allSuccess = false;
         }
       }
-      
+
       return allSuccess;
     } catch (e) {
       if (kDebugMode) {
@@ -1411,28 +1428,28 @@ class NotificationService {
   }
 
   // Gửi thông báo khi chuyến đi bắt đầu
-  Future<bool> sendRideStartedNotification(Ride ride, List<String> passengerEmails) async {
+  Future<bool> sendRideStartedNotification(
+    Ride ride,
+    List<String> passengerEmails,
+  ) async {
     try {
       bool allSuccess = true;
-      
+
       // Gửi thông báo đến từng hành khách đã đặt chỗ
       for (String email in passengerEmails) {
         final success = await sendNotification(
           'Chuyến đi đã bắt đầu',
           'Chuyến đi ${ride.departure} đến ${ride.destination} đã bắt đầu.',
           AppConfig.NOTIFICATION_RIDE_STARTED,
-          {
-            'rideId': ride.id,
-            'status': 'IN_PROGRESS',
-          },
-          recipientEmail: email
+          {'rideId': ride.id, 'status': 'IN_PROGRESS'},
+          recipientEmail: email,
         );
-        
+
         if (!success) {
           allSuccess = false;
         }
       }
-      
+
       return allSuccess;
     } catch (e) {
       if (kDebugMode) {
@@ -1441,19 +1458,21 @@ class NotificationService {
       return false;
     }
   }
-  
+
   // Gửi thông báo khi có booking mới
-  Future<bool> sendBookingRequestNotification(int bookingId, int rideId, String passengerName, String driverEmail) async {
+  Future<bool> sendBookingRequestNotification(
+    int bookingId,
+    int rideId,
+    String passengerName,
+    String driverEmail,
+  ) async {
     try {
       return await sendNotification(
         'Yêu cầu đặt chỗ mới',
         'Có yêu cầu đặt chỗ mới từ hành khách $passengerName cho chuyến đi #$rideId.',
         AppConfig.NOTIFICATION_BOOKING_REQUEST,
-        {
-          'bookingId': bookingId,
-          'rideId': rideId,
-        },
-        recipientEmail: driverEmail
+        {'bookingId': bookingId, 'rideId': rideId},
+        recipientEmail: driverEmail,
       );
     } catch (e) {
       if (kDebugMode) {
@@ -1462,19 +1481,274 @@ class NotificationService {
       return false;
     }
   }
-  
+
+  // ==================== DRIVER ENDPOINTS ====================
+
+  // Gửi thông báo cập nhật hồ sơ tài xế
+  Future<bool> sendDriverProfileUpdateNotification(
+    String driverEmail,
+    String driverName,
+  ) async {
+    try {
+      return await sendNotification(
+        'Hồ sơ tài xế đã được cập nhật',
+        'Hồ sơ của bạn đã được cập nhật thành công, $driverName.',
+        AppConfig.NOTIFICATION_SYSTEM,
+        {'action': 'PROFILE_UPDATE', 'status': 'SUCCESS'},
+        recipientEmail: driverEmail,
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('Lỗi khi gửi thông báo cập nhật hồ sơ tài xế: $e');
+      }
+      return false;
+    }
+  }
+
+  // Gửi thông báo khi tài xế tạo chuyến đi mới
+  Future<bool> sendDriverRideCreatedNotification(
+    String driverEmail,
+    String driverName,
+    int rideId,
+    String departure,
+    String destination,
+  ) async {
+    try {
+      return await sendNotification(
+        'Chuyến đi mới đã được tạo',
+        'Chuyến đi từ $departure đến $destination đã được tạo thành công.',
+        AppConfig.NOTIFICATION_RIDE_CREATED,
+        {'rideId': rideId, 'action': 'RIDE_CREATED'},
+        recipientEmail: driverEmail,
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('Lỗi khi gửi thông báo tạo chuyến đi: $e');
+      }
+      return false;
+    }
+  }
+
+  // Gửi thông báo khi chuyến đi của tài xế được cập nhật
+  Future<bool> sendDriverRideUpdatedNotification(
+    String driverEmail,
+    int rideId,
+    String departure,
+    String destination,
+  ) async {
+    try {
+      return await sendNotification(
+        'Chuyến đi đã được cập nhật',
+        'Chuyến đi #$rideId từ $departure đến $destination đã được cập nhật.',
+        AppConfig.NOTIFICATION_SYSTEM,
+        {'rideId': rideId, 'action': 'RIDE_UPDATED'},
+        recipientEmail: driverEmail,
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('Lỗi khi gửi thông báo cập nhật chuyến đi: $e');
+      }
+      return false;
+    }
+  }
+
+  // Gửi thông báo khi chuyến đi của tài xế bị hủy
+  Future<bool> sendDriverRideCancelledNotification(
+    String driverEmail,
+    int rideId,
+    String departure,
+    String destination,
+  ) async {
+    try {
+      return await sendNotification(
+        'Chuyến đi đã bị hủy',
+        'Chuyến đi #$rideId từ $departure đến $destination đã bị hủy.',
+        AppConfig.NOTIFICATION_RIDE_CANCELLED,
+        {'rideId': rideId, 'action': 'RIDE_CANCELLED'},
+        recipientEmail: driverEmail,
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('Lỗi khi gửi thông báo hủy chuyến đi: $e');
+      }
+      return false;
+    }
+  }
+
+  // Gửi thông báo khi tài xế chấp nhận booking
+  Future<bool> sendDriverBookingAcceptedNotification(
+    String passengerEmail,
+    int bookingId,
+    int rideId,
+    String driverName,
+  ) async {
+    try {
+      return await sendNotification(
+        'Booking đã được chấp nhận',
+        'Booking #$bookingId của bạn đã được tài xế $driverName chấp nhận.',
+        AppConfig.NOTIFICATION_BOOKING_ACCEPTED,
+        {
+          'bookingId': bookingId,
+          'rideId': rideId,
+          'action': 'BOOKING_ACCEPTED',
+        },
+        recipientEmail: passengerEmail,
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('Lỗi khi gửi thông báo chấp nhận booking: $e');
+      }
+      return false;
+    }
+  }
+
+  // Gửi thông báo khi tài xế từ chối booking
+  Future<bool> sendDriverBookingRejectedNotification(
+    String passengerEmail,
+    int bookingId,
+    int rideId,
+    String driverName,
+  ) async {
+    try {
+      return await sendNotification(
+        'Booking đã bị từ chối',
+        'Booking #$bookingId của bạn đã bị tài xế $driverName từ chối.',
+        AppConfig.NOTIFICATION_BOOKING_REJECTED,
+        {
+          'bookingId': bookingId,
+          'rideId': rideId,
+          'action': 'BOOKING_REJECTED',
+        },
+        recipientEmail: passengerEmail,
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('Lỗi khi gửi thông báo từ chối booking: $e');
+      }
+      return false;
+    }
+  }
+
+  // Gửi thông báo khi tài xế hoàn thành chuyến đi
+  Future<bool> sendDriverRideCompletedNotification(
+    String passengerEmail,
+    int rideId,
+    String driverName,
+    String departure,
+    String destination,
+  ) async {
+    try {
+      return await sendNotification(
+        'Chuyến đi đã hoàn thành',
+        'Chuyến đi từ $departure đến $destination với tài xế $driverName đã hoàn thành.',
+        AppConfig.NOTIFICATION_RIDE_COMPLETED,
+        {'rideId': rideId, 'action': 'RIDE_COMPLETED'},
+        recipientEmail: passengerEmail,
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('Lỗi khi gửi thông báo hoàn thành chuyến đi: $e');
+      }
+      return false;
+    }
+  }
+
+  // Gửi thông báo nhắc nhở tài xế về chuyến đi sắp tới
+  Future<bool> sendDriverRideReminderNotification(
+    String driverEmail,
+    int rideId,
+    String departure,
+    String destination,
+    DateTime startTime,
+  ) async {
+    try {
+      final timeUntilStart = startTime.difference(DateTime.now());
+      final hoursUntilStart = timeUntilStart.inHours;
+      final minutesUntilStart = timeUntilStart.inMinutes % 60;
+
+      String timeMessage;
+      if (hoursUntilStart > 0) {
+        timeMessage = 'còn $hoursUntilStart giờ ${minutesUntilStart} phút';
+      } else {
+        timeMessage = 'còn $minutesUntilStart phút';
+      }
+
+      return await sendNotification(
+        'Nhắc nhở: Chuyến đi sắp tới',
+        'Chuyến đi #$rideId từ $departure đến $destination sẽ bắt đầu trong $timeMessage.',
+        AppConfig.NOTIFICATION_SYSTEM,
+        {
+          'rideId': rideId,
+          'action': 'RIDE_REMINDER',
+          'startTime': startTime.toIso8601String(),
+        },
+        recipientEmail: driverEmail,
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('Lỗi khi gửi thông báo nhắc nhở chuyến đi: $e');
+      }
+      return false;
+    }
+  }
+
+  // Gửi thông báo khi có lỗi trong hệ thống cho tài xế
+  Future<bool> sendDriverSystemErrorNotification(
+    String driverEmail,
+    String errorType,
+    String errorMessage,
+  ) async {
+    try {
+      return await sendNotification(
+        'Lỗi hệ thống',
+        'Có lỗi xảy ra: $errorMessage. Vui lòng thử lại sau.',
+        AppConfig.NOTIFICATION_SYSTEM,
+        {'errorType': errorType, 'action': 'SYSTEM_ERROR'},
+        recipientEmail: driverEmail,
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('Lỗi khi gửi thông báo lỗi hệ thống: $e');
+      }
+      return false;
+    }
+  }
+
+  // Gửi thông báo bảo trì hệ thống cho tài xế
+  Future<bool> sendDriverMaintenanceNotification(
+    String driverEmail,
+    String maintenanceMessage,
+  ) async {
+    try {
+      return await sendNotification(
+        'Bảo trì hệ thống',
+        maintenanceMessage,
+        AppConfig.NOTIFICATION_SYSTEM,
+        {'action': 'MAINTENANCE'},
+        recipientEmail: driverEmail,
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('Lỗi khi gửi thông báo bảo trì: $e');
+      }
+      return false;
+    }
+  }
+
   // Gửi thông báo khi booking bị hủy bởi hành khách
-  Future<bool> sendBookingCancelledNotification(int bookingId, int rideId, String passengerName, String driverEmail) async {
+  Future<bool> sendBookingCancelledNotification(
+    int bookingId,
+    int rideId,
+    String passengerName,
+    String driverEmail,
+  ) async {
     try {
       return await sendNotification(
         'Booking đã bị hủy',
         'Booking #$bookingId cho chuyến đi #$rideId đã bị hủy bởi hành khách $passengerName.',
         AppConfig.NOTIFICATION_BOOKING_CANCELLED,
-        {
-          'bookingId': bookingId,
-          'rideId': rideId,
-        },
-        recipientEmail: driverEmail
+        {'bookingId': bookingId, 'rideId': rideId},
+        recipientEmail: driverEmail,
       );
     } catch (e) {
       if (kDebugMode) {

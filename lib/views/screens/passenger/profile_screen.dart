@@ -19,7 +19,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final ProfileService _profileService = ProfileService();
   final AuthController _authController = AuthController(AuthService());
-  
+
   bool _isLoading = true;
   UserProfile? _userProfile;
   String _errorMessage = '';
@@ -38,25 +38,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     try {
       final response = await _profileService.getUserProfile();
-      
-      setState(() {
-        _isLoading = false;
-        if (response.success) {
-          _userProfile = response.data;
-        } else {
-          _errorMessage = response.message;
-          
-          // Nếu phiên đăng nhập hết hạn, tự động đăng xuất và chuyển hướng về màn hình đăng nhập
-          if (response.message.contains('Phiên đăng nhập đã hết hạn')) {
-            _handleSessionExpired();
+
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          if (response.success && response.data != null) {
+            _userProfile = response.data;
+          } else {
+            _errorMessage = response.message;
+            _userProfile = null;
+
+            // Handle session expired - ProfileService already handles this internally
+            // but we can add additional UI handling here if needed
+            if (response.message.contains('Phiên đăng nhập đã hết hạn') ||
+                response.message.contains('hết hạn')) {
+              _handleSessionExpired();
+            }
           }
-        }
-      });
+        });
+      }
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'Error: $e';
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Lỗi kết nối: ${e.toString()}';
+          _userProfile = null;
+        });
+      }
     }
   }
 
@@ -67,7 +75,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Xác nhận đăng xuất'),
-          content: const Text('Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng không?'),
+          content: const Text(
+            'Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng không?',
+          ),
           actions: [
             TextButton(
               onPressed: () {
@@ -78,22 +88,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
             TextButton(
               onPressed: () async {
                 Navigator.of(context).pop(); // Đóng dialog
-                
+
                 // Tiến hành đăng xuất
-    try {
-      await _authController.logout(context);
-      // NavigationHelper sẽ xử lý việc điều hướng, không cần NavigatorPushReplacement
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Logout failed: $e')),
-        );
-      }
-    }
+                try {
+                  await _authController.logout(context);
+                  // NavigationHelper sẽ xử lý việc điều hướng, không cần NavigatorPushReplacement
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Logout failed: $e')),
+                    );
+                  }
+                }
               },
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.red,
-              ),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
               child: const Text('Đăng xuất'),
             ),
           ],
@@ -107,25 +115,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       // Đăng xuất
       await _authController.logout(context);
-      
+
       if (mounted) {
         // Hiển thị dialog thông báo
         showDialog(
           context: context,
           barrierDismissible: false,
-          builder: (context) => AlertDialog(
-            title: const Text('Phiên đăng nhập hết hạn'),
-            content: const Text('Phiên đăng nhập của bạn đã hết hạn. Vui lòng đăng nhập lại để tiếp tục sử dụng ứng dụng.'),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  // NavigationHelper sẽ xử lý việc điều hướng từ logout()
-                },
-                child: const Text('Đăng nhập lại'),
+          builder:
+              (context) => AlertDialog(
+                title: const Text('Phiên đăng nhập hết hạn'),
+                content: const Text(
+                  'Phiên đăng nhập của bạn đã hết hạn. Vui lòng đăng nhập lại để tiếp tục sử dụng ứng dụng.',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      // NavigationHelper sẽ xử lý việc điều hướng từ logout()
+                    },
+                    child: const Text('Đăng nhập lại'),
+                  ),
+                ],
               ),
-            ],
-          ),
         );
       }
     } catch (e) {
@@ -142,55 +153,65 @@ class _ProfileScreenState extends State<ProfileScreen> {
         elevation: 0,
         title: const Text('Hồ sơ hành khách'),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Colors.white))
-          : _userProfile == null
+      body:
+          _isLoading
+              ? const Center(
+                child: CircularProgressIndicator(color: Colors.white),
+              )
+              : _userProfile == null
               ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        _errorMessage,
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                      const SizedBox(height: 20),
-                      ElevatedButton(
-                        onPressed: _loadUserProfile,
-                        child: const Text('Thử lại'),
-                      ),
-                    ],
-                  ),
-                )
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      _errorMessage,
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    const SizedBox(height: 20),
+                    ElevatedButton(
+                      onPressed: _loadUserProfile,
+                      child: const Text('Thử lại'),
+                    ),
+                  ],
+                ),
+              )
               : SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      // User Profile Header with avatar and rating
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 20.0),
-                        child: Column(
-                          children: [
-                            Stack(
-                              alignment: Alignment.bottomRight,
-                              children: [
-                                Container(
-                                  height: 120,
-                                  width: 120,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.rectangle,
-                                    borderRadius: BorderRadius.circular(15),
-                                    color: Colors.white,
-                                    border: Border.all(
-                                      color: const Color(0xFF00AEEF),
-                                      width: 4,
-                                    ),
+                child: Column(
+                  children: [
+                    // User Profile Header with avatar and rating
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 20.0),
+                      child: Column(
+                        children: [
+                          Stack(
+                            alignment: Alignment.bottomRight,
+                            children: [
+                              Container(
+                                height: 120,
+                                width: 120,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.rectangle,
+                                  borderRadius: BorderRadius.circular(15),
+                                  color: Colors.white,
+                                  border: Border.all(
+                                    color: const Color(0xFF00AEEF),
+                                    width: 4,
                                   ),
-                                  child: _userProfile!.avatarUrl != null
-                                      ? ClipRRect(
-                                          borderRadius: BorderRadius.circular(10),
+                                ),
+                                child:
+                                    _userProfile!.avatarUrl != null
+                                        ? ClipRRect(
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
                                           child: Image.network(
                                             _userProfile!.avatarUrl!,
                                             fit: BoxFit.cover,
-                                            errorBuilder: (context, error, stackTrace) {
+                                            errorBuilder: (
+                                              context,
+                                              error,
+                                              stackTrace,
+                                            ) {
                                               return const Icon(
                                                 Icons.person,
                                                 size: 60,
@@ -199,8 +220,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                             },
                                           ),
                                         )
-                                      : ClipRRect(
-                                          borderRadius: BorderRadius.circular(10),
+                                        : ClipRRect(
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
                                           child: Container(
                                             color: Colors.grey[200],
                                             child: const Icon(
@@ -210,240 +233,246 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                             ),
                                           ),
                                         ),
-                                ),
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF00AEEF),
-                                    borderRadius: BorderRadius.circular(15),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 6,
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(
-                                        Icons.star,
-                                        color: Colors.yellow,
-                                        size: 16,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      const Text(
-                                        '5.0',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Positioned(
-                                  bottom: 0,
-                                  right: 0,
-                                  child: CircleAvatar(
-                                    radius: 16,
-                                    backgroundColor: Colors.white,
-                                    child: IconButton(
-                                      padding: EdgeInsets.zero,
-                                      icon: const Icon(
-                                        Icons.edit,
-                                        size: 16,
-                                        color: Color(0xFF00AEEF),
-                                      ),
-                                      onPressed: () {
-                                        // Edit avatar functionality
-                                        if (_userProfile != null) {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (context) => EditProfileScreen(
-                                                userProfile: _userProfile!,
-                                              ),
-                                            ),
-                                          ).then((updated) {
-                                            if (updated == true) {
-                                              // Reload profile if updated
-                                              _loadUserProfile();
-                                            }
-                                          });
-                                        }
-                                      },
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Xin chào bạn, ${_userProfile!.fullName}',
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
                               ),
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF00AEEF),
+                                  borderRadius: BorderRadius.circular(15),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.star,
+                                      color: Colors.yellow,
+                                      size: 16,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    const Text(
+                                      '5.0',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Positioned(
+                                bottom: 0,
+                                right: 0,
+                                child: CircleAvatar(
+                                  radius: 16,
+                                  backgroundColor: Colors.white,
+                                  child: IconButton(
+                                    padding: EdgeInsets.zero,
+                                    icon: const Icon(
+                                      Icons.edit,
+                                      size: 16,
+                                      color: Color(0xFF00AEEF),
+                                    ),
+                                    onPressed: () {
+                                      // Edit avatar functionality
+                                      if (_userProfile != null) {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder:
+                                                (context) => EditProfileScreen(
+                                                  userProfile: _userProfile!,
+                                                ),
+                                          ),
+                                        ).then((updated) {
+                                          if (updated == true) {
+                                            // Reload profile if updated
+                                            _loadUserProfile();
+                                          }
+                                        });
+                                      }
+                                    },
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Xin chào bạn, ${_userProfile!.fullName}',
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              _userProfile!.phoneNumber,
-                              style: const TextStyle(
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _userProfile!.phoneNumber,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              color: Colors.white70,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Menu Items in a White Card
+                    Container(
+                      margin: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                            child: Text(
+                              'Tổng quát',
+                              style: TextStyle(
                                 fontSize: 16,
-                                color: Colors.white70,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                      // Menu Items in a White Card
-                      Container(
-                        margin: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                              child: Text(
-                                'Tổng quát',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
+                          ),
+                          _buildMenuItem(
+                            icon: Icons.info_outline,
+                            title: 'Giới thiệu ứng dụng',
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const AboutAppScreen(),
                                 ),
-                              ),
-                            ),
-                            _buildMenuItem(
-                              icon: Icons.info_outline,
-                              title: 'Giới thiệu ứng dụng',
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const AboutAppScreen(),
-                                  ),
-                                );
-                              },
-                            ),
-                            _buildMenuItem(
-                              icon: Icons.history,
-                              title: 'Lịch sử chuyến đi',
-                              onTap: () {
-                                Navigator.pushNamed(context, PassengerRoutes.bookings);
-                              },
-                            ),
-                            _buildMenuItem(
-                              icon: Icons.lock,
-                              title: 'Đổi mật khẩu',
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const ChangePasswordScreen(),
-                                  ),
-                                );
-                              },
-                            ),
-                            _buildMenuItem(
-                              icon: Icons.edit,
-                              title: 'Chỉnh sửa thông tin',
-                              onTap: () {
-                                if (_userProfile != null) {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => EditProfileScreen(
-                                        userProfile: _userProfile!,
-                                      ),
-                                    ),
-                                  ).then((updated) {
-                                    if (updated == true) {
-                                      // Reload profile if updated
-                                      _loadUserProfile();
-                                    }
-                                  });
-                                }
-                              },
-                            ),
-                            _buildMenuItem(
-                              icon: Icons.settings,
-                              title: 'Cài đặt',
-                              onTap: () {
-                                // Navigate to settings screen
-                              },
-                            ),
-                            _buildMenuItem(
-                              icon: Icons.logout,
-                              title: 'Đăng xuất',
-                              onTap: _logout,
-                            ),
-                          ],
-                        ),
-                      ),
-                      // Help Section
-                      Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                              child: Text(
-                                'Hỗ trợ',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
+                              );
+                            },
+                          ),
+                          _buildMenuItem(
+                            icon: Icons.history,
+                            title: 'Lịch sử chuyến đi',
+                            onTap: () {
+                              Navigator.pushNamed(
+                                context,
+                                PassengerRoutes.bookings,
+                              );
+                            },
+                          ),
+                          _buildMenuItem(
+                            icon: Icons.lock,
+                            title: 'Đổi mật khẩu',
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder:
+                                      (context) => const ChangePasswordScreen(),
                                 ),
-                              ),
-                            ),
-                            _buildMenuItem(
-                              icon: Icons.language,
-                              title: 'Ngôn ngữ',
-                              onTap: () {
-                                // Language settings
-                              },
-                            ),
-                            _buildMenuItem(
-                              icon: Icons.payment,
-                              title: 'Phương thức thanh toán',
-                              onTap: () {
-                                // Payment methods
-                              },
-                            ),
-                            _buildMenuItem(
-                              icon: Icons.support,
-                              title: 'Trung tâm hỗ trợ',
-                              onTap: () {
+                              );
+                            },
+                          ),
+                          _buildMenuItem(
+                            icon: Icons.edit,
+                            title: 'Chỉnh sửa thông tin',
+                            onTap: () {
+                              if (_userProfile != null) {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => const SupportScreen(),
+                                    builder:
+                                        (context) => EditProfileScreen(
+                                          userProfile: _userProfile!,
+                                        ),
                                   ),
-                                );
-                              },
-                            ),
-                            _buildMenuItem(
-                              icon: Icons.share,
-                              title: 'Chia sẻ phản hồi',
-                              onTap: () {
-                                // Share feedback
-                              },
-                            ),
-                          ],
-                        ),
+                                ).then((updated) {
+                                  if (updated == true) {
+                                    // Reload profile if updated
+                                    _loadUserProfile();
+                                  }
+                                });
+                              }
+                            },
+                          ),
+                          _buildMenuItem(
+                            icon: Icons.settings,
+                            title: 'Cài đặt',
+                            onTap: () {
+                              // Navigate to settings screen
+                            },
+                          ),
+                          _buildMenuItem(
+                            icon: Icons.logout,
+                            title: 'Đăng xuất',
+                            onTap: _logout,
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 20),
-                    ],
-                  ),
+                    ),
+                    // Help Section
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                            child: Text(
+                              'Hỗ trợ',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ),
+                          _buildMenuItem(
+                            icon: Icons.language,
+                            title: 'Ngôn ngữ',
+                            onTap: () {
+                              // Language settings
+                            },
+                          ),
+                          _buildMenuItem(
+                            icon: Icons.payment,
+                            title: 'Phương thức thanh toán',
+                            onTap: () {
+                              // Payment methods
+                            },
+                          ),
+                          _buildMenuItem(
+                            icon: Icons.support,
+                            title: 'Trung tâm hỗ trợ',
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const SupportScreen(),
+                                ),
+                              );
+                            },
+                          ),
+                          _buildMenuItem(
+                            icon: Icons.share,
+                            title: 'Chia sẻ phản hồi',
+                            onTap: () {
+                              // Share feedback
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
                 ),
+              ),
     );
   }
 
@@ -463,16 +492,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Expanded(
               child: Text(
                 title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  color: Colors.black87,
-                ),
+                style: const TextStyle(fontSize: 16, color: Colors.black87),
               ),
             ),
-            const Icon(Icons.arrow_forward_ios, size: 16, color: Color(0xFF00AEEF)),
+            const Icon(
+              Icons.arrow_forward_ios,
+              size: 16,
+              color: Color(0xFF00AEEF),
+            ),
           ],
         ),
       ),
     );
   }
-} 
+}

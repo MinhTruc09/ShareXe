@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:async';
 import 'package:stomp_dart_client/stomp_dart_client.dart';
 import '../models/notification_model.dart';
-import '../models/chat_message_model.dart';
+import '../models/chat_ui_models.dart';
 import 'package:flutter/foundation.dart';
 import '../utils/app_config.dart';
 
@@ -13,12 +13,12 @@ class WebSocketService {
 
   StompClient? _stompClient;
   Function(NotificationModel)? onNotificationReceived;
-  Function(ChatMessageModel)? onChatMessageReceived;
+  Function(ChatMessage)? onChatMessageReceived;
   String? _userEmail;
   String? _token;
   String? _serverUrl;
   final AppConfig _appConfig = AppConfig();
-  
+
   int _reconnectAttempts = 0;
   Timer? _reconnectTimer;
   final int _maxReconnectAttempts = 5;
@@ -32,15 +32,17 @@ class WebSocketService {
       }
       return;
     }
-    
+
     if (_inFallbackMode) {
       if (kDebugMode) {
-        print('⚠️ WebSocket in fallback mode due to persistent connection issues');
+        print(
+          '⚠️ WebSocket in fallback mode due to persistent connection issues',
+        );
         print('⚠️ Application will use REST API fallback for messaging');
       }
       return;
     }
-    
+
     _isInitializing = true;
     _userEmail = userEmail;
     _token = token;
@@ -75,23 +77,29 @@ class WebSocketService {
           if (kDebugMode) {
             print('❌ WebSocket disconnected: ${frame?.body}');
           }
-          
+
           _scheduleReconnect();
         },
         onWebSocketError: (error) {
           if (kDebugMode) {
             print('❌ WebSocket error: $error');
             print('❌ WebSocket URL: ${_appConfig.webSocketUrl}');
-            
+
             if (error.toString().contains('404')) {
-              print('❌ Error 404: WebSocket endpoint not found. Check server configuration.');
+              print(
+                '❌ Error 404: WebSocket endpoint not found. Check server configuration.',
+              );
             } else if (error.toString().contains('Connection refused')) {
-              print('❌ Connection refused: Server may be down or incorrect URL');
+              print(
+                '❌ Connection refused: Server may be down or incorrect URL',
+              );
             } else if (error.toString().contains('not upgraded to websocket')) {
-              print('❌ Connection not upgraded: Server may not support WebSockets or endpoint is incorrect');
+              print(
+                '❌ Connection not upgraded: Server may not support WebSockets or endpoint is incorrect',
+              );
             }
           }
-          
+
           _scheduleReconnect();
         },
         stompConnectHeaders: {'Authorization': 'Bearer $token'},
@@ -118,18 +126,24 @@ class WebSocketService {
 
   void _scheduleReconnect() {
     _reconnectTimer?.cancel();
-    
-    if (_reconnectAttempts < _maxReconnectAttempts && _token != null && _userEmail != null) {
+
+    if (_reconnectAttempts < _maxReconnectAttempts &&
+        _token != null &&
+        _userEmail != null) {
       _reconnectAttempts++;
       final delay = _calculateReconnectDelay();
-      
+
       if (kDebugMode) {
-        print('🔄 Scheduling WebSocket reconnect attempt $_reconnectAttempts in ${delay.inSeconds} seconds');
+        print(
+          '🔄 Scheduling WebSocket reconnect attempt $_reconnectAttempts in ${delay.inSeconds} seconds',
+        );
       }
-      
+
       _reconnectTimer = Timer(delay, () {
         if (kDebugMode) {
-          print('🔄 Attempting to reconnect WebSocket (attempt $_reconnectAttempts)');
+          print(
+            '🔄 Attempting to reconnect WebSocket (attempt $_reconnectAttempts)',
+          );
         }
         initialize(_serverUrl ?? '', _token!, _userEmail!);
       });
@@ -139,21 +153,21 @@ class WebSocketService {
         print('⚠️ Switching to fallback mode - using REST API for messaging');
       }
       _inFallbackMode = true;
-      
+
       Timer(const Duration(minutes: 5), () {
         if (kDebugMode) {
           print('🔄 Attempting to reconnect WebSocket after cooldown period');
         }
         _inFallbackMode = false;
         _reconnectAttempts = 0;
-        
+
         if (_token != null && _userEmail != null) {
           initialize(_serverUrl ?? '', _token!, _userEmail!);
         }
       });
     }
   }
-  
+
   Duration _calculateReconnectDelay() {
     final seconds = (1 << (_reconnectAttempts - 1)).clamp(1, 30);
     return Duration(seconds: seconds);
@@ -163,7 +177,7 @@ class WebSocketService {
     if (kDebugMode) {
       print('✅ WebSocket connected successfully');
     }
-    
+
     _reconnectAttempts = 0;
 
     _stompClient!.subscribe(
@@ -195,20 +209,22 @@ class WebSocketService {
             if (kDebugMode) {
               print('✉️ Received chat message via WebSocket: ${frame.body}');
             }
-            
-            final chatMessage = ChatMessageModel.fromJson(
+
+            final chatMessage = ChatMessage.fromApiJson(
               json.decode(frame.body!),
             );
-            
+
             if (kDebugMode) {
               print('✉️ Parsed message details:');
               print('   - Room ID: ${chatMessage.roomId}');
               print('   - Sender: ${chatMessage.senderEmail}');
               print('   - Receiver: ${chatMessage.receiverEmail}');
-              print('   - Content: ${chatMessage.content.length > 30 ? '${chatMessage.content.substring(0, 30)}...' : chatMessage.content}');
+              print(
+                '   - Content: ${chatMessage.content != null && chatMessage.content!.length > 30 ? '${chatMessage.content!.substring(0, 30)}...' : chatMessage.content}',
+              );
               print('   - Timestamp: ${chatMessage.timestamp}');
             }
-            
+
             if (onChatMessageReceived != null) {
               onChatMessageReceived!(chatMessage);
             } else if (kDebugMode) {
@@ -226,7 +242,7 @@ class WebSocketService {
         }
       },
     );
-    
+
     _stompClient!.subscribe(
       destination: '/topic/chat/global',
       callback: (frame) {
@@ -236,9 +252,10 @@ class WebSocketService {
             if (kDebugMode) {
               print('📢 Global chat message: ${frame.body}');
             }
-            
-            if (data['receiverEmail'] == _userEmail || data['senderEmail'] == _userEmail) {
-              final chatMessage = ChatMessageModel.fromJson(data);
+
+            if (data['receiverEmail'] == _userEmail ||
+                data['senderEmail'] == _userEmail) {
+              final chatMessage = ChatMessage.fromApiJson(data);
               if (onChatMessageReceived != null) {
                 onChatMessageReceived!(chatMessage);
               }
@@ -257,10 +274,12 @@ class WebSocketService {
     if (_inFallbackMode) {
       return false;
     }
-    
+
     final connected = _stompClient?.connected ?? false;
     if (kDebugMode) {
-      print('🔍 WebSocket connection status: ${connected ? 'connected' : 'disconnected'}');
+      print(
+        '🔍 WebSocket connection status: ${connected ? 'connected' : 'disconnected'}',
+      );
     }
     return connected;
   }

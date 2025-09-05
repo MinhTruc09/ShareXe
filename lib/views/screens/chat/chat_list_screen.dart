@@ -16,12 +16,12 @@ class _ChatListScreenState extends State<ChatListScreen> {
   List<Map<String, dynamic>> _chatRooms = [];
   bool _isLoading = true;
   Timer? _refreshTimer;
-  
+
   @override
   void initState() {
     super.initState();
     _loadChatRooms();
-    
+
     // Thiết lập bộ đếm thời gian để tự động làm mới danh sách chat
     _refreshTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
       if (mounted) {
@@ -29,30 +29,52 @@ class _ChatListScreenState extends State<ChatListScreen> {
       }
     });
   }
-  
+
   @override
   void dispose() {
     _refreshTimer?.cancel();
     super.dispose();
   }
-  
+
   Future<void> _loadChatRooms({bool silentRefresh = false}) async {
     if (!silentRefresh) {
       setState(() {
         _isLoading = true;
       });
     }
-    
+
     try {
-      final chatRooms = await _chatService.getChatRooms();
-      
-      // Chỉ cập nhật UI nếu có sự thay đổi hoặc không phải là làm mới ngầm
-      if (!silentRefresh || chatRooms.length != _chatRooms.length) {
-        if (mounted) {
-          setState(() {
-            _chatRooms = chatRooms;
-            _isLoading = false;
-          });
+      final response = await _chatService.getChatRooms();
+
+      if (response.success) {
+        // Chỉ cập nhật UI nếu có sự thay đổi hoặc không phải là làm mới ngầm
+        if (!silentRefresh || response.data.length != _chatRooms.length) {
+          if (mounted) {
+            setState(() {
+              _chatRooms = response.data;
+              _isLoading = false;
+            });
+          }
+        }
+      } else {
+        if (!silentRefresh) {
+          if (mounted) {
+            setState(() {
+              _isLoading = false;
+            });
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Không thể tải danh sách chat: ${response.message}',
+                ),
+                action: SnackBarAction(
+                  label: 'Thử lại',
+                  onPressed: _loadChatRooms,
+                ),
+              ),
+            );
+          }
         }
       }
     } catch (e) {
@@ -61,7 +83,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
           setState(() {
             _isLoading = false;
           });
-          
+
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Không thể tải danh sách chat: $e'),
@@ -75,30 +97,35 @@ class _ChatListScreenState extends State<ChatListScreen> {
       }
     }
   }
-  
-  void _navigateToChatRoom(String roomId, String partnerName, String partnerEmail) {
+
+  void _navigateToChatRoom(
+    String roomId,
+    String partnerName,
+    String partnerEmail,
+  ) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => ChatRoomScreen(
-          roomId: roomId,
-          partnerName: partnerName,
-          partnerEmail: partnerEmail,
-        ),
+        builder:
+            (context) => ChatRoomScreen(
+              roomId: roomId,
+              partnerName: partnerName,
+              partnerEmail: partnerEmail,
+            ),
       ),
     ).then((_) {
       // Reload chat list when returning from chat room
       _loadChatRooms();
     });
   }
-  
+
   String _formatDateTime(String dateTimeString) {
     try {
       final dateTime = DateTime.parse(dateTimeString);
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
       final messageDate = DateTime(dateTime.year, dateTime.month, dateTime.day);
-      
+
       if (messageDate == today) {
         return DateFormat('HH:mm').format(dateTime);
       } else if (today.difference(messageDate).inDays <= 7) {
@@ -110,7 +137,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
       return '';
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -118,124 +145,134 @@ class _ChatListScreenState extends State<ChatListScreen> {
         title: const Text('Trò chuyện'),
         backgroundColor: const Color(0xFF002D72),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _loadChatRooms,
-              child: _chatRooms.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(
-                            Icons.chat_bubble_outline,
-                            size: 64,
-                            color: Colors.grey,
-                          ),
-                          const SizedBox(height: 16),
-                          const Text(
-                            'Bạn chưa có cuộc trò chuyện nào',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.grey,
-                            ),
-                          ),
-                          const SizedBox(height: 32),
-                          ElevatedButton(
-                            onPressed: _loadChatRooms,
-                            child: const Text('Làm mới'),
-                          ),
-                        ],
-                      ),
-                    )
-                  : ListView.builder(
-                      itemCount: _chatRooms.length,
-                      itemBuilder: (context, index) {
-                        final room = _chatRooms[index];
-                        final partnerName = room['partnerName'] ?? 'Người dùng';
-                        final lastMessage = room['lastMessage'] ?? '';
-                        final lastMessageTime = room['lastMessageTime'] ?? '';
-                        final unreadCount = room['unreadCount'] ?? 0;
-                        final roomId = room['roomId'] ?? '';
-                        final partnerEmail = room['partnerEmail'] ?? '';
-                        final partnerAvatar = room['partnerAvatar'];
-                        
-                        return Card(
-                          margin: const EdgeInsets.symmetric(
-                            horizontal: 8.0,
-                            vertical: 4.0,
-                          ),
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: const Color(0xFF002D72),
-                              backgroundImage: partnerAvatar != null
-                                  ? NetworkImage(partnerAvatar)
-                                  : null,
-                              child: partnerAvatar == null
-                                  ? Text(
-                                      partnerName.isNotEmpty
-                                          ? partnerName[0].toUpperCase()
-                                          : '?',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    )
-                                  : null,
-                            ),
-                            title: Text(
-                              partnerName,
-                              style: TextStyle(
-                                fontWeight: unreadCount > 0
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
+      body:
+          _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : RefreshIndicator(
+                onRefresh: _loadChatRooms,
+                child:
+                    _chatRooms.isEmpty
+                        ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.chat_bubble_outline,
+                                size: 64,
+                                color: Colors.grey,
                               ),
-                            ),
-                            subtitle: Text(
-                              lastMessage,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            trailing: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  _formatDateTime(lastMessageTime),
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey,
+                              const SizedBox(height: 16),
+                              const Text(
+                                'Bạn chưa có cuộc trò chuyện nào',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              const SizedBox(height: 32),
+                              ElevatedButton(
+                                onPressed: _loadChatRooms,
+                                child: const Text('Làm mới'),
+                              ),
+                            ],
+                          ),
+                        )
+                        : ListView.builder(
+                          itemCount: _chatRooms.length,
+                          itemBuilder: (context, index) {
+                            final room = _chatRooms[index];
+                            final partnerName =
+                                room['partnerName'] ?? 'Người dùng';
+                            final lastMessage = room['lastMessage'] ?? '';
+                            final lastMessageTime =
+                                room['lastMessageTime'] ?? '';
+                            final unreadCount = room['unreadCount'] ?? 0;
+                            final roomId = room['roomId'] ?? '';
+                            final partnerEmail = room['partnerEmail'] ?? '';
+                            final partnerAvatar = room['partnerAvatar'];
+
+                            return Card(
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 8.0,
+                                vertical: 4.0,
+                              ),
+                              child: ListTile(
+                                leading: CircleAvatar(
+                                  backgroundColor: const Color(0xFF002D72),
+                                  backgroundImage:
+                                      partnerAvatar != null
+                                          ? NetworkImage(partnerAvatar)
+                                          : null,
+                                  child:
+                                      partnerAvatar == null
+                                          ? Text(
+                                            partnerName.isNotEmpty
+                                                ? partnerName[0].toUpperCase()
+                                                : '?',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          )
+                                          : null,
+                                ),
+                                title: Text(
+                                  partnerName,
+                                  style: TextStyle(
+                                    fontWeight:
+                                        unreadCount > 0
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
                                   ),
                                 ),
-                                if (unreadCount > 0)
-                                  Container(
-                                    margin: const EdgeInsets.only(top: 4),
-                                    padding: const EdgeInsets.all(6),
-                                    decoration: BoxDecoration(
-                                      color: Colors.blue,
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Text(
-                                      unreadCount.toString(),
+                                subtitle: Text(
+                                  lastMessage,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                trailing: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      _formatDateTime(lastMessageTime),
                                       style: const TextStyle(
-                                        color: Colors.white,
                                         fontSize: 12,
-                                        fontWeight: FontWeight.bold,
+                                        color: Colors.grey,
                                       ),
                                     ),
-                                  ),
-                              ],
-                            ),
-                            onTap: () => _navigateToChatRoom(
-                              roomId,
-                              partnerName,
-                              partnerEmail,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-            ),
+                                    if (unreadCount > 0)
+                                      Container(
+                                        margin: const EdgeInsets.only(top: 4),
+                                        padding: const EdgeInsets.all(6),
+                                        decoration: BoxDecoration(
+                                          color: Colors.blue,
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          unreadCount.toString(),
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                onTap:
+                                    () => _navigateToChatRoom(
+                                      roomId,
+                                      partnerName,
+                                      partnerEmail,
+                                    ),
+                              ),
+                            );
+                          },
+                        ),
+              ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           // TODO: Implement new chat functionality
@@ -246,4 +283,4 @@ class _ChatListScreenState extends State<ChatListScreen> {
       ),
     );
   }
-} 
+}

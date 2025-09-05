@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/chat_message_model.dart';
+import '../models/chat_ui_models.dart';
 
 /// Lớp quản lý lưu trữ cục bộ cho tin nhắn chat
 class ChatLocalStorage {
@@ -12,10 +12,7 @@ class ChatLocalStorage {
   static const String _chatMessagesPrefix = 'chat_messages_';
 
   /// Lưu trữ tin nhắn vào local storage
-  Future<bool> saveMessages(
-    String roomId,
-    List<ChatMessageModel> messages,
-  ) async {
+  Future<bool> saveMessages(String roomId, List<ChatMessage> messages) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final messagesList = messages.map((msg) => msg.toJson()).toList();
@@ -31,7 +28,7 @@ class ChatLocalStorage {
   }
 
   /// Lấy tin nhắn từ local storage
-  Future<List<ChatMessageModel>> getMessages(String roomId) async {
+  Future<List<ChatMessage>> getMessages(String roomId) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final messagesJson = prefs.getString('$_chatMessagesPrefix$roomId');
@@ -41,7 +38,7 @@ class ChatLocalStorage {
       }
 
       final List<dynamic> decoded = json.decode(messagesJson);
-      return decoded.map((item) => ChatMessageModel.fromJson(item)).toList();
+      return decoded.map((item) => ChatMessage.fromApiJson(item)).toList();
     } catch (e) {
       if (kDebugMode) {
         print('Lỗi khi đọc tin nhắn từ local storage: $e');
@@ -51,7 +48,7 @@ class ChatLocalStorage {
   }
 
   /// Thêm một tin nhắn mới vào local storage
-  Future<bool> addMessage(String roomId, ChatMessageModel message) async {
+  Future<bool> addMessage(String roomId, ChatMessage message) async {
     try {
       final messages = await getMessages(roomId);
       messages.insert(0, message); // Thêm tin nhắn mới vào đầu danh sách
@@ -73,7 +70,7 @@ class ChatLocalStorage {
   /// Cập nhật trạng thái của một tin nhắn trong local storage
   Future<bool> updateMessageStatus(
     String roomId,
-    ChatMessageModel message,
+    ChatMessage message,
     String newStatus,
   ) async {
     try {
@@ -81,11 +78,26 @@ class ChatLocalStorage {
       final index = messages.indexWhere(
         (msg) =>
             msg.content == message.content &&
-            msg.timestamp.isAtSameMomentAs(message.timestamp),
+            msg.timestamp?.isAtSameMomentAs(
+                  message.timestamp ?? DateTime.now(),
+                ) ==
+                true,
       );
 
       if (index >= 0) {
-        messages[index] = messages[index].copyWith(status: newStatus);
+        final updatedMessage = ChatMessage(
+          token: messages[index].token,
+          senderEmail: messages[index].senderEmail,
+          receiverEmail: messages[index].receiverEmail,
+          senderName: messages[index].senderName,
+          content: messages[index].content,
+          roomId: messages[index].roomId,
+          timestamp: messages[index].timestamp,
+          read: messages[index].read,
+          id: messages[index].id,
+          status: newStatus,
+        );
+        messages[index] = updatedMessage;
         return await saveMessages(roomId, messages);
       }
 

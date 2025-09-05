@@ -190,19 +190,21 @@ class AppRoute {
       final userProfile = settings.arguments;
       if (userProfile is UserProfile) {
         return MaterialPageRoute(
-          builder: (context) => DriverEditProfileScreen(userProfile: userProfile),
+          builder:
+              (context) => DriverEditProfileScreen(userProfile: userProfile),
         );
       } else {
         return MaterialPageRoute(
-          builder: (context) => Scaffold(
-            appBar: AppBar(title: const Text('Lỗi')),
-            body: const Center(
-              child: Text(
-                'Không thể tải thông tin hồ sơ. Vui lòng thử lại sau.',
-                textAlign: TextAlign.center,
+          builder:
+              (context) => Scaffold(
+                appBar: AppBar(title: const Text('Lỗi')),
+                body: const Center(
+                  child: Text(
+                    'Không thể tải thông tin hồ sơ. Vui lòng thử lại sau.',
+                    textAlign: TextAlign.center,
+                  ),
+                ),
               ),
-            ),
-          ),
         );
       }
     } else if (routeName == DriverRoutes.createRide) {
@@ -220,6 +222,26 @@ class AppRoute {
         final rideObj = Ride(
           id: ride['id'] ?? 0,
           departure: ride['fromLocation'] ?? ride['departure'] ?? 'Điểm đi',
+          startLat:
+              ride['startLat'] != null
+                  ? (ride['startLat'] as num).toDouble()
+                  : 0.0,
+          startLng:
+              ride['startLng'] != null
+                  ? (ride['startLng'] as num).toDouble()
+                  : 0.0,
+          startAddress: ride['startAddress'] ?? '',
+          startWard: ride['startWard'] ?? '',
+          startDistrict: ride['startDistrict'] ?? '',
+          startProvince: ride['startProvince'] ?? '',
+          endLat:
+              ride['endLat'] != null ? (ride['endLat'] as num).toDouble() : 0.0,
+          endLng:
+              ride['endLng'] != null ? (ride['endLng'] as num).toDouble() : 0.0,
+          endAddress: ride['endAddress'] ?? '',
+          endWard: ride['endWard'] ?? '',
+          endDistrict: ride['endDistrict'] ?? '',
+          endProvince: ride['endProvince'] ?? '',
           destination: ride['toLocation'] ?? ride['destination'] ?? 'Điểm đến',
           startTime: ride['startTime'] ?? DateTime.now().toIso8601String(),
           totalSeat: ride['totalSeat'] ?? 0,
@@ -229,12 +251,26 @@ class AppRoute {
           availableSeats: ride['availableSeats'] ?? 0,
           pricePerSeat: ride['pricePerSeat'],
         );
-        return MaterialPageRoute(builder: (_) => DriverBookingsScreen(ride: rideObj));
+        return MaterialPageRoute(
+          builder: (_) => DriverBookingsScreen(ride: rideObj),
+        );
       } else {
         // Create a dummy ride with generic information if no ride data is provided
         final dummyRide = Ride(
           id: 0,
           departure: 'Tất cả điểm đi',
+          startLat: 0.0,
+          startLng: 0.0,
+          startAddress: '',
+          startWard: '',
+          startDistrict: '',
+          startProvince: '',
+          endLat: 0.0,
+          endLng: 0.0,
+          endAddress: '',
+          endWard: '',
+          endDistrict: '',
+          endProvince: '',
           destination: 'Tất cả điểm đến',
           startTime: DateTime.now().toIso8601String(),
           totalSeat: 0,
@@ -244,7 +280,9 @@ class AppRoute {
           driverEmail: 'example@sharexe.com',
           pricePerSeat: null,
         );
-        return MaterialPageRoute(builder: (_) => DriverBookingsScreen(ride: dummyRide));
+        return MaterialPageRoute(
+          builder: (_) => DriverBookingsScreen(ride: dummyRide),
+        );
       }
     } else if (routeName == DriverRoutes.rideDetails) {
       final ride = settings.arguments;

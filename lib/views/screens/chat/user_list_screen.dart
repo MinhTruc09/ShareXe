@@ -53,13 +53,28 @@ class _UserListScreenState extends State<UserListScreen> {
     });
 
     try {
-      final chatRooms = await _chatService.getChatRooms();
+      final response = await _chatService.getChatRooms();
 
-      if (mounted) {
-        setState(() {
-          _chatRooms = chatRooms;
-          _isLoading = false;
-        });
+      if (response.success) {
+        if (mounted) {
+          setState(() {
+            _chatRooms = response.data;
+            _isLoading = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Không thể tải danh sách chat: ${response.message}',
+              ),
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {

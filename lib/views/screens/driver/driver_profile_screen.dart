@@ -38,18 +38,25 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
 
     try {
       final response = await _profileService.getUserProfile();
-      
+
       // Log response for debugging
-      developer.log('Profile response: ${response.success}, ${response.message}', name: 'profile_screen');
+      developer.log(
+        'Profile response: ${response.success}, ${response.message}',
+        name: 'profile_screen',
+      );
       if (response.data != null) {
-        developer.log('Profile data: id=${response.data?.id}, role=${response.data?.role}, status=${response.data?.status}', 
-          name: 'profile_screen');
-        developer.log('Profile URLs: avatar=${response.data?.avatarUrl}, license=${response.data?.licenseImageUrl}, vehicle=${response.data?.vehicleImageUrl}', 
-          name: 'profile_screen');
+        developer.log(
+          'Profile data: id=${response.data?.id}, role=${response.data?.role}, status=${response.data?.status}',
+          name: 'profile_screen',
+        );
+        developer.log(
+          'Profile URLs: avatar=${response.data?.avatarUrl}, license=${response.data?.licenseImageUrl}, vehicle=${response.data?.vehicleImageUrl}',
+          name: 'profile_screen',
+        );
       } else {
         developer.log('Profile data is null', name: 'profile_screen');
       }
-      
+
       setState(() {
         if (response.success && response.data != null) {
           _userProfile = response.data;
@@ -58,19 +65,24 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
         } else {
           _isLoading = false;
           _isError = true;
-          _errorMessage = response.data == null 
-              ? 'Không thể tải thông tin hồ sơ. Vui lòng đăng nhập lại.'
-              : response.message;
+          _errorMessage =
+              response.data == null
+                  ? 'Không thể tải thông tin hồ sơ. Vui lòng đăng nhập lại.'
+                  : response.message;
         }
       });
     } catch (e) {
-      developer.log('Error loading user profile: $e', name: 'profile_screen', error: e);
+      developer.log(
+        'Error loading user profile: $e',
+        name: 'profile_screen',
+        error: e,
+      );
       setState(() {
         _isLoading = false;
         _isError = true;
         _errorMessage = 'Không thể tải thông tin tài xế: $e';
       });
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Không thể tải thông tin người dùng: $e')),
@@ -83,11 +95,11 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
     setState(() {
       _isDebugMode = !_isDebugMode;
     });
-    
+
     if (_isDebugMode) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đã bật chế độ debug')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Đã bật chế độ debug')));
     }
   }
 
@@ -98,7 +110,9 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Xác nhận đăng xuất'),
-          content: const Text('Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng không?'),
+          content: const Text(
+            'Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng không?',
+          ),
           actions: [
             TextButton(
               onPressed: () {
@@ -109,21 +123,19 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
             TextButton(
               onPressed: () async {
                 Navigator.of(context).pop(); // Đóng dialog
-                
+
                 // Tiến hành đăng xuất
-    try {
-      await _authController.logout(context);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Có lỗi khi đăng xuất: $e')),
-        );
-      }
-    }
+                try {
+                  await _authController.logout(context);
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Có lỗi khi đăng xuất: $e')),
+                    );
+                  }
+                }
               },
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.red,
-              ),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
               child: const Text('Đăng xuất'),
             ),
           ],
@@ -134,7 +146,7 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
 
   String _getVerificationStatusText(String? status) {
     if (status == null) return 'Chưa xác minh';
-    
+
     switch (status.toUpperCase()) {
       case 'PENDING':
         return 'Đang chờ xác minh';
@@ -149,7 +161,7 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
 
   Color _getVerificationStatusColor(String? status) {
     if (status == null) return Colors.grey;
-    
+
     switch (status.toUpperCase()) {
       case 'PENDING':
         return Colors.orange;
@@ -165,16 +177,18 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
   void _editProfile() {
     try {
       if (_userProfile != null) {
-        print('Điều hướng đến màn hình chỉnh sửa hồ sơ với dữ liệu: ${_userProfile!.fullName}');
-        
+        print(
+          'Điều hướng đến màn hình chỉnh sửa hồ sơ với dữ liệu: ${_userProfile!.fullName}',
+        );
+
         // Sử dụng try-catch khi điều hướng để bắt lỗi
         try {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => DriverEditProfileScreen(
-                userProfile: _userProfile!,
-              ),
+              builder:
+                  (context) =>
+                      DriverEditProfileScreen(userProfile: _userProfile!),
             ),
           ).then((value) {
             print('Quay lại từ màn hình chỉnh sửa, kết quả: $value');
@@ -193,7 +207,9 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
         print('userProfile là null, không thể điều hướng');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Không thể tải thông tin hồ sơ. Vui lòng thử lại sau.'),
+            content: Text(
+              'Không thể tải thông tin hồ sơ. Vui lòng thử lại sau.',
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -232,61 +248,62 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
             ),
           ],
         ),
-        body: _isLoading
-            ? const Center(child: CircularProgressIndicator(color: Colors.white))
-            : _isError
+        body:
+            _isLoading
+                ? const Center(
+                  child: CircularProgressIndicator(color: Colors.white),
+                )
+                : _isError
                 ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.error_outline,
-                          size: 60,
-                          color: Colors.white,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        size: 60,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        _errorMessage,
+                        style: const TextStyle(color: Colors.white),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 24),
+                      ElevatedButton(
+                        onPressed: _loadUserProfile,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: const Color(0xFF002D72),
                         ),
-                        const SizedBox(height: 16),
-                        Text(
-                          _errorMessage,
-                          style: const TextStyle(color: Colors.white),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 24),
-                        ElevatedButton(
-                          onPressed: _loadUserProfile,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: const Color(0xFF002D72),
-                          ),
-                          child: const Text('Thử lại'),
-                        ),
-                      ],
-                    ),
-                  )
-                : SingleChildScrollView(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildProfileHeader(),
-                        const SizedBox(height: 16),
-                        _buildVerificationStatus(),
-                        const SizedBox(height: 16),
-                        _buildVehicleInfo(),
-                        const SizedBox(height: 16),
-                        _buildMenuOptions(),
-                        if (_isDebugMode) _buildDebugInfo(),
-                      ],
-                    ),
+                        child: const Text('Thử lại'),
+                      ),
+                    ],
                   ),
+                )
+                : SingleChildScrollView(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildProfileHeader(),
+                      const SizedBox(height: 16),
+                      _buildVerificationStatus(),
+                      const SizedBox(height: 16),
+                      _buildVehicleInfo(),
+                      const SizedBox(height: 16),
+                      _buildMenuOptions(),
+                      if (_isDebugMode) _buildDebugInfo(),
+                    ],
+                  ),
+                ),
       ),
     );
   }
 
   Widget _buildProfileHeader() {
     return Card(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       elevation: 4,
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -295,36 +312,29 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
             CircleAvatar(
               radius: 50,
               backgroundColor: Colors.grey.shade200,
-              backgroundImage: _userProfile?.avatarUrl != null
-                  ? NetworkImage(_userProfile!.avatarUrl!)
-                  : null,
-              child: _userProfile?.avatarUrl == null
-                  ? const Icon(Icons.person, size: 50, color: Colors.grey)
-                  : null,
+              backgroundImage:
+                  _userProfile?.avatarUrl != null
+                      ? NetworkImage(_userProfile!.avatarUrl!)
+                      : null,
+              child:
+                  _userProfile?.avatarUrl == null
+                      ? const Icon(Icons.person, size: 50, color: Colors.grey)
+                      : null,
             ),
             const SizedBox(height: 16),
             Text(
               _userProfile?.fullName ?? 'Tài xế',
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text(
               _userProfile?.email ?? 'Email chưa cung cấp',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey.shade600,
-              ),
+              style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
             ),
             const SizedBox(height: 4),
             Text(
               _userProfile?.phoneNumber ?? 'Chưa có số điện thoại',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey.shade600,
-              ),
+              style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
             ),
             const SizedBox(height: 16),
             OutlinedButton.icon(
@@ -334,7 +344,10 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
               style: OutlinedButton.styleFrom(
                 foregroundColor: const Color(0xFF002D72),
                 side: const BorderSide(color: Color(0xFF002D72)),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
               ),
             ),
           ],
@@ -345,9 +358,7 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
 
   Widget _buildVerificationStatus() {
     return Card(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       elevation: 4,
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -387,18 +398,12 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
             if (_userProfile?.status?.toUpperCase() == 'PENDING')
               const Text(
                 'Hồ sơ của bạn đang được xem xét. Bạn sẽ nhận được thông báo khi được phê duyệt.',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey,
-                ),
+                style: TextStyle(fontSize: 14, color: Colors.grey),
               ),
             if (_userProfile?.status?.toUpperCase() == 'REJECTED')
               const Text(
                 'Hồ sơ của bạn đã bị từ chối. Vui lòng liên hệ hỗ trợ để biết thêm chi tiết.',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey,
-                ),
+                style: TextStyle(fontSize: 14, color: Colors.grey),
               ),
           ],
         ),
@@ -408,12 +413,12 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
 
   Widget _buildVehicleInfo() {
     // Check if we have any vehicle information to display
-    bool hasVehicleInfo = _userProfile?.vehicleImageUrl != null || _userProfile?.licenseImageUrl != null;
-    
+    bool hasVehicleInfo =
+        _userProfile?.vehicleImageUrl != null ||
+        _userProfile?.licenseImageUrl != null;
+
     return Card(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       elevation: 4,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -466,16 +471,14 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
                           const SizedBox(height: 8),
                           Text(
                             'Chưa có ảnh phương tiện',
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                            ),
+                            style: TextStyle(color: Colors.grey.shade600),
                           ),
                         ],
                       ),
                     ),
                   ),
-                
-                if (_userProfile?.licenseImageUrl != null) 
+
+                if (_userProfile?.licenseImageUrl != null)
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -502,7 +505,7 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
                       ),
                     ],
                   ),
-                  
+
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
@@ -510,31 +513,35 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
                     color: Colors.grey.shade100,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: hasVehicleInfo 
-                      ? Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildInfoRow(
-                              icon: Icons.directions_car,
-                              label: 'Loại xe',
-                              value: _userProfile?.role == 'DRIVER' 
-                                  ? 'Ô tô' 
-                                  : 'Không xác định',
-                            ),
-                            const SizedBox(height: 8),
-                            _buildInfoRow(
-                              icon: Icons.description,
-                              label: 'Mô tả',
-                              value: 'Xe 4-7 chỗ',
-                            ),
-                            const SizedBox(height: 8),
-                            _buildInfoRow(
-                              icon: Icons.verified_user,
-                              label: 'Trạng thái',
-                              value: _getVerificationStatusText(_userProfile?.status),
-                            ),
-                            if (_userProfile?.status?.toUpperCase() == 'APPROVED')
-                              ...[
+                  child:
+                      hasVehicleInfo
+                          ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildInfoRow(
+                                icon: Icons.directions_car,
+                                label: 'Loại xe',
+                                value:
+                                    _userProfile?.role == 'DRIVER'
+                                        ? 'Ô tô'
+                                        : 'Không xác định',
+                              ),
+                              const SizedBox(height: 8),
+                              _buildInfoRow(
+                                icon: Icons.description,
+                                label: 'Mô tả',
+                                value: 'Xe 4-7 chỗ',
+                              ),
+                              const SizedBox(height: 8),
+                              _buildInfoRow(
+                                icon: Icons.verified_user,
+                                label: 'Trạng thái',
+                                value: _getVerificationStatusText(
+                                  _userProfile?.status,
+                                ),
+                              ),
+                              if (_userProfile?.status?.toUpperCase() ==
+                                  'APPROVED') ...[
                                 const SizedBox(height: 16),
                                 const Text(
                                   'Tài xế của bạn đã được xác minh và có thể bắt đầu nhận chuyến đi.',
@@ -544,17 +551,15 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
                                   ),
                                 ),
                               ],
-                          ],
-                        )
-                      : const Center(
-                          child: Text(
-                            'Bạn chưa cung cấp thông tin phương tiện. Vui lòng cập nhật thông tin để có thể tham gia làm tài xế.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Colors.grey,
+                            ],
+                          )
+                          : const Center(
+                            child: Text(
+                              'Bạn chưa cung cấp thông tin phương tiện. Vui lòng cập nhật thông tin để có thể tham gia làm tài xế.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Colors.grey),
                             ),
                           ),
-                        ),
                 ),
               ],
             ),
@@ -575,18 +580,12 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
         const SizedBox(width: 8),
         Text(
           '$label:',
-          style: TextStyle(
-            fontSize: 14,
-            color: Colors.grey.shade700,
-          ),
+          style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
         ),
         const SizedBox(width: 4),
         Text(
           value,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
         ),
       ],
     );
@@ -594,9 +593,7 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
 
   Widget _buildMenuOptions() {
     return Card(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       elevation: 4,
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -689,11 +686,7 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
         padding: const EdgeInsets.symmetric(vertical: 12.0),
         child: Row(
           children: [
-            Icon(
-              icon,
-              size: 24,
-              color: color ?? const Color(0xFF002D72),
-            ),
+            Icon(icon, size: 24, color: color ?? const Color(0xFF002D72)),
             const SizedBox(width: 16),
             Text(
               title,
@@ -704,10 +697,7 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
               ),
             ),
             const Spacer(),
-            Icon(
-              Icons.chevron_right,
-              color: Colors.grey.shade400,
-            ),
+            Icon(Icons.chevron_right, color: Colors.grey.shade400),
           ],
         ),
       ),
@@ -717,9 +707,7 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
   Widget _buildDebugInfo() {
     return Card(
       color: Colors.black87,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       elevation: 4,
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -762,7 +750,10 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
             const SizedBox(height: 8),
             const Text(
               'URLs:',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             Text(
               'Avatar: ${_userProfile?.avatarUrl}',
@@ -792,4 +783,4 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
       ),
     );
   }
-} 
+}

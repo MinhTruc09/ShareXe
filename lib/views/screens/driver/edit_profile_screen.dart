@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../models/user_profile.dart';
+import '../../../models/user_update_request.dart';
 import '../../../services/profile_service.dart';
 import '../../widgets/sharexe_background2.dart';
 
@@ -42,9 +43,11 @@ class _DriverEditProfileScreenState extends State<DriverEditProfileScreen> {
       _phoneController = TextEditingController(
         text: widget.userProfile.phoneNumber,
       );
-      
-      print('Khởi tạo EditProfileScreen thành công với: ${widget.userProfile.fullName}');
-      
+
+      print(
+        'Khởi tạo EditProfileScreen thành công với: ${widget.userProfile.fullName}',
+      );
+
       // Thêm hàm kiểm tra cấu hình
       _checkConfiguration();
     } catch (e) {
@@ -160,11 +163,18 @@ class _DriverEditProfileScreenState extends State<DriverEditProfileScreen> {
 
     try {
       final response = await _profileService.updateProfile(
-        fullName: _fullNameController.text.trim(),
-        phone: _phoneController.text.trim(),
-        avatarImage: _avatarImage,
-        licenseImage: _licenseImage,
-        vehicleImage: _vehicleImage,
+        userUpdateRequestDTO: UserUpdateRequestDTO(
+          fullName: _fullNameController.text.trim(),
+          phone: _phoneController.text.trim(),
+          licensePlate: '', // Add missing fields as needed
+          brand: '',
+          model: '',
+          color: '',
+          numberOfSeats: null,
+          avatarImageUrl: widget.userProfile.avatarUrl,
+          licenseImageUrl: widget.userProfile.licenseImageUrl,
+          vehicleImageUrl: widget.userProfile.vehicleImageUrl,
+        ),
       );
 
       if (mounted) {
@@ -305,7 +315,9 @@ class _DriverEditProfileScreenState extends State<DriverEditProfileScreen> {
                                 child:
                                     _avatarImage != null
                                         ? ClipRRect(
-                                          borderRadius: BorderRadius.circular(10),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
                                           child: Image.file(
                                             _avatarImage!,
                                             fit: BoxFit.cover,
@@ -313,7 +325,9 @@ class _DriverEditProfileScreenState extends State<DriverEditProfileScreen> {
                                         )
                                         : widget.userProfile.avatarUrl != null
                                         ? ClipRRect(
-                                          borderRadius: BorderRadius.circular(10),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
                                           child: Image.network(
                                             widget.userProfile.avatarUrl!,
                                             fit: BoxFit.cover,
@@ -331,7 +345,9 @@ class _DriverEditProfileScreenState extends State<DriverEditProfileScreen> {
                                           ),
                                         )
                                         : ClipRRect(
-                                          borderRadius: BorderRadius.circular(10),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
                                           child: Container(
                                             color: Colors.amber,
                                             child: const Icon(
@@ -433,7 +449,10 @@ class _DriverEditProfileScreenState extends State<DriverEditProfileScreen> {
                               ),
                             ),
                             items: const [
-                              DropdownMenuItem(value: 'MALE', child: Text('Nam')),
+                              DropdownMenuItem(
+                                value: 'MALE',
+                                child: Text('Nam'),
+                              ),
                               DropdownMenuItem(
                                 value: 'FEMALE',
                                 child: Text('Nữ'),

@@ -11,12 +11,17 @@ import '../../../services/profile_service.dart';
 import '../../../models/user_profile.dart';
 import '../../../services/auth_manager.dart';
 import '../../../services/ride_service.dart';
+import '../../../services/booking_service.dart';
+import '../../../models/booking.dart';
 import '../../widgets/location_picker.dart';
 import '../../widgets/date_picker.dart';
 import '../../widgets/passenger_counter.dart';
 import '../../widgets/ride_card.dart';
 import 'package:intl/intl.dart';
 import 'passenger_main_screen.dart'; // Import TabNavigator từ passenger_main_screen.dart
+import '../../../services/location_service.dart';
+import '../../../services/route_service.dart';
+import 'package:latlong2/latlong.dart';
 
 class NewHomePscreen extends StatefulWidget {
   const NewHomePscreen({super.key});
@@ -26,17 +31,23 @@ class NewHomePscreen extends StatefulWidget {
 }
 
 // Expose the state class to allow access from outside
-class NewHomePscreenState extends State<NewHomePscreen> with WidgetsBindingObserver {
+class NewHomePscreenState extends State<NewHomePscreen>
+    with WidgetsBindingObserver {
   late AuthController _authController;
   final NotificationService _notificationService = NotificationService();
   final ProfileService _profileService = ProfileService();
   final AuthManager _authManager = AuthManager();
   final RideService _rideService = RideService();
+  final BookingService _bookingService = BookingService();
 
   List<Ride> _availableRides = [];
   bool _isLoading = false;
   bool _isRefreshing = false;
   UserProfile? _userProfile;
+
+  // Booking related state
+  List<BookingDTO> _userBookings = [];
+  bool _isLoadingBookings = false;
 
   // Search parameters
   String _departure = '';
@@ -44,24 +55,33 @@ class NewHomePscreenState extends State<NewHomePscreen> with WidgetsBindingObser
   DateTime? _departureDate;
   int _passengerCount = 1;
 
+  // Map and route related state
+  LatLng? _departureCoords;
+  LatLng? _destinationCoords;
+  RouteData? _currentRoute;
+  bool _isCalculatingRoute = false;
+  final LocationService _locationService = LocationService();
+  final RouteService _routeService = RouteService();
+
   @override
   void initState() {
     super.initState();
     _authController = AuthController(AuthService());
     loadAvailableRides();
     _loadUserProfile();
-    
+    _loadUserBookings();
+
     // Add listener for app lifecycle state changes to optimize memory usage
     WidgetsBinding.instance.addObserver(this);
   }
-  
+
   @override
   void dispose() {
     // Remove lifecycle observer
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
-  
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // When app goes to background, clear memory-intensive data
@@ -69,7 +89,7 @@ class NewHomePscreenState extends State<NewHomePscreen> with WidgetsBindingObser
       debugPrint('App paused: clearing cached ride images');
       // Clear any cached images or heavy data (if applicable)
     }
-    
+
     // When app comes back to foreground, refresh data
     if (state == AppLifecycleState.resumed) {
       debugPrint('App resumed: refreshing ride data');
@@ -91,6 +111,29 @@ class NewHomePscreenState extends State<NewHomePscreen> with WidgetsBindingObser
     }
   }
 
+  Future<void> _loadUserBookings() async {
+    setState(() {
+      _isLoadingBookings = true;
+    });
+
+    try {
+      final bookings = await _bookingService.getPassengerBookingsDTO();
+      if (mounted) {
+        setState(() {
+          _userBookings = bookings;
+          _isLoadingBookings = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading user bookings: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingBookings = false;
+        });
+      }
+    }
+  }
+
   // This method is exposed for use by other classes
   Future<void> loadAvailableRides() async {
     print('🔄 loadAvailableRides called from ${StackTrace.current}');
@@ -107,7 +150,7 @@ class NewHomePscreenState extends State<NewHomePscreen> with WidgetsBindingObser
       if (mounted) {
         // Sort rides with newest (highest ID) first
         rides.sort((a, b) => b.id.compareTo(a.id));
-        
+
         setState(() {
           _availableRides = rides;
           _isLoading = false;
@@ -139,15 +182,15 @@ class NewHomePscreenState extends State<NewHomePscreen> with WidgetsBindingObser
     setState(() {
       _isRefreshing = true;
     });
-    
+
     try {
       await loadAvailableRides();
-      
+
       if (mounted) {
         setState(() {
           _isRefreshing = false;
         });
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Đã cập nhật danh sách chuyến xe')),
         );
@@ -161,6 +204,66 @@ class NewHomePscreenState extends State<NewHomePscreen> with WidgetsBindingObser
           SnackBar(content: Text('Không thể cập nhật danh sách: $e')),
         );
       }
+    }
+  }
+
+  Future<void> _calculateRoute() async {
+    if (_departureCoords == null || _destinationCoords == null) {
+      return;
+    }
+
+    setState(() {
+      _isCalculatingRoute = true;
+    });
+
+    try {
+      final route = await _routeService.calculateRoute(
+        _departureCoords!,
+        _destinationCoords!,
+      );
+
+      if (mounted) {
+        setState(() {
+          _currentRoute = route;
+          _isCalculatingRoute = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isCalculatingRoute = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Không thể tính toán tuyến đường: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _useCurrentLocation() async {
+    try {
+      final position = await _locationService.getCurrentPosition();
+      final address = await _locationService.getFormattedAddress(
+        position.latitude,
+        position.longitude,
+      );
+      setState(() {
+        _departure = address;
+        _departureCoords = LatLng(position.latitude, position.longitude);
+      });
+
+      // Recalculate route if destination is set
+      if (_destinationCoords != null) {
+        _calculateRoute();
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Đã sử dụng vị trí hiện tại')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Không thể lấy vị trí hiện tại: $e')),
+      );
     }
   }
 
@@ -184,6 +287,10 @@ class NewHomePscreenState extends State<NewHomePscreen> with WidgetsBindingObser
         destination: _destination,
         startTime: _departureDate,
         passengerCount: _passengerCount,
+        departureLat: _departureCoords?.latitude,
+        departureLng: _departureCoords?.longitude,
+        destinationLat: _destinationCoords?.latitude,
+        destinationLng: _destinationCoords?.longitude,
       );
 
       // Sort rides with newest (highest ID) first
@@ -207,9 +314,9 @@ class NewHomePscreenState extends State<NewHomePscreen> with WidgetsBindingObser
       setState(() {
         _isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lỗi tìm kiếm: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Lỗi tìm kiếm: $e')));
     }
   }
 
@@ -220,7 +327,9 @@ class NewHomePscreenState extends State<NewHomePscreen> with WidgetsBindingObser
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Xác nhận đăng xuất'),
-          content: const Text('Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng không?'),
+          content: const Text(
+            'Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng không?',
+          ),
           actions: [
             TextButton(
               onPressed: () {
@@ -231,14 +340,12 @@ class NewHomePscreenState extends State<NewHomePscreen> with WidgetsBindingObser
             TextButton(
               onPressed: () async {
                 Navigator.of(context).pop(); // Đóng dialog
-                
+
                 // Tiến hành đăng xuất
                 await _authController.logout(context);
                 // NavigationHelper sẽ xử lý việc điều hướng
               },
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.red,
-              ),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
               child: const Text('Đăng xuất'),
             ),
           ],
@@ -343,7 +450,10 @@ class NewHomePscreenState extends State<NewHomePscreen> with WidgetsBindingObser
               const Divider(),
               ListTile(
                 leading: const Icon(Icons.logout, color: Colors.red),
-                title: const Text('Đăng xuất', style: TextStyle(color: Colors.red)),
+                title: const Text(
+                  'Đăng xuất',
+                  style: TextStyle(color: Colors.red),
+                ),
                 onTap: () {
                   Navigator.pop(context);
                   _logout();
@@ -438,10 +548,172 @@ class NewHomePscreenState extends State<NewHomePscreen> with WidgetsBindingObser
                         ),
 
                         const SizedBox(height: 24),
-                        
+
+                        // Booking Status Section
+                        if (_isLoadingBookings)
+                          const Center(
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(vertical: 20),
+                              child: CircularProgressIndicator(
+                                color: Color(0xFF00AEEF),
+                              ),
+                            ),
+                          )
+                        else if (_userBookings.isNotEmpty)
+                          Card(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            color: Colors.white,
+                            elevation: 4,
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      const Text(
+                                        'Chuyến đi của bạn',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF00AEEF),
+                                        ),
+                                      ),
+                                      TextButton(
+                                        onPressed: () {
+                                          Navigator.pushNamed(
+                                            context,
+                                            AppRoute.passengerBookings,
+                                          );
+                                        },
+                                        child: const Text(
+                                          'Xem tất cả',
+                                          style: TextStyle(
+                                            color: Color(0xFF00AEEF),
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  ..._userBookings.take(2).map((booking) {
+                                    Color statusColor;
+                                    String statusText;
+                                    IconData statusIcon;
+
+                                    switch (booking.status.toLowerCase()) {
+                                      case 'confirmed':
+                                        statusColor = Colors.green;
+                                        statusText = 'Đã xác nhận';
+                                        statusIcon = Icons.check_circle;
+                                        break;
+                                      case 'pending':
+                                        statusColor = Colors.orange;
+                                        statusText = 'Đang chờ';
+                                        statusIcon = Icons.schedule;
+                                        break;
+                                      case 'cancelled':
+                                        statusColor = Colors.red;
+                                        statusText = 'Đã hủy';
+                                        statusIcon = Icons.cancel;
+                                        break;
+                                      case 'completed':
+                                        statusColor = Colors.blue;
+                                        statusText = 'Hoàn thành';
+                                        statusIcon = Icons.done_all;
+                                        break;
+                                      default:
+                                        statusColor = Colors.grey;
+                                        statusText = booking.status;
+                                        statusIcon = Icons.info;
+                                    }
+
+                                    return Container(
+                                      margin: const EdgeInsets.only(bottom: 8),
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.shade50,
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: Colors.grey.shade200,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            statusIcon,
+                                            color: statusColor,
+                                            size: 20,
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  '${booking.departure} → ${booking.destination}',
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.w500,
+                                                    fontSize: 14,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 2),
+                                                Text(
+                                                  DateFormat(
+                                                    'dd/MM/yyyy HH:mm',
+                                                  ).format(booking.startTime),
+                                                  style: TextStyle(
+                                                    color: Colors.grey.shade600,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: statusColor.withOpacity(
+                                                0.1,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                            child: Text(
+                                              statusText,
+                                              style: TextStyle(
+                                                color: statusColor,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                        if (_userBookings.isNotEmpty)
+                          const SizedBox(height: 24),
+
                         // Form tìm kiếm trực tiếp trên màn hình (không dùng dialog)
                         Card(
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
                           color: Colors.white,
                           elevation: 4,
                           child: Padding(
@@ -464,9 +736,11 @@ class NewHomePscreenState extends State<NewHomePscreen> with WidgetsBindingObser
                                   hintText: 'Xuất phát từ',
                                   onLocationSelected: (location) {
                                     setState(() {
-                                      _departure = location;
+                                      _departure = location.address;
+                                      _departureCoords = location.latLng;
                                     });
                                   },
+                                  onUseCurrentLocation: _useCurrentLocation,
                                 ),
                                 const Divider(height: 1),
                                 LocationPicker(
@@ -475,7 +749,8 @@ class NewHomePscreenState extends State<NewHomePscreen> with WidgetsBindingObser
                                   hintText: 'Điểm đến',
                                   onLocationSelected: (location) {
                                     setState(() {
-                                      _destination = location;
+                                      _destination = location.address;
+                                      _destinationCoords = location.latLng;
                                     });
                                   },
                                 ),
@@ -510,9 +785,14 @@ class NewHomePscreenState extends State<NewHomePscreen> with WidgetsBindingObser
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(8),
                                       ),
-                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
                                     ),
-                                    child: const Text('Tìm chuyến', style: TextStyle(fontSize: 16)),
+                                    child: const Text(
+                                      'Tìm chuyến',
+                                      style: TextStyle(fontSize: 16),
+                                    ),
                                   ),
                                 ),
                               ],
@@ -582,14 +862,16 @@ class NewHomePscreenState extends State<NewHomePscreen> with WidgetsBindingObser
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
                             itemCount: _availableRides.length,
-                            separatorBuilder: (context, index) => const SizedBox(height: 10),
+                            separatorBuilder:
+                                (context, index) => const SizedBox(height: 10),
                             itemBuilder: (context, index) {
                               final ride = _availableRides[index];
                               return RideCard(
                                 ride: ride,
                                 onTap: () async {
                                   // Load ride details when tapped
-                                  final rideDetails = await _rideService.getRideDetails(ride.id);
+                                  final rideDetails = await _rideService
+                                      .getRideDetails(ride.id);
 
                                   if (mounted && rideDetails != null) {
                                     // Navigate to ride details screen and expect a result
@@ -598,10 +880,12 @@ class NewHomePscreenState extends State<NewHomePscreen> with WidgetsBindingObser
                                       AppRoute.rideDetails,
                                       arguments: rideDetails,
                                     );
-                                    
+
                                     // Refresh rides list if booking was canceled
                                     if (result == true && mounted) {
-                                      print('🔄 Booking đã hủy, làm mới danh sách chuyến đi');
+                                      print(
+                                        '🔄 Booking đã hủy, làm mới danh sách chuyến đi',
+                                      );
                                       loadAvailableRides();
                                     }
                                   }
@@ -651,4 +935,4 @@ class NewHomePscreenState extends State<NewHomePscreen> with WidgetsBindingObser
       ),
     );
   }
-} 
+}

@@ -15,48 +15,234 @@ class ApiDebugHelper {
 
   // Danh sách endpoints muốn theo dõi
   final List<Map<String, dynamic>> debugEndpoints = [
+    // Authentication
     {
-      'name': 'Driver Rides',
-      'endpoint': '/api/driver/my-rides',
-      'description': 'Lấy danh sách chuyến đi của tài xế',
-      'requireAuth': true
+      'name': 'Passenger Register',
+      'endpoint': '/auth/passenger-register',
+      'description': 'Đăng ký tài khoản hành khách',
+      'requireAuth': false,
     },
     {
-      'name': 'Ride API Rides',
-      'endpoint': '/api/ride/my-rides',
-      'description': 'Lấy danh sách chuyến đi của tài xế (endpoint thay thế)',
-      'requireAuth': true
+      'name': 'Driver Register',
+      'endpoint': '/auth/driver-register',
+      'description': 'Đăng ký tài khoản tài xế',
+      'requireAuth': false,
+    },
+    {
+      'name': 'Login',
+      'endpoint': '/auth/login',
+      'description': 'Đăng nhập',
+      'requireAuth': false,
+    },
+    // Chat
+    {
+      'name': 'Chat Rooms',
+      'endpoint': '/chat/rooms',
+      'description': 'Lấy danh sách phòng chat',
+      'requireAuth': true,
+    },
+    {
+      'name': 'Chat Room by Email',
+      'endpoint': '/chat/room/test@example.com',
+      'description': 'Lấy ID phòng chat theo email',
+      'requireAuth': true,
+    },
+    {
+      'name': 'Chat Messages',
+      'endpoint': '/chat/1',
+      'description': 'Lấy tin nhắn của phòng chat',
+      'requireAuth': true,
+    },
+    {
+      'name': 'Send Chat Message',
+      'endpoint': '/chat/test/1',
+      'description': 'Gửi tin nhắn qua HTTP',
+      'requireAuth': true,
+    },
+    {
+      'name': 'Mark Chat Read',
+      'endpoint': '/chat/1/mark-read',
+      'description': 'Đánh dấu tin nhắn đã đọc',
+      'requireAuth': true,
+    },
+    // Driver
+    {
+      'name': 'Driver Profile',
+      'endpoint': '/driver/profile',
+      'description': 'Lấy thông tin cá nhân tài xế',
+      'requireAuth': true,
+    },
+    {
+      'name': 'Driver Rides',
+      'endpoint': '/driver/my-rides',
+      'description': 'Lấy danh sách chuyến đi của tài xế',
+      'requireAuth': true,
     },
     {
       'name': 'Driver Bookings',
-      'endpoint': '/api/driver/bookings',
-      'description': 'Lấy danh sách booking của tài xế',
-      'requireAuth': true
+      'endpoint': '/driver/bookings',
+      'description': 'Lấy danh sách đặt chỗ của tài xế',
+      'requireAuth': true,
     },
     {
-      'name': 'Driver Profile',
-      'endpoint': '/api/driver/profile',
-      'description': 'Lấy thông tin hồ sơ tài xế',
-      'requireAuth': true
+      'name': 'Driver Accept Booking',
+      'endpoint': '/driver/accept/1',
+      'description': 'Chấp nhận đặt chỗ',
+      'requireAuth': true,
     },
+    {
+      'name': 'Driver Reject Booking',
+      'endpoint': '/driver/reject/1',
+      'description': 'Từ chối đặt chỗ',
+      'requireAuth': true,
+    },
+    {
+      'name': 'Driver Complete Ride',
+      'endpoint': '/driver/complete/1',
+      'description': 'Xác nhận hoàn thành chuyến đi',
+      'requireAuth': true,
+    },
+    // Notifications
+    {
+      'name': 'Notifications',
+      'endpoint': '/notifications',
+      'description': 'Lấy danh sách thông báo',
+      'requireAuth': true,
+    },
+    {
+      'name': 'Unread Notification Count',
+      'endpoint': '/notifications/unread-count',
+      'description': 'Đếm số thông báo chưa đọc',
+      'requireAuth': true,
+    },
+    {
+      'name': 'Mark Notification Read',
+      'endpoint': '/notifications/1/read',
+      'description': 'Đánh dấu thông báo đã đọc',
+      'requireAuth': true,
+    },
+    {
+      'name': 'Mark All Notifications Read',
+      'endpoint': '/notifications/read-all',
+      'description': 'Đánh dấu tất cả thông báo đã đọc',
+      'requireAuth': true,
+    },
+    // Passenger
+    {
+      'name': 'Passenger Profile',
+      'endpoint': '/passenger/profile',
+      'description': 'Lấy thông tin cá nhân hành khách',
+      'requireAuth': true,
+    },
+    {
+      'name': 'Passenger Bookings',
+      'endpoint': '/passenger/bookings',
+      'description': 'Lấy danh sách đặt chỗ của hành khách',
+      'requireAuth': true,
+    },
+    {
+      'name': 'Passenger Booking Detail',
+      'endpoint': '/passenger/booking/1',
+      'description': 'Lấy chi tiết đặt chỗ',
+      'requireAuth': true,
+    },
+    {
+      'name': 'Create Passenger Booking',
+      'endpoint': '/passenger/booking/1',
+      'description': 'Đặt chỗ cho chuyến đi',
+      'requireAuth': true,
+    },
+    {
+      'name': 'Passenger Confirm Ride',
+      'endpoint': '/passenger/passenger-confirm/1',
+      'description': 'Xác nhận hoàn thành chuyến đi',
+      'requireAuth': true,
+    },
+    {
+      'name': 'Cancel Passenger Booking',
+      'endpoint': '/passenger/cancel-bookings/1',
+      'description': 'Hủy đặt chỗ',
+      'requireAuth': true,
+    },
+    // Rides
+    {
+      'name': 'Ride Detail',
+      'endpoint': '/ride/1',
+      'description': 'Xem chi tiết chuyến đi',
+      'requireAuth': true,
+    },
+    {
+      'name': 'Available Rides',
+      'endpoint': '/ride/available',
+      'description': 'Danh sách chuyến đi đang hoạt động',
+      'requireAuth': false,
+    },
+    {
+      'name': 'Search Rides',
+      'endpoint': '/ride/search',
+      'description': 'Tìm kiếm chuyến đi',
+      'requireAuth': false,
+    },
+    {
+      'name': 'All Rides',
+      'endpoint': '/ride/all-rides',
+      'description': 'Lấy tất cả chuyến đi',
+      'requireAuth': true,
+    },
+    {
+      'name': 'Create Ride',
+      'endpoint': '/ride',
+      'description': 'Tạo chuyến đi',
+      'requireAuth': true,
+    },
+    {
+      'name': 'Update Ride',
+      'endpoint': '/ride/update/1',
+      'description': 'Cập nhật chuyến đi',
+      'requireAuth': true,
+    },
+    {
+      'name': 'Cancel Ride',
+      'endpoint': '/ride/cancel/1',
+      'description': 'Hủy chuyến đi',
+      'requireAuth': true,
+    },
+    // Tracking
+    {
+      'name': 'Send Tracking Data',
+      'endpoint': '/tracking/test/1',
+      'description': 'Gửi vị trí driver',
+      'requireAuth': true,
+    },
+    // User
+    {
+      'name': 'Update User Profile',
+      'endpoint': '/user/update-profile',
+      'description': 'Cập nhật thông tin cá nhân',
+      'requireAuth': true,
+    },
+    {
+      'name': 'Change Password',
+      'endpoint': '/user/change-pass',
+      'description': 'Thay đổi mật khẩu',
+      'requireAuth': true,
+    },
+    // Health Check
     {
       'name': 'Health Check',
       'endpoint': '/health',
       'description': 'Kiểm tra kết nối API',
-      'requireAuth': false
-    },
-    {
-      'name': 'Available Rides',
-      'endpoint': '/api/ride/available',
-      'description': 'Lấy danh sách chuyến đi sẵn có',
-      'requireAuth': false
+      'requireAuth': false,
     },
   ];
 
   // Kiểm tra kết nối đến API
   Future<bool> testApiConnection() async {
-    developer.log('Kiểm tra kết nối đến API: ${_appConfig.fullApiUrl}', name: 'api_debug');
-    
+    developer.log(
+      'Kiểm tra kết nối đến API: ${_appConfig.fullApiUrl}',
+      name: 'api_debug',
+    );
+
     try {
       final response = await http
           .get(Uri.parse('${_appConfig.fullApiUrl}/health'))
@@ -67,38 +253,55 @@ class ApiDebugHelper {
             },
           );
 
-      developer.log('Kết quả kiểm tra API: ${response.statusCode}', name: 'api_debug');
-      
+      developer.log(
+        'Kết quả kiểm tra API: ${response.statusCode}',
+        name: 'api_debug',
+      );
+
       // Kiểm tra phản hồi
       if (response.statusCode == 200) {
         developer.log('Kết nối thành công!', name: 'api_debug');
         return true;
       }
-      
+
       // Nếu nhận được bất kỳ phản hồi nào (ngay cả 404) từ server, URL vẫn hoạt động
       if (response.statusCode != 502 && response.statusCode != 504) {
-        developer.log('URL hoạt động nhưng endpoint không tìm thấy', name: 'api_debug');
+        developer.log(
+          'URL hoạt động nhưng endpoint không tìm thấy',
+          name: 'api_debug',
+        );
         return true;
       }
-      
-      developer.log('Kết nối thất bại: Mã lỗi ${response.statusCode}', name: 'api_debug');
+
+      developer.log(
+        'Kết nối thất bại: Mã lỗi ${response.statusCode}',
+        name: 'api_debug',
+      );
       return false;
     } catch (e) {
-      developer.log('Lỗi khi kiểm tra kết nối: $e', name: 'api_debug', error: e);
+      developer.log(
+        'Lỗi khi kiểm tra kết nối: $e',
+        name: 'api_debug',
+        error: e,
+      );
       return false;
     }
   }
 
   // Kiểm tra một endpoint cụ thể
-  Future<Map<String, dynamic>> testEndpoint(String endpoint, {bool requireAuth = true}) async {
-    developer.log('Kiểm tra endpoint: ${_appConfig.fullApiUrl}$endpoint', name: 'api_debug');
-    
+  Future<Map<String, dynamic>> testEndpoint(
+    String endpoint, {
+    bool requireAuth = true,
+  }) async {
+    developer.log(
+      'Kiểm tra endpoint: ${_appConfig.fullApiUrl}$endpoint',
+      name: 'api_debug',
+    );
+
     try {
       final uri = Uri.parse('${_appConfig.fullApiUrl}$endpoint');
-      final headers = <String, String>{
-        'Content-Type': 'application/json',
-      };
-      
+      final headers = <String, String>{'Content-Type': 'application/json'};
+
       // Thêm token nếu cần xác thực
       if (requireAuth) {
         // Lấy token từ local storage
@@ -106,10 +309,13 @@ class ApiDebugHelper {
         if (token != null) {
           headers['Authorization'] = 'Bearer $token';
         } else {
-          developer.log('Thiếu token xác thực, endpoint có thể không hoạt động', name: 'api_debug');
+          developer.log(
+            'Thiếu token xác thực, endpoint có thể không hoạt động',
+            name: 'api_debug',
+          );
         }
       }
-      
+
       final response = await http
           .get(uri, headers: headers)
           .timeout(
@@ -119,8 +325,11 @@ class ApiDebugHelper {
             },
           );
 
-      developer.log('Kết quả endpoint $endpoint: ${response.statusCode}', name: 'api_debug');
-      
+      developer.log(
+        'Kết quả endpoint $endpoint: ${response.statusCode}',
+        name: 'api_debug',
+      );
+
       // Phân tích kết quả
       return {
         'success': response.statusCode >= 200 && response.statusCode < 300,
@@ -130,7 +339,11 @@ class ApiDebugHelper {
         'endpoint': endpoint,
       };
     } catch (e) {
-      developer.log('Lỗi khi kiểm tra endpoint $endpoint: $e', name: 'api_debug', error: e);
+      developer.log(
+        'Lỗi khi kiểm tra endpoint $endpoint: $e',
+        name: 'api_debug',
+        error: e,
+      );
       return {
         'success': false,
         'statusCode': 0,
@@ -145,17 +358,19 @@ class ApiDebugHelper {
   Future<bool> isUsingMockData(String endpoint) async {
     final result = await testEndpoint(endpoint);
     if (!result['success']) return true;
-    
+
     try {
       final data = json.decode(result['body']);
       if (data['data'] is List && data['data'].isNotEmpty) {
         // Kiểm tra ID có là mock data không (thường ID >= 1000 cho mock data)
-        return data['data'].every((item) => item['id'] >= 1000 && item['id'] < 10000);
+        return data['data'].every(
+          (item) => item['id'] >= 1000 && item['id'] < 10000,
+        );
       }
     } catch (e) {
       developer.log('Lỗi khi phân tích dữ liệu: $e', name: 'api_debug');
     }
-    
+
     return true;
   }
 
@@ -163,60 +378,65 @@ class ApiDebugHelper {
   void showUpdateApiUrlDialog(BuildContext context, {Function? onUpdated}) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Cập nhật API URL'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('URL hiện tại: ${_appConfig.apiBaseUrl}'),
-            const SizedBox(height: 16),
-            TextField(
-              decoration: const InputDecoration(
-                labelText: 'Nhập URL mới',
-                hintText: 'https://your-ngrok-url.ngrok-free.app',
-                border: OutlineInputBorder(),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Cập nhật API URL'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('URL hiện tại: ${_appConfig.apiBaseUrl}'),
+                const SizedBox(height: 16),
+                TextField(
+                  decoration: const InputDecoration(
+                    labelText: 'Nhập URL mới',
+                    hintText: 'https://your-ngrok-url.ngrok-free.app',
+                    border: OutlineInputBorder(),
+                  ),
+                  onSubmitted: (value) {
+                    if (value.isNotEmpty) {
+                      _appConfig.updateBaseUrl(value);
+                      Navigator.pop(context);
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Đã cập nhật API URL: $value')),
+                      );
+
+                      // Gọi hàm callback nếu có
+                      if (onUpdated != null) {
+                        onUpdated();
+                      }
+                    }
+                  },
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Hủy'),
               ),
-              onSubmitted: (value) {
-                if (value.isNotEmpty) {
-                  _appConfig.updateBaseUrl(value);
+              ElevatedButton(
+                onPressed: () {
                   Navigator.pop(context);
-                  
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Đã cập nhật API URL: $value')),
+                  _appConfig.updateBaseUrl(
+                    'https://carpooling-j5xn.onrender.com',
                   );
-                  
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Đã cập nhật về URL mặc định'),
+                    ),
+                  );
+
                   // Gọi hàm callback nếu có
                   if (onUpdated != null) {
                     onUpdated();
                   }
-                }
-              },
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Hủy'),
+                },
+                child: const Text('Khôi phục mặc định'),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _appConfig.updateBaseUrl('https://6e3a-1-54-152-77.ngrok-free.app');
-              
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Đã cập nhật về URL mặc định')),
-              );
-              
-              // Gọi hàm callback nếu có
-              if (onUpdated != null) {
-                onUpdated();
-              }
-            },
-            child: const Text('Khôi phục mặc định'),
-          ),
-        ],
-      ),
     );
   }
 
@@ -224,9 +444,7 @@ class ApiDebugHelper {
   void showApiDebugScreen(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const ApiDebugScreen(),
-      ),
+      MaterialPageRoute(builder: (context) => const ApiDebugScreen()),
     );
   }
 }
@@ -248,7 +466,7 @@ class _ApiDebugScreenState extends State<ApiDebugScreen> {
   bool _isLoadingToken = true;
   Map<String, dynamic>? _selectedEndpointResult;
   bool _isTestingEndpoint = false;
-  
+
   @override
   void initState() {
     super.initState();
@@ -260,7 +478,7 @@ class _ApiDebugScreenState extends State<ApiDebugScreen> {
     setState(() {
       _isLoadingToken = true;
     });
-    
+
     try {
       final token = await _authManager.getToken();
       if (token != null) {
@@ -291,12 +509,13 @@ class _ApiDebugScreenState extends State<ApiDebugScreen> {
 
     try {
       final isWorking = await _apiDebugHelper.testApiConnection();
-      
+
       setState(() {
         _isTestingConnection = false;
-        _connectionStatus = isWorking
-            ? 'Kết nối API thành công ✅'
-            : 'Không thể kết nối đến API ❌';
+        _connectionStatus =
+            isWorking
+                ? 'Kết nối API thành công ✅'
+                : 'Không thể kết nối đến API ❌';
       });
     } catch (e) {
       setState(() {
@@ -311,23 +530,20 @@ class _ApiDebugScreenState extends State<ApiDebugScreen> {
       _isTestingEndpoint = true;
       _selectedEndpointResult = null;
     });
-    
+
     try {
       final result = await _apiDebugHelper.testEndpoint(
         endpoint['endpoint'],
         requireAuth: endpoint['requireAuth'] ?? true,
       );
-      
+
       setState(() {
         _selectedEndpointResult = result;
         _isTestingEndpoint = false;
       });
     } catch (e) {
       setState(() {
-        _selectedEndpointResult = {
-          'success': false,
-          'error': e.toString(),
-        };
+        _selectedEndpointResult = {'success': false, 'error': e.toString()};
         _isTestingEndpoint = false;
       });
     }
@@ -387,9 +603,10 @@ class _ApiDebugScreenState extends State<ApiDebugScreen> {
                           child: Text(
                             _connectionStatus,
                             style: TextStyle(
-                              color: _connectionStatus.contains('thành công')
-                                  ? Colors.green
-                                  : _connectionStatus.contains('kiểm tra')
+                              color:
+                                  _connectionStatus.contains('thành công')
+                                      ? Colors.green
+                                      : _connectionStatus.contains('kiểm tra')
                                       ? Colors.orange
                                       : Colors.red,
                               fontWeight: FontWeight.bold,
@@ -400,13 +617,11 @@ class _ApiDebugScreenState extends State<ApiDebugScreen> {
                           const SizedBox(
                             width: 16,
                             height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                            ),
+                            child: CircularProgressIndicator(strokeWidth: 2),
                           ),
                       ],
                     ),
-                    
+
                     // Token status
                     const SizedBox(height: 8),
                     Row(
@@ -414,29 +629,32 @@ class _ApiDebugScreenState extends State<ApiDebugScreen> {
                         const Text('Token:'),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: _isLoadingToken
-                              ? const Text('Đang kiểm tra token...')
-                              : Text(
-                                  _tokenStatus ?? 'Không có token',
-                                  style: TextStyle(
-                                    color: _tokenStatus != null && _tokenStatus!.contains('Valid')
-                                        ? Colors.green
-                                        : Colors.red,
-                                    fontWeight: FontWeight.bold,
+                          child:
+                              _isLoadingToken
+                                  ? const Text('Đang kiểm tra token...')
+                                  : Text(
+                                    _tokenStatus ?? 'Không có token',
+                                    style: TextStyle(
+                                      color:
+                                          _tokenStatus != null &&
+                                                  _tokenStatus!.contains(
+                                                    'Valid',
+                                                  )
+                                              ? Colors.green
+                                              : Colors.red,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
-                                ),
                         ),
                         if (_isLoadingToken)
                           const SizedBox(
                             width: 16,
                             height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                            ),
+                            child: CircularProgressIndicator(strokeWidth: 2),
                           ),
                       ],
                     ),
-                    
+
                     const SizedBox(height: 16),
                     // Action buttons
                     Row(
@@ -452,11 +670,11 @@ class _ApiDebugScreenState extends State<ApiDebugScreen> {
                         ElevatedButton(
                           onPressed: () {
                             _apiDebugHelper.showUpdateApiUrlDialog(
-                              context, 
+                              context,
                               onUpdated: () {
                                 _testApiConnection();
                                 _checkToken();
-                              }
+                              },
                             );
                           },
                           style: ElevatedButton.styleFrom(
@@ -473,10 +691,7 @@ class _ApiDebugScreenState extends State<ApiDebugScreen> {
             const SizedBox(height: 24),
             const Text(
               'Các API Endpoint',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             // List of available endpoints
@@ -522,16 +737,13 @@ class _ApiDebugScreenState extends State<ApiDebugScreen> {
                 ),
               );
             }),
-            
+
             // Result section
             if (_selectedEndpointResult != null) ...[
               const SizedBox(height: 24),
               const Text(
                 'Kết quả kiểm tra',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               Card(
@@ -546,9 +758,10 @@ class _ApiDebugScreenState extends State<ApiDebugScreen> {
                             _selectedEndpointResult!['success'] == true
                                 ? Icons.check_circle
                                 : Icons.error,
-                            color: _selectedEndpointResult!['success'] == true
-                                ? Colors.green
-                                : Colors.red,
+                            color:
+                                _selectedEndpointResult!['success'] == true
+                                    ? Colors.green
+                                    : Colors.red,
                           ),
                           const SizedBox(width: 8),
                           Text(
@@ -557,9 +770,10 @@ class _ApiDebugScreenState extends State<ApiDebugScreen> {
                                 : 'Thất bại (${_selectedEndpointResult!['statusCode']})',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: _selectedEndpointResult!['success'] == true
-                                  ? Colors.green
-                                  : Colors.red,
+                              color:
+                                  _selectedEndpointResult!['success'] == true
+                                      ? Colors.green
+                                      : Colors.red,
                             ),
                           ),
                         ],
@@ -576,7 +790,10 @@ class _ApiDebugScreenState extends State<ApiDebugScreen> {
                         width: double.infinity,
                         child: Text(
                           _selectedEndpointResult!['body'] != null
-                              ? _selectedEndpointResult!['body'].toString().length > 500
+                              ? _selectedEndpointResult!['body']
+                                          .toString()
+                                          .length >
+                                      500
                                   ? '${_selectedEndpointResult!['body'].toString().substring(0, 500)}...'
                                   : _selectedEndpointResult!['body'].toString()
                               : 'Không có dữ liệu phản hồi',
@@ -591,7 +808,7 @@ class _ApiDebugScreenState extends State<ApiDebugScreen> {
                 ),
               ),
             ],
-            
+
             const SizedBox(height: 16),
             // Troubleshooting section
             const Card(
@@ -611,7 +828,9 @@ class _ApiDebugScreenState extends State<ApiDebugScreen> {
                     Text(
                       '1. Kiểm tra ngrok URL có còn hoạt động không (thường hết hạn sau 2 giờ)',
                     ),
-                    Text('2. Chạy lại ngrok trên máy local và cập nhật URL mới'),
+                    Text(
+                      '2. Chạy lại ngrok trên máy local và cập nhật URL mới',
+                    ),
                     Text('3. Kiểm tra backend API có đang chạy không'),
                     Text('4. Kiểm tra xác thực token còn hợp lệ không'),
                   ],
@@ -623,4 +842,4 @@ class _ApiDebugScreenState extends State<ApiDebugScreen> {
       ),
     );
   }
-} 
+}

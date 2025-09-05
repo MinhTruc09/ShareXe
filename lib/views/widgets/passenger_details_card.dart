@@ -6,7 +6,7 @@ class PassengerDetailsCard extends StatelessWidget {
   final String passengerPhone;
   final String passengerEmail;
   final String? passengerAvatarUrl;
-  final List<FellowPassenger> fellowPassengers;
+  final List<PassengerInfoDTO> fellowPassengers;
   final int totalSeats;
   final VoidCallback? onCall;
   final VoidCallback? onMessage;
@@ -48,9 +48,7 @@ class PassengerDetailsCard extends StatelessWidget {
     return Card(
       elevation: 2,
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -64,15 +62,18 @@ class PassengerDetailsCard extends StatelessWidget {
                 CircleAvatar(
                   radius: 24,
                   backgroundColor: Colors.grey.shade200,
-                  backgroundImage: passengerAvatarUrl != null && passengerAvatarUrl!.isNotEmpty
-                      ? NetworkImage(passengerAvatarUrl!)
-                      : null,
-                  child: passengerAvatarUrl == null || passengerAvatarUrl!.isEmpty
-                      ? const Icon(Icons.person, color: Colors.grey)
-                      : null,
+                  backgroundImage:
+                      passengerAvatarUrl != null &&
+                              passengerAvatarUrl!.isNotEmpty
+                          ? NetworkImage(passengerAvatarUrl!)
+                          : null,
+                  child:
+                      passengerAvatarUrl == null || passengerAvatarUrl!.isEmpty
+                          ? const Icon(Icons.person, color: Colors.grey)
+                          : null,
                 ),
                 const SizedBox(width: 12),
-                
+
                 // Passenger details
                 Expanded(
                   child: Column(
@@ -141,7 +142,7 @@ class PassengerDetailsCard extends StatelessWidget {
                 ),
               ],
             ),
-            
+
             // Action buttons
             if (onCall != null || onMessage != null)
               Padding(
@@ -170,7 +171,7 @@ class PassengerDetailsCard extends StatelessWidget {
                   ],
                 ),
               ),
-              
+
             // Fellow passengers list
             if (fellowPassengers.isNotEmpty) ...[
               const Divider(height: 24),
@@ -178,13 +179,12 @@ class PassengerDetailsCard extends StatelessWidget {
                 padding: EdgeInsets.only(bottom: 8.0),
                 child: Text(
                   'Hành khách đồng hành',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                 ),
               ),
-              ...fellowPassengers.map((fellow) => _buildFellowPassengerItem(fellow)),
+              ...fellowPassengers.map(
+                (fellow) => _buildFellowPassengerItem(fellow),
+              ),
             ],
           ],
         ),
@@ -192,7 +192,7 @@ class PassengerDetailsCard extends StatelessWidget {
     );
   }
 
-  Widget _buildFellowPassengerItem(FellowPassenger fellow) {
+  Widget _buildFellowPassengerItem(PassengerInfoDTO fellow) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Row(
@@ -200,12 +200,14 @@ class PassengerDetailsCard extends StatelessWidget {
           CircleAvatar(
             radius: 16,
             backgroundColor: Colors.grey.shade200,
-            backgroundImage: fellow.avatarUrl != null && fellow.avatarUrl!.isNotEmpty
-                ? NetworkImage(fellow.avatarUrl!)
-                : null,
-            child: fellow.avatarUrl == null || fellow.avatarUrl!.isEmpty
-                ? const Icon(Icons.person, size: 16, color: Colors.grey)
-                : null,
+            backgroundImage:
+                fellow.avatarUrl != null && fellow.avatarUrl!.isNotEmpty
+                    ? NetworkImage(fellow.avatarUrl!)
+                    : null,
+            child:
+                fellow.avatarUrl == null || fellow.avatarUrl!.isEmpty
+                    ? const Icon(Icons.person, size: 16, color: Colors.grey)
+                    : null,
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -222,10 +224,7 @@ class PassengerDetailsCard extends StatelessWidget {
                 if (fellow.phone != null)
                   Text(
                     fellow.phone!,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey,
-                    ),
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
                   ),
               ],
             ),
@@ -234,4 +233,4 @@ class PassengerDetailsCard extends StatelessWidget {
       ),
     );
   }
-} 
+}

@@ -7,6 +7,10 @@ class RegisterDriverFormStep2 extends StatelessWidget {
   final GlobalKey<FormState> formKey;
   final TextEditingController phoneController;
   final TextEditingController licensePlateController;
+  final TextEditingController brandController;
+  final TextEditingController modelController;
+  final TextEditingController colorController;
+  final TextEditingController numberOfSeatsController;
   final String errorMessage;
   final VoidCallback onRegister;
   final VoidCallback onLogin;
@@ -22,6 +26,10 @@ class RegisterDriverFormStep2 extends StatelessWidget {
     required this.formKey,
     required this.phoneController,
     required this.licensePlateController,
+    required this.brandController,
+    required this.modelController,
+    required this.colorController,
+    required this.numberOfSeatsController,
     required this.errorMessage,
     required this.onRegister,
     required this.onLogin,
@@ -74,6 +82,63 @@ class RegisterDriverFormStep2 extends StatelessWidget {
               validator: (value) {
                 if (value == null || value.isEmpty) {
                   return 'Vui lòng nhập biển số xe';
+                }
+                return null;
+              },
+            ),
+            SizedBox(height: screenHeight * 0.02),
+            CustomTextField1(
+              controller: brandController,
+              labelText: 'Hãng xe:',
+              hintText: 'Ví dụ: Toyota, Honda, Ford...',
+              prefixIcon: Icons.business_outlined,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Vui lòng nhập hãng xe';
+                }
+                return null;
+              },
+            ),
+            SizedBox(height: screenHeight * 0.02),
+            CustomTextField1(
+              controller: modelController,
+              labelText: 'Model xe:',
+              hintText: 'Ví dụ: Camry, Civic, F-150...',
+              prefixIcon: Icons.directions_car_outlined,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Vui lòng nhập model xe';
+                }
+                return null;
+              },
+            ),
+            SizedBox(height: screenHeight * 0.02),
+            CustomTextField1(
+              controller: colorController,
+              labelText: 'Màu xe:',
+              hintText: 'Ví dụ: Đỏ, Xanh, Trắng...',
+              prefixIcon: Icons.color_lens_outlined,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Vui lòng nhập màu xe';
+                }
+                return null;
+              },
+            ),
+            SizedBox(height: screenHeight * 0.02),
+            CustomTextField1(
+              controller: numberOfSeatsController,
+              labelText: 'Số chỗ ngồi:',
+              hintText: 'Ví dụ: 4, 5, 7...',
+              prefixIcon: Icons.event_seat_outlined,
+              keyboardType: TextInputType.number,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Vui lòng nhập số chỗ ngồi';
+                }
+                final number = int.tryParse(value);
+                if (number == null || number < 1) {
+                  return 'Số chỗ ngồi phải là số dương';
                 }
                 return null;
               },
@@ -168,10 +233,7 @@ class RegisterDriverFormStep2 extends StatelessWidget {
               ),
             SizedBox(height: screenHeight * 0.02),
             if (errorMessage.isNotEmpty)
-              Text(
-                errorMessage,
-                style: const TextStyle(color: Colors.red),
-              ),
+              Text(errorMessage, style: const TextStyle(color: Colors.red)),
             SizedBox(height: screenHeight * 0.02),
             CustomButton(
               text: 'Đăng ký',
@@ -204,4 +266,4 @@ class RegisterDriverFormStep2 extends StatelessWidget {
       ),
     );
   }
-} 
+}

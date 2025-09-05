@@ -1,33 +1,98 @@
-// Booking and BookingDTO models - fixing DateTime startTime issues
-// Create a new FellowPassenger class to store data about fellow passengers
-class FellowPassenger {
+// Booking and BookingDTO models - updated to match API schema
+// PassengerInfoDTO for fellow passengers
+class PassengerInfoDTO {
+  final int id;
   final String name;
   final String? phone;
   final String? email;
   final String? avatarUrl;
+  final String status;
+  final int seatsBooked;
 
-  FellowPassenger({
+  PassengerInfoDTO({
+    required this.id,
     required this.name,
     this.phone,
     this.email,
     this.avatarUrl,
+    required this.status,
+    required this.seatsBooked,
   });
 
-  factory FellowPassenger.fromJson(Map<String, dynamic> json) {
-    return FellowPassenger(
+  factory PassengerInfoDTO.fromJson(Map<String, dynamic> json) {
+    return PassengerInfoDTO(
+      id: json['id'],
       name: json['name'] ?? '',
       phone: json['phone'],
       email: json['email'],
       avatarUrl: json['avatarUrl'],
+      status: json['status'] ?? 'PENDING',
+      seatsBooked: json['seatsBooked'] ?? 0,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
+      'id': id,
       'name': name,
       'phone': phone,
       'email': email,
       'avatarUrl': avatarUrl,
+      'status': status,
+      'seatsBooked': seatsBooked,
+    };
+  }
+}
+
+// VehicleDTO for vehicle information
+class VehicleDTO {
+  final String licensePlate;
+  final String brand;
+  final String model;
+  final String color;
+  final int numberOfSeats;
+  final String? vehicleImageUrl;
+  final String? licenseImageUrl;
+  final String? licenseImagePublicId;
+  final String? vehicleImagePublicId;
+
+  VehicleDTO({
+    required this.licensePlate,
+    required this.brand,
+    required this.model,
+    required this.color,
+    required this.numberOfSeats,
+    this.vehicleImageUrl,
+    this.licenseImageUrl,
+    this.licenseImagePublicId,
+    this.vehicleImagePublicId,
+  });
+
+  factory VehicleDTO.fromJson(Map<String, dynamic> json) {
+    return VehicleDTO(
+      licensePlate: json['licensePlate'] ?? '',
+      brand: json['brand'] ?? '',
+      model: json['model'] ?? '',
+      color: json['color'] ?? '',
+      numberOfSeats: json['numberOfSeats'] ?? 0,
+      vehicleImageUrl: json['vehicleImageUrl'],
+      licenseImageUrl: json['licenseImageUrl'],
+      licenseImagePublicId: json['licenseImagePublicId'],
+      vehicleImagePublicId: json['vehicleImagePublicId'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'licensePlate': licensePlate,
+      'brand': brand,
+      'model': model,
+      'color': color,
+      'numberOfSeats': numberOfSeats,
+      'vehicleImageUrl': vehicleImageUrl,
+      'licenseImageUrl': licenseImageUrl,
+      'licenseImagePublicId': licenseImagePublicId,
+      'vehicleImagePublicId': vehicleImagePublicId,
     };
   }
 }
@@ -55,9 +120,8 @@ class BookingDTO {
   final String driverPhone;
   final String driverEmail;
   final String? driverAvatarUrl;
-  final String? driverVehicleImageUrl;
-  final String? driverLicenseImageUrl;
   final String driverStatus;
+  final VehicleDTO? vehicle;
 
   // Passenger info
   final int passengerId;
@@ -65,9 +129,9 @@ class BookingDTO {
   final String passengerPhone;
   final String passengerEmail;
   final String? passengerAvatarUrl;
-  
+
   // Fellow passengers info
-  final List<FellowPassenger> fellowPassengers;
+  final List<PassengerInfoDTO> fellowPassengers;
 
   BookingDTO({
     required this.id,
@@ -88,9 +152,8 @@ class BookingDTO {
     required this.driverPhone,
     required this.driverEmail,
     this.driverAvatarUrl,
-    this.driverVehicleImageUrl,
-    this.driverLicenseImageUrl,
     required this.driverStatus,
+    this.vehicle,
     required this.passengerId,
     required this.passengerName,
     required this.passengerPhone,
@@ -100,11 +163,17 @@ class BookingDTO {
   });
 
   factory BookingDTO.fromJson(Map<String, dynamic> json) {
-    List<FellowPassenger> fellowPassengers = [];
+    List<PassengerInfoDTO> fellowPassengers = [];
     if (json['fellowPassengers'] != null) {
-      fellowPassengers = (json['fellowPassengers'] as List)
-          .map((fellowJson) => FellowPassenger.fromJson(fellowJson))
-          .toList();
+      fellowPassengers =
+          (json['fellowPassengers'] as List)
+              .map((fellowJson) => PassengerInfoDTO.fromJson(fellowJson))
+              .toList();
+    }
+
+    VehicleDTO? vehicle;
+    if (json['vehicle'] != null) {
+      vehicle = VehicleDTO.fromJson(json['vehicle']);
     }
 
     return BookingDTO(
@@ -116,7 +185,10 @@ class BookingDTO {
       totalPrice: json['totalPrice']?.toDouble() ?? 0.0,
       departure: json['departure'] ?? '',
       destination: json['destination'] ?? '',
-      startTime: json['startTime'] != null ? DateTime.parse(json['startTime']) : DateTime.now(),
+      startTime:
+          json['startTime'] != null
+              ? DateTime.parse(json['startTime'])
+              : DateTime.now(),
       pricePerSeat: json['pricePerSeat']?.toDouble() ?? 0.0,
       rideStatus: json['rideStatus'] ?? '',
       totalSeats: json['totalSeats'] ?? 0,
@@ -126,9 +198,8 @@ class BookingDTO {
       driverPhone: json['driverPhone'] ?? '',
       driverEmail: json['driverEmail'] ?? '',
       driverAvatarUrl: json['driverAvatarUrl'],
-      driverVehicleImageUrl: json['driverVehicleImageUrl'],
-      driverLicenseImageUrl: json['driverLicenseImageUrl'],
       driverStatus: json['driverStatus'] ?? '',
+      vehicle: vehicle,
       passengerId: json['passengerId'],
       passengerName: json['passengerName'] ?? '',
       passengerPhone: json['passengerPhone'] ?? '',
@@ -158,15 +229,15 @@ class BookingDTO {
       'driverPhone': driverPhone,
       'driverEmail': driverEmail,
       'driverAvatarUrl': driverAvatarUrl,
-      'driverVehicleImageUrl': driverVehicleImageUrl,
-      'driverLicenseImageUrl': driverLicenseImageUrl,
       'driverStatus': driverStatus,
+      'vehicle': vehicle?.toJson(),
       'passengerId': passengerId,
       'passengerName': passengerName,
       'passengerPhone': passengerPhone,
       'passengerEmail': passengerEmail,
       'passengerAvatarUrl': passengerAvatarUrl,
-      'fellowPassengers': fellowPassengers.map((fellow) => fellow.toJson()).toList(),
+      'fellowPassengers':
+          fellowPassengers.map((fellow) => fellow.toJson()).toList(),
     };
   }
 

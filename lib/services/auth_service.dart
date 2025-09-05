@@ -15,19 +15,18 @@ class AuthService {
   // Getter để lấy baseUrl từ AppConfig
   String get baseUrl => '${_appConfig.apiBaseUrl}/api';
 
-  Future<Passenger> loginWithRole(String email, String password, String role) async {
+  Future<Passenger> login(String email, String password) async {
     try {
-      print('📝 Login attempt: Email: $email, Role: $role');
-      
+      print('📝 Login attempt: Email: $email');
+
       final response = await http.post(
         Uri.parse('$baseUrl/auth/login'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'email': email, 'password': password, 'role': role}),
+        body: jsonEncode({'email': email, 'password': password}),
       );
-      
+
       print('📝 Login response: Status ${response.statusCode}');
-      
-      // Kiểm tra response code cụ thể để trả về thông báo lỗi phù hợp
+
       if (response.statusCode == 200) {
         final jsonResponse = jsonDecode(response.body);
         final parsed = Passenger.fromJson(jsonResponse);
@@ -37,15 +36,6 @@ class AuthService {
           final token = parsed.data!.token;
           final userEmail = parsed.data!.email;
           final userRole = parsed.data!.role;
-
-          // Kiểm tra vai trò người dùng có khớp với vai trò đăng nhập không
-          if (userRole != null && role.toUpperCase() != userRole.toUpperCase()) {
-            return Passenger(
-              success: false,
-              message: 'Tài khoản này không phải là ${role.toLowerCase() == 'driver' ? 'tài xế' : 'hành khách'}. Vui lòng đăng nhập đúng vai trò.',
-              data: null,
-            );
-          }
 
           if (token != null && userEmail != null && userRole != null) {
             // Save auth data using AuthManager
@@ -60,18 +50,6 @@ class AuthService {
           message: 'Sai email hoặc mật khẩu, vui lòng thử lại',
           data: null,
         );
-      } else if (response.statusCode == 403) {
-        return Passenger(
-          success: false,
-          message: 'Tài khoản của bạn không có quyền truy cập',
-          data: null,
-        );
-      } else if (response.statusCode == 404) {
-        return Passenger(
-          success: false,
-          message: 'Tài khoản không tồn tại, vui lòng đăng ký',
-          data: null,
-        );
       } else {
         // Cố gắng đọc thông báo từ response body nếu có
         String errorMessage = 'Đăng nhập thất bại';
@@ -83,76 +61,15 @@ class AuthService {
         } catch (e) {
           // Không làm gì nếu không parse được JSON
         }
-        
-        return Passenger(
-          success: false,
-          message: errorMessage,
-          data: null,
-        );
+
+        return Passenger(success: false, message: errorMessage, data: null);
       }
     } catch (e) {
       print('❌ Login error: $e');
       return Passenger(
         success: false,
-        message: 'Lỗi kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng và thử lại.',
-        data: null,
-      );
-    }
-  }
-
-  // Method for auto-login after registration without specifying role
-  Future<Passenger> login(String email, String password) async {
-    try {
-      print('📝 Auto-login attempt after registration: Email: $email');
-      
-      final response = await http.post(
-        Uri.parse('$baseUrl/auth/login'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'email': email, 'password': password}),
-      );
-      
-      print('📝 Auto-login response: Status ${response.statusCode}');
-      
-      if (response.statusCode == 200) {
-        final jsonResponse = jsonDecode(response.body);
-        final parsed = Passenger.fromJson(jsonResponse);
-
-        // Extract token data
-        if (parsed.success && parsed.data != null) {
-          final token = parsed.data!.token;
-          final userEmail = parsed.data!.email;
-          final userRole = parsed.data!.role;
-
-          if (token != null && userEmail != null && userRole != null) {
-            // Save auth data using AuthManager
-            await _authManager.saveAuthData(token, userEmail, userRole);
-          }
-        }
-
-        return parsed;
-      } else {
-        // If login fails, return error
-        String errorMessage = 'Đăng nhập tự động thất bại';
-        try {
-          final jsonResponse = jsonDecode(response.body);
-          if (jsonResponse['message'] != null) {
-            errorMessage = jsonResponse['message'];
-          }
-        } catch (e) {
-          // Ignore JSON parse errors
-        }
-        
-        return Passenger(
-          success: false,
-          message: errorMessage,
-          data: null,
-        );
-      }
-    } catch (e) {
-      print('❌ Auto-login error: $e');
-      return Passenger(
-        success: false,
-        message: 'Lỗi kết nối đến máy chủ. Vui lòng đăng nhập thủ công.',
+        message:
+            'Lỗi kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng và thử lại.',
         data: null,
       );
     }
@@ -237,14 +154,11 @@ class AuthService {
     required String licenseImagePath,
     required String vehicleImagePath,
     String? avatarImagePath,
-    String? licensePlate,
-    String? licenseNumber,
-    String? licenseType,
-    String? licenseExpiry,
-    String? vehicleType,
-    String? vehicleColor,
-    String? vehicleModel,
-    String? vehicleYear,
+    required String licensePlate,
+    required String brand,
+    required String model,
+    required String color,
+    required int numberOfSeats,
   }) async {
     try {
       if (kIsWeb) {
@@ -259,14 +173,11 @@ class AuthService {
             'avatarImage': avatarImagePath ?? '',
             'licenseImage': 'fake_license.jpg', // Giả lập trên web
             'vehicleImage': 'fake_vehicle.jpg', // Giả lập trên web
-            'licensePlate': licensePlate ?? '',
-            'licenseNumber': licenseNumber ?? '',
-            'licenseType': licenseType ?? '',
-            'licenseExpiry': licenseExpiry ?? '',
-            'vehicleType': vehicleType ?? '',
-            'vehicleColor': vehicleColor ?? '',
-            'vehicleModel': vehicleModel ?? '',
-            'vehicleYear': vehicleYear ?? '',
+            'licensePlate': licensePlate,
+            'brand': brand,
+            'model': model,
+            'color': color,
+            'numberOfSeats': numberOfSeats,
           }),
         );
         if (response.statusCode == 200) {
@@ -288,14 +199,11 @@ class AuthService {
         request.fields['password'] = password;
         request.fields['fullName'] = fullName;
         request.fields['phone'] = phone;
-        request.fields['licensePlate'] = licensePlate ?? '';
-        request.fields['licenseNumber'] = licenseNumber ?? '';
-        request.fields['licenseType'] = licenseType ?? '';
-        request.fields['licenseExpiry'] = licenseExpiry ?? '';
-        request.fields['vehicleType'] = vehicleType ?? '';
-        request.fields['vehicleColor'] = vehicleColor ?? '';
-        request.fields['vehicleModel'] = vehicleModel ?? '';
-        request.fields['vehicleYear'] = vehicleYear ?? '';
+        request.fields['licensePlate'] = licensePlate;
+        request.fields['brand'] = brand;
+        request.fields['model'] = model;
+        request.fields['color'] = color;
+        request.fields['numberOfSeats'] = numberOfSeats.toString();
 
         if (avatarImagePath != null) {
           request.files.add(

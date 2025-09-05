@@ -54,10 +54,11 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
             _loadRejectionReason();
           }
         } else {
-          _errorMessage = response.data == null 
-              ? 'Không thể tải thông tin hồ sơ. Vui lòng đăng nhập lại.'
-              : response.message;
-          
+          _errorMessage =
+              response.data == null
+                  ? 'Không thể tải thông tin hồ sơ. Vui lòng đăng nhập lại.'
+                  : response.message;
+
           // Nếu không có dữ liệu hồ sơ, có thể là vấn đề xác thực
           if (response.data == null) {
             _userProfile = null;
@@ -126,7 +127,9 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Xác nhận đăng xuất'),
-          content: const Text('Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng không?'),
+          content: const Text(
+            'Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng không?',
+          ),
           actions: [
             TextButton(
               onPressed: () {
@@ -137,22 +140,20 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
             TextButton(
               onPressed: () async {
                 Navigator.of(context).pop(); // Đóng dialog
-                
+
                 // Tiến hành đăng xuất
-    try {
-      await _authController.logout(context);
-      // NavigationHelper sẽ xử lý việc điều hướng, không cần NavigatorPushReplacement
-    } catch (e) {
-      if (mounted) {
+                try {
+                  await _authController.logout(context);
+                  // NavigationHelper sẽ xử lý việc điều hướng, không cần NavigatorPushReplacement
+                } catch (e) {
+                  if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('Logout failed: $e')),
                     );
-      }
-    }
+                  }
+                }
               },
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.red,
-              ),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
               child: const Text('Đăng xuất'),
             ),
           ],
@@ -164,14 +165,16 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
   void _navigateToEditProfile() {
     try {
       if (_userProfile != null) {
-        print('Điều hướng đến màn hình chỉnh sửa hồ sơ từ profile_screen với dữ liệu: ${_userProfile!.fullName}');
-        
+        print(
+          'Điều hướng đến màn hình chỉnh sửa hồ sơ từ profile_screen với dữ liệu: ${_userProfile!.fullName}',
+        );
+
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => DriverEditProfileScreen(
-              userProfile: _userProfile!,
-            ),
+            builder:
+                (context) =>
+                    DriverEditProfileScreen(userProfile: _userProfile!),
           ),
         ).then((updated) {
           if (updated == true) {
@@ -183,7 +186,9 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
         // Hiển thị thông báo nếu userProfile là null
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Không thể tải thông tin hồ sơ. Vui lòng thử lại sau.'),
+            content: Text(
+              'Không thể tải thông tin hồ sơ. Vui lòng thử lại sau.',
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -520,7 +525,8 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => const AboutAppScreen(),
+                                    builder:
+                                        (context) => const AboutAppScreen(),
                                   ),
                                 );
                               },
@@ -541,6 +547,10 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
                             _buildMenuItem(
                               icon: Icons.car_repair,
                               title: 'Thông tin xe',
+                              subtitle:
+                                  _userProfile!.licensePlate != null
+                                      ? '${_userProfile!.brand ?? ''} ${_userProfile!.model ?? ''} - ${_userProfile!.licensePlate}'
+                                      : 'Chưa cập nhật thông tin xe',
                               onTap: () {
                                 if (_userProfile != null) {
                                   Navigator.push(
@@ -583,18 +593,28 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
                               icon: Icons.lock,
                               title: 'Đổi mật khẩu',
                               onTap: () {
-                                print('🔐 Đang chuyển đến màn hình đổi mật khẩu');
+                                print(
+                                  '🔐 Đang chuyển đến màn hình đổi mật khẩu',
+                                );
                                 // Show the route used for debugging
-                                print('🛣️ Route: ${ModalRoute.of(context)?.settings.name}');
-                                
+                                print(
+                                  '🛣️ Route: ${ModalRoute.of(context)?.settings.name}',
+                                );
+
                                 // Navigate directly with MaterialPageRoute to bypass AppRoute
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (BuildContext context) => const ChangePasswordScreen(),
-                                  ),
-                                ).then((value) {
-                                  print('⬅️ Quay lại từ màn hình đổi mật khẩu');
-                                });
+                                Navigator.of(context)
+                                    .push(
+                                      MaterialPageRoute(
+                                        builder:
+                                            (BuildContext context) =>
+                                                const ChangePasswordScreen(),
+                                      ),
+                                    )
+                                    .then((value) {
+                                      print(
+                                        '⬅️ Quay lại từ màn hình đổi mật khẩu',
+                                      );
+                                    });
                               },
                             ),
                             _buildMenuItem(
@@ -673,6 +693,7 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
   Widget _buildMenuItem({
     required IconData icon,
     required String title,
+    String? subtitle,
     required VoidCallback onTap,
     bool isDisabled = false,
   }) {
@@ -689,12 +710,25 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(
-                title,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: isDisabled ? Colors.grey[400] : Colors.black87,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: isDisabled ? Colors.grey[400] : Colors.black87,
+                    ),
+                  ),
+                  if (subtitle != null)
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDisabled ? Colors.grey[300] : Colors.grey[600],
+                      ),
+                    ),
+                ],
               ),
             ),
             if (isDisabled)

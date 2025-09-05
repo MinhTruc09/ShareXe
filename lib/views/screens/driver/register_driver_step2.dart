@@ -21,8 +21,12 @@ class _RegisterDriverStep2State extends State<RegisterDriverStep2> {
   final _formKey = GlobalKey<FormState>();
   final _phoneController = TextEditingController();
   final _licensePlateController = TextEditingController();
+  final _brandController = TextEditingController();
+  final _modelController = TextEditingController();
+  final _colorController = TextEditingController();
+  final _numberOfSeatsController = TextEditingController();
   final _controller = RegisterController(AuthService());
-  
+
   String _errorMessage = '';
   String _avatarPath = '';
   String _licenseImagePath = '';
@@ -32,6 +36,10 @@ class _RegisterDriverStep2State extends State<RegisterDriverStep2> {
   void dispose() {
     _phoneController.dispose();
     _licensePlateController.dispose();
+    _brandController.dispose();
+    _modelController.dispose();
+    _colorController.dispose();
+    _numberOfSeatsController.dispose();
     super.dispose();
   }
 
@@ -47,9 +55,9 @@ class _RegisterDriverStep2State extends State<RegisterDriverStep2> {
         if (type == 'avatar') _avatarPath = 'fake_avatar_path.jpg';
         if (type == 'license') _licenseImagePath = 'fake_license_path.jpg';
         if (type == 'vehicle') _vehicleImagePath = 'fake_vehicle_path.jpg';
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Đã chọn ảnh (giả lập)')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Đã chọn ảnh (giả lập)')));
       });
     } else {
       final picker = ImagePicker();
@@ -59,9 +67,9 @@ class _RegisterDriverStep2State extends State<RegisterDriverStep2> {
           if (type == 'avatar') _avatarPath = pickedFile.path;
           if (type == 'license') _licenseImagePath = pickedFile.path;
           if (type == 'vehicle') _vehicleImagePath = pickedFile.path;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Đã chọn ảnh')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Đã chọn ảnh')));
         });
       }
     }
@@ -72,11 +80,19 @@ class _RegisterDriverStep2State extends State<RegisterDriverStep2> {
       widget.data.phone = _phoneController.text.trim();
       widget.data.avatarImage = _avatarPath.isEmpty ? '' : _avatarPath;
       widget.data.licensePlate = _licensePlateController.text.trim();
+      widget.data.brand = _brandController.text.trim();
+      widget.data.model = _modelController.text.trim();
+      widget.data.color = _colorController.text.trim();
+      widget.data.numberOfSeats = int.tryParse(
+        _numberOfSeatsController.text.trim(),
+      );
       widget.data.licenseImage = _licenseImagePath;
       widget.data.vehicleImage = _vehicleImagePath;
 
       // Kiểm tra dữ liệu cơ bản
-      if (widget.data.email.isEmpty || widget.data.password.isEmpty || widget.data.fullName.isEmpty) {
+      if (widget.data.email.isEmpty ||
+          widget.data.password.isEmpty ||
+          widget.data.fullName.isEmpty) {
         _setError('Vui lòng điền đầy đủ thông tin ở bước trước');
         return;
       }
@@ -98,6 +114,10 @@ class _RegisterDriverStep2State extends State<RegisterDriverStep2> {
         licenseImagePath: widget.data.licenseImage,
         vehicleImagePath: widget.data.vehicleImage,
         licensePlate: widget.data.licensePlate,
+        brand: widget.data.brand,
+        model: widget.data.model,
+        color: widget.data.color,
+        numberOfSeats: widget.data.numberOfSeats,
       );
       setState(() {});
     }
@@ -140,6 +160,10 @@ class _RegisterDriverStep2State extends State<RegisterDriverStep2> {
                     formKey: _formKey,
                     phoneController: _phoneController,
                     licensePlateController: _licensePlateController,
+                    brandController: _brandController,
+                    modelController: _modelController,
+                    colorController: _colorController,
+                    numberOfSeatsController: _numberOfSeatsController,
                     errorMessage: _errorMessage,
                     onRegister: _controller.isLoading ? () {} : _register,
                     onLogin: _navigateToLogin,
@@ -158,4 +182,4 @@ class _RegisterDriverStep2State extends State<RegisterDriverStep2> {
       ),
     );
   }
-} 
+}

@@ -11,24 +11,22 @@ class RegisterController {
   bool get isLoading => _isLoading;
 
   Future<void> register(
-      BuildContext context,
-      String email,
-      String password,
-      String fullName,
-      String phone,
-      String avatarImagePath,
-      String role, // Thêm role
-      Function(String) setError,
-      {String? licenseImagePath, 
-      String? vehicleImagePath, 
-      String? licensePlate,
-      String? licenseNumber,
-      String? licenseType,
-      String? licenseExpiry,
-      String? vehicleType,
-      String? vehicleColor,
-      String? vehicleModel,
-      String? vehicleYear}) async {
+    BuildContext context,
+    String email,
+    String password,
+    String fullName,
+    String phone,
+    String avatarImagePath,
+    String role, // Thêm role
+    Function(String) setError, {
+    String? licenseImagePath,
+    String? vehicleImagePath,
+    String? licensePlate,
+    String? brand,
+    String? model,
+    String? color,
+    int? numberOfSeats,
+  }) async {
     _isLoading = true;
     try {
       Passenger result;
@@ -38,17 +36,16 @@ class RegisterController {
           password: password,
           fullName: fullName,
           phone: phone,
-          licenseImagePath: licenseImagePath ?? '', // Sử dụng giá trị được truyền vào
-          vehicleImagePath: vehicleImagePath ?? '', // Sử dụng giá trị được truyền vào
+          licenseImagePath:
+              licenseImagePath ?? '', // Sử dụng giá trị được truyền vào
+          vehicleImagePath:
+              vehicleImagePath ?? '', // Sử dụng giá trị được truyền vào
           avatarImagePath: avatarImagePath,
-          licensePlate: licensePlate, // Thêm biển số xe
-          licenseNumber: licenseNumber, // Thêm số giấy phép
-          licenseType: licenseType, // Thêm loại giấy phép
-          licenseExpiry: licenseExpiry, // Thêm ngày hết hạn giấy phép
-          vehicleType: vehicleType, // Thêm loại xe
-          vehicleColor: vehicleColor, // Thêm màu xe
-          vehicleModel: vehicleModel, // Thêm model xe
-          vehicleYear: vehicleYear, // Thêm năm sản xuất
+          licensePlate: licensePlate!, // Required parameter
+          brand: brand!, // Required parameter
+          model: model!, // Required parameter
+          color: color!, // Required parameter
+          numberOfSeats: numberOfSeats!, // Required parameter
         );
       } else {
         result = await _authService.register(
@@ -64,7 +61,7 @@ class RegisterController {
       if (result.success == true) {
         // Login automatically after successful registration
         final loginResult = await _authService.login(email, password);
-        
+
         if (loginResult.success) {
           // Navigate directly to the home screen based on role
           if (role == 'DRIVER') {

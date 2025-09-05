@@ -9,9 +9,11 @@ import '../../widgets/date_picker.dart';
 import '../../widgets/passenger_counter.dart';
 import '../../widgets/sharexe_background2.dart';
 import '../../../utils/app_config.dart';
+import 'package:latlong2/latlong.dart';
 
 class CreateRideScreen extends StatefulWidget {
-  final Map<String, dynamic>? existingRide; // null nếu tạo mới, có giá trị nếu cập nhật
+  final Map<String, dynamic>?
+  existingRide; // null nếu tạo mới, có giá trị nếu cập nhật
 
   const CreateRideScreen({Key? key, this.existingRide}) : super(key: key);
 
@@ -25,8 +27,8 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
   final ProfileService _profileService = ProfileService();
   final _formKey = GlobalKey<FormState>();
 
-  String _departure = '';
-  String _destination = '';
+  LocationData? _departure;
+  LocationData? _destination;
   DateTime? _departureDate;
   int _totalSeats = 4;
   double _pricePerSeat = 0;
@@ -203,8 +205,8 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
       if (!mounted) return;
       setState(() {
         _rideId = ride['id'];
-        _departure = ride['departure'] ?? '';
-        _destination = ride['destination'] ?? '';
+        _departure = LocationData(address: ride['departure'] ?? '');
+        _destination = LocationData(address: ride['destination'] ?? '');
 
         if (ride['startTime'] != null) {
           try {
@@ -224,11 +226,14 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
   Future<void> _submitRide() async {
     // Chỉ cho phép chỉnh sửa nếu trạng thái chuyến đi là ACTIVE
     if (_isEditMode && widget.existingRide != null) {
-      final rideStatus = widget.existingRide?['status']?.toString().toUpperCase();
+      final rideStatus =
+          widget.existingRide?['status']?.toString().toUpperCase();
       if (rideStatus != AppConfig.RIDE_STATUS_ACTIVE) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Chỉ có thể chỉnh sửa chuyến đi khi trạng thái là "Đang mở" (ACTIVE)'),
+            content: Text(
+              'Chỉ có thể chỉnh sửa chuyến đi khi trạng thái là "Đang mở" (ACTIVE)',
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -249,7 +254,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
       return;
     }
 
-    if (_departure.isEmpty || _destination.isEmpty || _departureDate == null) {
+    if (_departure == null || _destination == null || _departureDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Vui lòng điền đầy đủ thông tin chuyến đi'),
@@ -347,8 +352,8 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
 
       // Chuẩn bị dữ liệu chuyến đi
       final rideData = {
-        'departure': _departure,
-        'destination': _destination,
+        'departure': _departure!.address,
+        'destination': _destination!.address,
         'startTime': _departureDate!.toIso8601String(),
         'totalSeat': _totalSeats,
         'pricePerSeat': _pricePerSeat,
@@ -517,7 +522,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
                           title: 'Điểm đi',
                           icon: Icons.circle_outlined,
                           hintText: 'Xuất phát từ',
-                          initialValue: _departure,
+                          initialValue: _departure?.address ?? '',
                           onLocationSelected: (location) {
                             setState(() {
                               _departure = location;
@@ -529,7 +534,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
                           title: 'Điểm đến',
                           icon: Icons.location_on_outlined,
                           hintText: 'Điểm đến',
-                          initialValue: _destination,
+                          initialValue: _destination?.address ?? '',
                           onLocationSelected: (location) {
                             setState(() {
                               _destination = location;
@@ -607,31 +612,45 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
                   width: double.infinity,
                   height: 50,
                   child: ElevatedButton(
-                    onPressed: (_isSubmitting || (_isEditMode && widget.existingRide != null && widget.existingRide?['status']?.toString().toUpperCase() != AppConfig.RIDE_STATUS_ACTIVE))
-                        ? null
-                        : _submitRide,
+                    onPressed:
+                        (_isSubmitting ||
+                                (_isEditMode &&
+                                    widget.existingRide != null &&
+                                    widget.existingRide?['status']
+                                            ?.toString()
+                                            .toUpperCase() !=
+                                        AppConfig.RIDE_STATUS_ACTIVE))
+                            ? null
+                            : _submitRide,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: (_isEditMode && widget.existingRide != null && widget.existingRide?['status']?.toString().toUpperCase() != AppConfig.RIDE_STATUS_ACTIVE)
-                          ? Colors.grey.shade400
-                          : const Color(0xFF002D72),
+                      backgroundColor:
+                          (_isEditMode &&
+                                  widget.existingRide != null &&
+                                  widget.existingRide?['status']
+                                          ?.toString()
+                                          .toUpperCase() !=
+                                      AppConfig.RIDE_STATUS_ACTIVE)
+                              ? Colors.grey.shade400
+                              : const Color(0xFF002D72),
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    child: _isSubmitting
-                        ? const CircularProgressIndicator(
-                            color: Colors.white,
-                          )
-                        : Text(
-                            _isEditMode
-                                ? 'Cập nhật chuyến đi'
-                                : 'Tạo chuyến đi',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                    child:
+                        _isSubmitting
+                            ? const CircularProgressIndicator(
+                              color: Colors.white,
+                            )
+                            : Text(
+                              _isEditMode
+                                  ? 'Cập nhật chuyến đi'
+                                  : 'Tạo chuyến đi',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                          ),
                   ),
                 ),
               ],

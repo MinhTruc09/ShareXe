@@ -1,11 +1,22 @@
 import 'package:flutter/material.dart';
+import 'map_location_picker.dart';
+import 'package:latlong2/latlong.dart';
+
+// Data class for location information
+class LocationData {
+  final String address;
+  final LatLng? latLng;
+
+  const LocationData({required this.address, this.latLng});
+}
 
 class LocationPicker extends StatefulWidget {
   final String title;
   final IconData icon;
   final String hintText;
-  final Function(String) onLocationSelected;
+  final Function(LocationData) onLocationSelected;
   final String? initialValue;
+  final VoidCallback? onUseCurrentLocation;
 
   const LocationPicker({
     Key? key,
@@ -14,6 +25,7 @@ class LocationPicker extends StatefulWidget {
     required this.hintText,
     required this.onLocationSelected,
     this.initialValue,
+    this.onUseCurrentLocation,
   }) : super(key: key);
 
   @override
@@ -139,7 +151,7 @@ class _LocationPickerState extends State<LocationPicker> {
 
   void _selectLocation(String location) {
     _controller.text = location;
-    widget.onLocationSelected(location);
+    widget.onLocationSelected(LocationData(address: location));
     setState(() {
       _showSuggestions = false;
     });
@@ -175,6 +187,47 @@ class _LocationPickerState extends State<LocationPicker> {
                   });
                 },
               ),
+            ),
+            if (widget.onUseCurrentLocation != null)
+              IconButton(
+                icon: const Icon(
+                  Icons.gps_fixed,
+                  color: Color(0xFF00AEEF),
+                  size: 20,
+                ),
+                onPressed: widget.onUseCurrentLocation,
+                tooltip: 'Sử dụng vị trí hiện tại',
+              ),
+            IconButton(
+              icon: const Icon(Icons.map, color: Color(0xFF00AEEF), size: 20),
+              onPressed: () async {
+                final result = await Navigator.of(
+                  context,
+                ).push<Map<String, dynamic>>(
+                  MaterialPageRoute(
+                    builder:
+                        (context) => MapLocationPicker(
+                          title: 'Chọn vị trí',
+                          hintText: 'Tìm kiếm địa điểm',
+                          onLocationSelected: (location) {},
+                          initialLocation: null,
+                        ),
+                  ),
+                );
+                if (result != null) {
+                  final address = result['address'] as String;
+                  final latLng = result['latLng'] as LatLng?;
+                  _controller.text = address;
+                  widget.onLocationSelected(
+                    LocationData(address: address, latLng: latLng),
+                  );
+                  setState(() {
+                    _showSuggestions = false;
+                  });
+                  FocusScope.of(context).unfocus();
+                }
+              },
+              tooltip: 'Chọn trên bản đồ',
             ),
           ],
         ),
