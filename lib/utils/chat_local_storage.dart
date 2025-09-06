@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/chat_ui_models.dart';
+import '../models/chat_message.dart';
 
 /// Lớp quản lý lưu trữ cục bộ cho tin nhắn chat
 class ChatLocalStorage {
@@ -38,7 +38,7 @@ class ChatLocalStorage {
       }
 
       final List<dynamic> decoded = json.decode(messagesJson);
-      return decoded.map((item) => ChatMessage.fromApiJson(item)).toList();
+      return decoded.map((item) => ChatMessage.fromJson(item)).toList();
     } catch (e) {
       if (kDebugMode) {
         print('Lỗi khi đọc tin nhắn từ local storage: $e');

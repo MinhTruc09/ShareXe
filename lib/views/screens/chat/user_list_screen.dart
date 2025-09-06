@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'dart:async';
 import '../../../services/chat_service.dart';
 import '../../../services/auth_manager.dart';
+import '../../../models/chat_message.dart';
 import 'chat_room_screen.dart';
 
 class UserListScreen extends StatefulWidget {
@@ -17,7 +18,7 @@ class _UserListScreenState extends State<UserListScreen> {
   final AuthManager _authManager = AuthManager();
   final TextEditingController _searchController = TextEditingController();
 
-  List<Map<String, dynamic>> _chatRooms = [];
+  List<ChatRoom> _chatRooms = [];
   bool _isLoading = true;
   String? _userEmail;
   Timer? _refreshTimer;
@@ -53,28 +54,13 @@ class _UserListScreenState extends State<UserListScreen> {
     });
 
     try {
-      final response = await _chatService.getChatRooms();
+      final chatRooms = await _chatService.getChatRooms();
 
-      if (response.success) {
-        if (mounted) {
-          setState(() {
-            _chatRooms = response.data;
-            _isLoading = false;
-          });
-        }
-      } else {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Không thể tải danh sách chat: ${response.message}',
-              ),
-            ),
-          );
-        }
+      if (mounted) {
+        setState(() {
+          _chatRooms = chatRooms;
+          _isLoading = false;
+        });
       }
     } catch (e) {
       if (mounted) {
@@ -199,7 +185,7 @@ class _UserListScreenState extends State<UserListScreen> {
         separatorBuilder: (context, index) => const Divider(height: 1),
         itemBuilder: (context, index) {
           final chatRoom = _chatRooms[index];
-          final bool hasUnreadMessages = chatRoom['unreadCount'] > 0;
+          final bool hasUnreadMessages = chatRoom.unreadCount > 0;
 
           return ListTile(
             onTap: () {
@@ -208,9 +194,9 @@ class _UserListScreenState extends State<UserListScreen> {
                 MaterialPageRoute(
                   builder:
                       (context) => ChatRoomScreen(
-                        roomId: chatRoom['roomId'],
-                        partnerName: chatRoom['partnerName'],
-                        partnerEmail: chatRoom['partnerEmail'],
+                        roomId: chatRoom.roomId,
+                        partnerName: chatRoom.partnerName,
+                        partnerEmail: chatRoom.partnerEmail,
                       ),
                 ),
               ).then((_) => _loadChatRooms());
@@ -228,7 +214,7 @@ class _UserListScreenState extends State<UserListScreen> {
               children: [
                 Expanded(
                   child: Text(
-                    chatRoom['partnerName'] ?? 'Người dùng',
+                    chatRoom.partnerName,
                     style: TextStyle(
                       fontWeight:
                           hasUnreadMessages
@@ -240,7 +226,7 @@ class _UserListScreenState extends State<UserListScreen> {
                   ),
                 ),
                 Text(
-                  _formatLastMessageTime(chatRoom['lastMessageTime']),
+                  _formatLastMessageTime(chatRoom.lastMessageTime?.toIso8601String()),
                   style: TextStyle(
                     fontSize: 12,
                     color:
@@ -255,7 +241,7 @@ class _UserListScreenState extends State<UserListScreen> {
               children: [
                 Expanded(
                   child: Text(
-                    chatRoom['lastMessage'] ?? 'Chưa có tin nhắn',
+                    chatRoom.lastMessage ?? 'Chưa có tin nhắn',
                     style: TextStyle(
                       color: hasUnreadMessages ? Colors.black87 : Colors.grey,
                       fontWeight:
@@ -274,7 +260,7 @@ class _UserListScreenState extends State<UserListScreen> {
                       shape: BoxShape.circle,
                     ),
                     child: Text(
-                      chatRoom['unreadCount'].toString(),
+                      chatRoom.unreadCount.toString(),
                       style: const TextStyle(color: Colors.white, fontSize: 12),
                     ),
                   ),

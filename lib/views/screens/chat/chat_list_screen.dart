@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../services/chat_service.dart';
+import '../../../models/chat_message.dart';
 import 'chat_room_screen.dart';
 import 'dart:async';
 
@@ -13,7 +14,7 @@ class ChatListScreen extends StatefulWidget {
 
 class _ChatListScreenState extends State<ChatListScreen> {
   final ChatService _chatService = ChatService();
-  List<Map<String, dynamic>> _chatRooms = [];
+  List<ChatRoom> _chatRooms = [];
   bool _isLoading = true;
   Timer? _refreshTimer;
 
@@ -44,37 +45,15 @@ class _ChatListScreenState extends State<ChatListScreen> {
     }
 
     try {
-      final response = await _chatService.getChatRooms();
+      final chatRooms = await _chatService.getChatRooms();
 
-      if (response.success) {
-        // Chỉ cập nhật UI nếu có sự thay đổi hoặc không phải là làm mới ngầm
-        if (!silentRefresh || response.data.length != _chatRooms.length) {
-          if (mounted) {
-            setState(() {
-              _chatRooms = response.data;
-              _isLoading = false;
-            });
-          }
-        }
-      } else {
-        if (!silentRefresh) {
-          if (mounted) {
-            setState(() {
-              _isLoading = false;
-            });
-
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Không thể tải danh sách chat: ${response.message}',
-                ),
-                action: SnackBarAction(
-                  label: 'Thử lại',
-                  onPressed: _loadChatRooms,
-                ),
-              ),
-            );
-          }
+      // Chỉ cập nhật UI nếu có sự thay đổi hoặc không phải là làm mới ngầm
+      if (!silentRefresh || chatRooms.length != _chatRooms.length) {
+        if (mounted) {
+          setState(() {
+            _chatRooms = chatRooms;
+            _isLoading = false;
+          });
         }
       }
     } catch (e) {
@@ -181,15 +160,12 @@ class _ChatListScreenState extends State<ChatListScreen> {
                           itemCount: _chatRooms.length,
                           itemBuilder: (context, index) {
                             final room = _chatRooms[index];
-                            final partnerName =
-                                room['partnerName'] ?? 'Người dùng';
-                            final lastMessage = room['lastMessage'] ?? '';
-                            final lastMessageTime =
-                                room['lastMessageTime'] ?? '';
-                            final unreadCount = room['unreadCount'] ?? 0;
-                            final roomId = room['roomId'] ?? '';
-                            final partnerEmail = room['partnerEmail'] ?? '';
-                            final partnerAvatar = room['partnerAvatar'];
+                            final partnerName = room.partnerName;
+                            final lastMessage = room.lastMessage ?? '';
+                            final lastMessageTime = room.lastMessageTime?.toIso8601String() ?? '';
+                            final unreadCount = room.unreadCount;
+                            final roomId = room.roomId;
+                            final partnerEmail = room.partnerEmail;
 
                             return Card(
                               margin: const EdgeInsets.symmetric(
@@ -199,22 +175,16 @@ class _ChatListScreenState extends State<ChatListScreen> {
                               child: ListTile(
                                 leading: CircleAvatar(
                                   backgroundColor: const Color(0xFF002D72),
-                                  backgroundImage:
-                                      partnerAvatar != null
-                                          ? NetworkImage(partnerAvatar)
-                                          : null,
-                                  child:
-                                      partnerAvatar == null
-                                          ? Text(
-                                            partnerName.isNotEmpty
-                                                ? partnerName[0].toUpperCase()
-                                                : '?',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          )
-                                          : null,
+                                  backgroundImage: null,
+                                  child: Text(
+                                    partnerName.isNotEmpty
+                                        ? partnerName[0].toUpperCase()
+                                        : '?',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                                 ),
                                 title: Text(
                                   partnerName,
@@ -262,12 +232,11 @@ class _ChatListScreenState extends State<ChatListScreen> {
                                       ),
                                   ],
                                 ),
-                                onTap:
-                                    () => _navigateToChatRoom(
-                                      roomId,
-                                      partnerName,
-                                      partnerEmail,
-                                    ),
+                                onTap: () => _navigateToChatRoom(
+                                  roomId,
+                                  partnerName,
+                                  partnerEmail,
+                                ),
                               ),
                             );
                           },

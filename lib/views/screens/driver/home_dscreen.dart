@@ -830,6 +830,30 @@ class _HomeDscreenState extends State<HomeDscreen> {
               ),
             ],
           ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _buildActionButtonNew(
+                  'Lịch sử đặt chỗ',
+                  Icons.history,
+                  () {
+                    Navigator.pushNamed(context, '/driver/bookings');
+                  },
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _buildActionButtonNew(
+                  'Thông báo',
+                  Icons.notifications,
+                  () {
+                    Navigator.pushNamed(context, AppRoute.notifications);
+                  },
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );

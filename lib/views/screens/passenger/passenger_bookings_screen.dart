@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sharexe/services/booking_service.dart';
+import 'package:sharexe/services/ride_service.dart';
 import 'package:sharexe/models/booking.dart';
 import 'package:sharexe/app_route.dart';
 import 'package:sharexe/views/widgets/sharexe_background1.dart';
@@ -20,6 +21,7 @@ class PassengerBookingsScreen extends StatefulWidget {
 class _PassengerBookingsScreenState extends State<PassengerBookingsScreen>
     with SingleTickerProviderStateMixin {
   final BookingService _bookingService = BookingService();
+  final RideService _rideService = RideService();
   final NotificationService _notificationService = NotificationService();
 
   late TabController _tabController;
@@ -86,40 +88,23 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen>
           'Phân loại booking #${booking.id}: ${booking.status}, ngày đi: ${booking.startTime}',
         );
         final status = booking.status.toUpperCase();
-        final now = DateTime.now();
-        final startTime = booking.startTime;
 
-        // Phân loại theo trạng thái
-        if (status == 'CANCELLED' ||
-            status == 'REJECTED' ||
-            _isBookingExpired(booking)) {
-          // Chuyến đã hủy hoặc từ chối hoặc đã hết hạn
+        // Phân loại theo trạng thái theo enum BookingStatus
+        if (status == 'CANCELLED' || status == 'REJECTED' || _isBookingExpired(booking)) {
+          // CANCELLED, REJECTED hoặc hết hạn -> tab "Đã hủy"
           cancelledOrExpired.add(booking);
         } else if (status == 'COMPLETED') {
-          // Chỉ hiển thị COMPLETED trong tab hoàn thành
+          // COMPLETED -> tab "Hoàn thành"
           completed.add(booking);
-        } else if (status == 'IN_PROGRESS' ||
-            status == 'DRIVER_CONFIRMED' ||
-            status == 'PASSENGER_CONFIRMED') {
-          // Trạng thái đang diễn ra: IN_PROGRESS, DRIVER_CONFIRMED, hoặc PASSENGER_CONFIRMED
+        } else if (status == 'IN_PROGRESS' || status == 'PASSENGER_CONFIRMED' || status == 'DRIVER_CONFIRMED') {
+          // IN_PROGRESS, PASSENGER_CONFIRMED, DRIVER_CONFIRMED -> tab "Đang đi"
           inProgress.add(booking);
-        } else if (status == 'ACCEPTED' || status == 'APPROVED') {
-          // Kiểm tra xem chuyến đi đã đến thời điểm khởi hành hay chưa
-          if (now.isAfter(startTime)) {
-            // Đã đến giờ khởi hành, chuyến đang diễn ra
-            inProgress.add(booking);
-          } else {
-            // Chưa đến giờ khởi hành, chuyến sắp tới
-            upcoming.add(booking);
-          }
-        } else if (status == 'PENDING') {
-          // Chuyến chờ duyệt -> sắp tới
+        } else if (status == 'PENDING' || status == 'ACCEPTED') {
+          // PENDING (chờ duyệt), ACCEPTED (đã duyệt) -> tab "Sắp tới"
           upcoming.add(booking);
         } else {
           // Các trạng thái khác chưa xác định, tạm thời đưa vào upcoming
-          print(
-            '⚠️ Trạng thái không xác định: $status cho booking #${booking.id}',
-          );
+          print('⚠️ Trạng thái không xác định: $status cho booking #${booking.id}');
           upcoming.add(booking);
         }
       }
@@ -288,16 +273,16 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen>
                   child: TabBarView(
                     controller: _tabController,
                     children: [
-                      // Sắp tới - hiển thị booking đã được duyệt nhưng chưa đến giờ khởi hành
+                      // Sắp tới - PENDING (chờ duyệt), ACCEPTED (đã duyệt)
                       _buildBookingList(_upcomingBookings, 'Sắp tới'),
 
-                      // Đang đi - hiển thị IN_PROGRESS và DRIVER_CONFIRMED
+                      // Đang đi - IN_PROGRESS, PASSENGER_CONFIRMED, DRIVER_CONFIRMED
                       _buildBookingList(_inProgressBookings, 'Đang đi'),
 
-                      // Hoàn thành - chỉ hiển thị COMPLETED
+                      // Hoàn thành - COMPLETED
                       _buildBookingList(_completedBookings, 'Hoàn thành'),
 
-                      // Đã hủy - forceDisableInteraction = true để vô hiệu hóa tương tác
+                      // Đã hủy - CANCELLED, REJECTED, hết hạn
                       _buildBookingList(_cancelledOrExpiredBookings, 'Đã hủy'),
                     ],
                   ),
@@ -349,7 +334,7 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen>
           final booking = bookings[index];
           return BookingCard(
             booking: booking,
-            onTap: () => _loadBookings(),
+            onTap: () => _navigateToBookingDetails(booking),
             showCancelButton: _canCancel(booking),
             onCancel: () => _handleCancelBooking(booking),
             onConfirmComplete:
@@ -362,13 +347,50 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen>
     );
   }
 
+  // Điều hướng đến chi tiết booking
+  Future<void> _navigateToBookingDetails(BookingDTO booking) async {
+    try {
+      // Tải chi tiết chuyến đi từ booking
+      final rideDetails = await _rideService.getRideDetails(booking.rideId);
+      
+      if (mounted && rideDetails != null) {
+        // Điều hướng đến màn hình chi tiết chuyến đi
+        await Navigator.pushNamed(
+          context,
+          AppRoute.rideDetails,
+          arguments: rideDetails,
+        );
+        
+        // Làm mới danh sách booking sau khi quay lại
+        _loadBookings();
+      } else {
+        // Hiển thị thông báo lỗi nếu không tải được chi tiết chuyến đi
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Không thể tải chi tiết chuyến đi'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   bool _canCancel(BookingDTO booking) {
-    // Chỉ cho phép hủy các booking có trạng thái PENDING hoặc ACCEPTED/APPROVED và chưa đến giờ khởi hành
+    // Chỉ cho phép hủy các booking có trạng thái PENDING hoặc ACCEPTED và chưa đến giờ khởi hành
     final status = booking.status.toUpperCase();
     final now = DateTime.now();
-    return (status == 'PENDING' ||
-            status == 'ACCEPTED' ||
-            status == 'APPROVED') &&
+    return (status == 'PENDING' || status == 'ACCEPTED') &&
         now.isBefore(booking.startTime);
   }
 
@@ -378,13 +400,10 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen>
     final now = DateTime.now();
 
     // Chỉ cho phép xác nhận hoàn thành nếu:
-    // - Trạng thái là DRIVER_CONFIRMED, hoặc
-    // - Trạng thái là ACCEPTED/APPROVED/IN_PROGRESS và đã đến giờ khởi hành
+    // - Trạng thái là DRIVER_CONFIRMED (tài xế đã xác nhận, chờ khách xác nhận)
+    // - Trạng thái là IN_PROGRESS và đã đến giờ khởi hành
     return (status == 'DRIVER_CONFIRMED') ||
-        ((status == 'ACCEPTED' ||
-                status == 'APPROVED' ||
-                status == 'IN_PROGRESS') &&
-            now.isAfter(booking.startTime));
+        (status == 'IN_PROGRESS' && now.isAfter(booking.startTime));
   }
 
   Future<void> _handleConfirmCompletion(BookingDTO booking) async {

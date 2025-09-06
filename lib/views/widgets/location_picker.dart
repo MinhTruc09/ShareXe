@@ -160,11 +160,43 @@ class _LocationPickerState extends State<LocationPicker> {
 
   void _selectLocation(String location) {
     _controller.text = location;
-    widget.onLocationSelected(LocationData(address: location));
+    // Tạo LocationData với tọa độ mặc định cho các tỉnh thành
+    final latLng = _getDefaultCoordinates(location);
+    widget.onLocationSelected(LocationData(
+      address: location,
+      latLng: latLng,
+    ));
     setState(() {
       _showSuggestions = false;
     });
     FocusScope.of(context).unfocus();
+  }
+
+  // Hàm lấy tọa độ mặc định cho các tỉnh thành
+  LatLng? _getDefaultCoordinates(String location) {
+    // Tọa độ mặc định cho một số tỉnh thành chính
+    final coordinates = {
+      'TP Hồ Chí Minh': LatLng(10.8231, 106.6297),
+      'Hà Nội': LatLng(21.0285, 105.8542),
+      'Đà Nẵng': LatLng(16.0544, 108.2022),
+      'Cần Thơ': LatLng(10.0452, 105.7469),
+      'An Giang': LatLng(10.5216, 105.1259),
+      'Bà Rịa - Vũng Tàu': LatLng(10.3460, 107.0843),
+      'Bình Dương': LatLng(11.3254, 106.4774),
+      'Đồng Nai': LatLng(11.1204, 107.1946),
+      'Long An': LatLng(10.6086, 106.6714),
+      'Tiền Giang': LatLng(10.3600, 106.3600),
+      'Bến Tre': LatLng(10.2404, 106.3756),
+      'Vĩnh Long': LatLng(10.2531, 105.9756),
+      'Trà Vinh': LatLng(9.9347, 106.3453),
+      'Sóc Trăng': LatLng(9.6002, 105.9800),
+      'Bạc Liêu': LatLng(9.2945, 105.7272),
+      'Cà Mau': LatLng(9.1768, 105.1524),
+      'Kiên Giang': LatLng(9.8249, 105.1259),
+      'Hậu Giang': LatLng(9.7842, 105.4706),
+    };
+    
+    return coordinates[location];
   }
 
   @override

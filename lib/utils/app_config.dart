@@ -10,8 +10,8 @@ class AppConfig {
   AppConfig._internal();
 
   // API URLs with automatic backup URLs
-  String apiBaseUrl = 'https://carpooling-j5xn.onrender.com';
-  String fallbackApiUrl = 'https://sharexe-api.onrender.com';
+  String apiBaseUrl = 'http://localhost:8080';
+  String fallbackApiUrl = 'http://localhost:8080';
 
   // Flag to indicate if using fallback URL
   bool isUsingFallback = false;

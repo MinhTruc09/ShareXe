@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
 import '../../../services/profile_service.dart';
-import '../../../models/user_update_request.dart';
 import '../../widgets/sharexe_background2.dart';
 import '../../../views/widgets/custom_button.dart';
 

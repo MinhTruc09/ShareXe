@@ -5,6 +5,7 @@ import '../chat/user_list_screen.dart';
 import 'profile_screen.dart';
 import '../../widgets/notification_badge.dart';
 import 'passenger_bookings_screen.dart';
+import '../../widgets/custom_bottom_nav_bar.dart';
 
 // InheritedWidget để cung cấp truy cập vào điều hướng bottom bar
 class TabNavigator extends InheritedWidget {
@@ -44,42 +45,32 @@ class PassengerMainScreen extends StatefulWidget {
   State<PassengerMainScreen> createState() => _PassengerMainScreenState();
 }
 
-class _PassengerMainScreenState extends State<PassengerMainScreen>
-    with SingleTickerProviderStateMixin {
+class _PassengerMainScreenState extends State<PassengerMainScreen> {
   int _currentIndex = 0;
   final PageController _pageController = PageController();
-  late AnimationController _animationController;
   final GlobalKey<NewHomePscreenState> _homeScreenKey = GlobalKey<NewHomePscreenState>();
 
   // Danh sách các màn hình chính
   late final List<Widget> _screens;
 
   // Các tùy chọn menu
-  final List<Map<String, dynamic>> _navItems = [
-    {
-      'icon': Icons.home_outlined,
-      'activeIcon': Icons.home,
-      'label': 'Trang chủ',
-      'gradient': [const Color(0xFF00AEEF), const Color(0xFF0078A8)],
-    },
-    {
-      'icon': Icons.history_outlined,
-      'activeIcon': Icons.history,
-      'label': 'Đặt chỗ',
-      'gradient': [const Color(0xFF002D72), const Color(0xFF0052CC)],
-    },
-    {
-      'icon': Icons.chat_bubble_outline,
-      'activeIcon': Icons.chat_bubble,
-      'label': 'Liên hệ',
-      'gradient': [const Color(0xFF2AB05D), const Color(0xFF1F884A)],
-    },
-    {
-      'icon': Icons.person_outline,
-      'activeIcon': Icons.person,
-      'label': 'Cá nhân',
-      'gradient': [const Color(0xFFF57C00), const Color(0xFFE65100)],
-    },
+  final List<NavBarItem> _navItems = [
+    const NavBarItem(
+      icon: Icons.home_outlined,
+      label: 'Trang chủ',
+    ),
+    const NavBarItem(
+      icon: Icons.history_outlined,
+      label: 'Đặt chỗ',
+    ),
+    const NavBarItem(
+      icon: Icons.chat_bubble_outline,
+      label: 'Liên hệ',
+    ),
+    const NavBarItem(
+      icon: Icons.person_outline,
+      label: 'Cá nhân',
+    ),
   ];
 
   @override
@@ -93,27 +84,16 @@ class _PassengerMainScreenState extends State<PassengerMainScreen>
       const UserListScreen(),
       const ProfileScreen(),
     ];
-    
-    _animationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 400),
-    );
-    _animationController.forward();
   }
 
   @override
   void dispose() {
     _pageController.dispose();
-    _animationController.dispose();
     super.dispose();
   }
 
   void _onTabTapped(int index) {
     if (index == _currentIndex) return;
-
-    // Reset animation
-    _animationController.reset();
-    _animationController.forward();
 
     setState(() {
       _currentIndex = index;
@@ -129,10 +109,6 @@ class _PassengerMainScreenState extends State<PassengerMainScreen>
 
   void _onPageChanged(int index) {
     if (index == _currentIndex) return;
-
-    // Reset animation
-    _animationController.reset();
-    _animationController.forward();
 
     setState(() {
       _currentIndex = index;
@@ -178,90 +154,24 @@ class _PassengerMainScreenState extends State<PassengerMainScreen>
           physics: const NeverScrollableScrollPhysics(), // Ngăn người dùng vuốt giữa các trang
           children: _screens,
         ),
-        bottomNavigationBar: AnimatedBuilder(
-          animation: _animationController,
-          builder: (context, _) {
-            return Container(
-              height: 70,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, -3),
-                  ),
-                ],
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(20),
-                  topRight: Radius.circular(20),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: List.generate(_navItems.length, (index) {
-                  bool isSelected = _currentIndex == index;
-
-                  // Animation scaling effect
-                  double scale =
-                      isSelected ? 1.0 + 0.1 * _animationController.value : 1.0;
-
-                  return GestureDetector(
-                    onTap: () => _onTabTapped(index),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      width: isSelected ? 70 : 50,
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      decoration:
-                          isSelected
-                              ? BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: _navItems[index]['gradient'],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: BorderRadius.circular(15),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: _navItems[index]['gradient'][0]
-                                        .withOpacity(0.3),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                              )
-                              : null,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Transform.scale(
-                            scale: scale,
-                            child: Icon(
-                              isSelected
-                                  ? _navItems[index]['activeIcon']
-                                  : _navItems[index]['icon'],
-                              color: isSelected ? Colors.white : Colors.grey,
-                              size: isSelected ? 24 : 22,
-                            ),
-                          ),
-                          if (isSelected) const SizedBox(height: 4),
-                          if (isSelected)
-                            Text(
-                              _navItems[index]['label'],
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  );
-                }),
+        bottomNavigationBar: CustomBottomNavBar(
+          currentIndex: _currentIndex,
+          onTap: _onTabTapped,
+          items: _navItems,
+          backgroundColor: Colors.white,
+          selectedColor: const Color(0xFF00AEEF),
+          unselectedColor: Colors.grey.shade600,
+          fabIcon: Icons.search,
+          onFabPressed: () {
+            // Có thể thêm chức năng tìm kiếm chuyến đi
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Tính năng tìm kiếm đang phát triển'),
+                duration: Duration(seconds: 2),
               ),
             );
           },
+          showFab: true,
         ),
       ),
     );

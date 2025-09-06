@@ -594,9 +594,9 @@ class RideService {
         print('📡 Đã chuyển sang URL dự phòng: ${_appConfig.fallbackApiUrl}');
       }
 
-      // Try the driver/create endpoint
+      // Try the ride endpoint directly
       final altResponse = await _apiClient
-          .post('/driver/create-ride', body: rideData, requireAuth: true)
+          .post('/ride', body: rideData, requireAuth: true)
           .timeout(
             const Duration(seconds: 10),
             onTimeout: () {

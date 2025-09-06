@@ -10,6 +10,8 @@ import '../../widgets/passenger_counter.dart';
 import '../../widgets/sharexe_background2.dart';
 import '../../../utils/app_config.dart';
 import 'package:latlong2/latlong.dart';
+import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 class CreateRideScreen extends StatefulWidget {
   final Map<String, dynamic>?
@@ -280,6 +282,18 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
     });
   }
 
+  // Hàm tự động tạo polyline giữa điểm đi và điểm đến
+  void _generatePolyline() {
+    if (_departureLat != null && _departureLng != null && 
+        _destinationLat != null && _destinationLng != null) {
+      // Tạo polyline đơn giản với 2 điểm (có thể mở rộng để sử dụng API routing)
+      _polylinePoints = [
+        LatLng(_departureLat!, _departureLng!),
+        LatLng(_destinationLat!, _destinationLng!),
+      ];
+    }
+  }
+
   Future<void> _openRouteMapPicker() async {
     await Navigator.push(
       context,
@@ -354,6 +368,18 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Vui lòng điền đầy đủ thông tin chuyến đi'),
+        ),
+      );
+      return;
+    }
+
+    // Kiểm tra tọa độ trước khi gửi
+    if (_departureLat == null || _departureLng == null || 
+        _destinationLat == null || _destinationLng == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vui lòng chọn địa điểm trên bản đồ để có tọa độ chính xác'),
+          backgroundColor: Colors.orange,
         ),
       );
       return;
@@ -446,23 +472,24 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
         return;
       }
 
-      // Chuẩn bị dữ liệu chuyến đi theo API specification (chỉ gửi các trường bắt buộc)
+
+      // Chuẩn bị dữ liệu chuyến đi theo API specification
       final rideData = {
         'departure': _departure!.address,
-        'startLat': _departureLat ?? 0.0,
-        'startLng': _departureLng ?? 0.0,
+        'startLat': _departureLat!,
+        'startLng': _departureLng!,
         'startAddress': _departure!.address,
         'startWard': _departureWard ?? '',
         'startDistrict': _departureDistrict ?? '',
         'startProvince': _departureProvince ?? '',
-        'endLat': _destinationLat ?? 0.0,
-        'endLng': _destinationLng ?? 0.0,
+        'endLat': _destinationLat!,
+        'endLng': _destinationLng!,
         'endAddress': _destination!.address,
         'endWard': _destinationWard ?? '',
         'endDistrict': _destinationDistrict ?? '',
         'endProvince': _destinationProvince ?? '',
         'destination': _destination!.address,
-        'startTime': _departureDate!.toIso8601String(),
+        'startTime': _departureDate!.toIso8601String().split('.')[0], // Format: yyyy-MM-ddTHH:mm:ss
         'pricePerSeat': _pricePerSeat,
         'totalSeat': _totalSeats,
       };
@@ -640,11 +667,63 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
                                       _departureDistrict = location.district;
                                       _departureProvince = location.province;
                                       _departureLat = location.latLng?.latitude;
-                                      _departureLng =
-                                          location.latLng?.longitude;
+                                      _departureLng = location.latLng?.longitude;
+                                      
+                                      // Tự động tạo polyline nếu có cả điểm đi và điểm đến
+                                      if (_departureLat != null && _departureLng != null && 
+                                          _destinationLat != null && _destinationLng != null) {
+                                        _generatePolyline();
+                                      }
                                     });
                                   },
                                 ),
+                                // Hiển thị địa chỉ chi tiết điểm đi
+                                if (_departure != null && _departure!.address.isNotEmpty) ...[
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: Colors.blue.shade50,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: Colors.blue.shade200),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Icon(Icons.location_on, color: Colors.blue.shade700, size: 16),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              'Địa chỉ chi tiết:',
+                                              style: TextStyle(
+                                                color: Colors.blue.shade700,
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          '${_departure!.address}${_departureWard != null ? ', $_departureWard' : ''}${_departureDistrict != null ? ', $_departureDistrict' : ''}${_departureProvince != null ? ', $_departureProvince' : ''}',
+                                          style: TextStyle(
+                                            color: Colors.blue.shade600,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                        if (_departureLat != null && _departureLng != null)
+                                          Text(
+                                            'Tọa độ: ${_departureLat!.toStringAsFixed(6)}, ${_departureLng!.toStringAsFixed(6)}',
+                                            style: TextStyle(
+                                              color: Colors.blue.shade500,
+                                              fontSize: 10,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                                 const Divider(height: 16),
                                 LocationPicker(
                                   title: 'Điểm đến',
@@ -657,13 +736,64 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
                                       _destinationWard = location.ward;
                                       _destinationDistrict = location.district;
                                       _destinationProvince = location.province;
-                                      _destinationLat =
-                                          location.latLng?.latitude;
-                                      _destinationLng =
-                                          location.latLng?.longitude;
+                                      _destinationLat = location.latLng?.latitude;
+                                      _destinationLng = location.latLng?.longitude;
+                                      
+                                      // Tự động tạo polyline nếu có cả điểm đi và điểm đến
+                                      if (_departureLat != null && _departureLng != null && 
+                                          _destinationLat != null && _destinationLng != null) {
+                                        _generatePolyline();
+                                      }
                                     });
                                   },
                                 ),
+                                // Hiển thị địa chỉ chi tiết điểm đến
+                                if (_destination != null && _destination!.address.isNotEmpty) ...[
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.shade50,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: Colors.green.shade200),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Icon(Icons.location_on, color: Colors.green.shade700, size: 16),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              'Địa chỉ chi tiết:',
+                                              style: TextStyle(
+                                                color: Colors.green.shade700,
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          '${_destination!.address}${_destinationWard != null ? ', $_destinationWard' : ''}${_destinationDistrict != null ? ', $_destinationDistrict' : ''}${_destinationProvince != null ? ', $_destinationProvince' : ''}',
+                                          style: TextStyle(
+                                            color: Colors.green.shade600,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                        if (_destinationLat != null && _destinationLng != null)
+                                          Text(
+                                            'Tọa độ: ${_destinationLat!.toStringAsFixed(6)}, ${_destinationLng!.toStringAsFixed(6)}',
+                                            style: TextStyle(
+                                              color: Colors.green.shade500,
+                                              fontSize: 10,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                                 const Divider(height: 16),
                                 // Map picker button
                                 SizedBox(
@@ -672,7 +802,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
                                     onPressed: _openRouteMapPicker,
                                     icon: const Icon(Icons.map),
                                     label: const Text(
-                                      'Chọn tuyến đường trên bản đồ',
+                                      'Chọn tuyến đường trên bản đồ (Bắt buộc)',
                                     ),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: const Color(0xFF00AEEF),
@@ -686,34 +816,136 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
                                     ),
                                   ),
                                 ),
-                                if (_polylinePoints.isNotEmpty) ...[
-                                  const SizedBox(height: 8),
-                                  Container(
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      color: Colors.blue.shade50,
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(
-                                        color: Colors.blue.shade200,
-                                      ),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          Icons.route,
-                                          color: Colors.blue.shade700,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            'Tuyến đường đã chọn: ${_polylinePoints.length} điểm',
-                                            style: TextStyle(
-                                              color: Colors.blue.shade700,
-                                              fontWeight: FontWeight.w500,
-                                            ),
+                                const SizedBox(height: 8),
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.shade50,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: Colors.blue.shade200),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.info_outline, color: Colors.blue.shade700, size: 16),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          'Chọn địa điểm để tự động hiển thị bản đồ với tuyến đường',
+                                          style: TextStyle(
+                                            color: Colors.blue.shade700,
+                                            fontSize: 12,
                                           ),
                                         ),
-                                      ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                // Hiển thị bản đồ với polyline tự động
+                                if (_polylinePoints.isNotEmpty) ...[
+                                  const SizedBox(height: 16),
+                                  Container(
+                                    height: 200,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: Colors.grey.shade300),
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Stack(
+                                        children: [
+                                          // Bản đồ với polyline
+                                          if (_departureLat != null && _departureLng != null && 
+                                              _destinationLat != null && _destinationLng != null)
+                                            Container(
+                                              width: double.infinity,
+                                              height: double.infinity,
+                                              child: CustomPaint(
+                                                painter: MapPolylinePainter(
+                                                  departure: LatLng(_departureLat!, _departureLng!),
+                                                  destination: LatLng(_destinationLat!, _destinationLng!),
+                                                  polylinePoints: _polylinePoints,
+                                                ),
+                                                child: Container(
+                                                  decoration: BoxDecoration(
+                                                    gradient: LinearGradient(
+                                                      begin: Alignment.topCenter,
+                                                      end: Alignment.bottomCenter,
+                                                      colors: [
+                                                        Colors.blue.shade50,
+                                                        Colors.green.shade50,
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          // Overlay thông tin
+                                          Positioned(
+                                            top: 8,
+                                            left: 8,
+                                            right: 8,
+                                            child: Container(
+                                              padding: const EdgeInsets.all(8),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white.withOpacity(0.9),
+                                                borderRadius: BorderRadius.circular(8),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: Colors.black.withOpacity(0.1),
+                                                    blurRadius: 4,
+                                                    offset: const Offset(0, 2),
+                                                  ),
+                                                ],
+                                              ),
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Row(
+                                                    children: [
+                                                      Icon(
+                                                        Icons.route,
+                                                        color: Colors.blue.shade700,
+                                                        size: 16,
+                                                      ),
+                                                      const SizedBox(width: 4),
+                                                      Text(
+                                                        'Tuyến đường đã chọn',
+                                                        style: TextStyle(
+                                                          color: Colors.blue.shade700,
+                                                          fontWeight: FontWeight.w600,
+                                                          fontSize: 12,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  if (_departure != null && _destination != null) ...[
+                                                    const SizedBox(height: 4),
+                                                    Text(
+                                                      'Từ: ${_departure!.address}',
+                                                      style: TextStyle(
+                                                        color: Colors.blue.shade600,
+                                                        fontSize: 10,
+                                                      ),
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                    Text(
+                                                      'Đến: ${_destination!.address}',
+                                                      style: TextStyle(
+                                                        color: Colors.green.shade600,
+                                                        fontSize: 10,
+                                                      ),
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ],
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -836,5 +1068,99 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
                 ),
       ),
     );
+  }
+}
+
+// Custom painter để vẽ polyline trên bản đồ
+class MapPolylinePainter extends CustomPainter {
+  final LatLng departure;
+  final LatLng destination;
+  final List<LatLng> polylinePoints;
+
+  MapPolylinePainter({
+    required this.departure,
+    required this.destination,
+    required this.polylinePoints,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.blue
+      ..strokeWidth = 3.0
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    final departurePaint = Paint()
+      ..color = Colors.blue
+      ..style = PaintingStyle.fill;
+
+    final destinationPaint = Paint()
+      ..color = Colors.green
+      ..style = PaintingStyle.fill;
+
+    // Tính toán tọa độ trên canvas
+    final departurePoint = _latLngToPoint(departure, size);
+    final destinationPoint = _latLngToPoint(destination, size);
+
+    // Vẽ polyline
+    if (polylinePoints.length >= 2) {
+      final path = ui.Path();
+      final startPoint = _latLngToPoint(polylinePoints.first, size);
+      path.moveTo(startPoint.dx, startPoint.dy);
+
+      for (int i = 1; i < polylinePoints.length; i++) {
+        final point = _latLngToPoint(polylinePoints[i], size);
+        path.lineTo(point.dx, point.dy);
+      }
+
+      canvas.drawPath(path, paint);
+    } else {
+      // Vẽ đường thẳng đơn giản nếu không có polyline
+      final path = ui.Path();
+      path.moveTo(departurePoint.dx, departurePoint.dy);
+      path.lineTo(destinationPoint.dx, destinationPoint.dy);
+      canvas.drawPath(path, paint);
+    }
+
+    // Vẽ điểm đi (màu xanh)
+    canvas.drawCircle(departurePoint, 8, departurePaint);
+    canvas.drawCircle(departurePoint, 5, Paint()..color = Colors.white);
+
+    // Vẽ điểm đến (màu xanh lá)
+    canvas.drawCircle(destinationPoint, 8, destinationPaint);
+    canvas.drawCircle(destinationPoint, 5, Paint()..color = Colors.white);
+  }
+
+  // Chuyển đổi tọa độ LatLng thành Point trên canvas
+  Offset _latLngToPoint(LatLng latLng, Size size) {
+    // Tính toán bounds để fit cả 2 điểm
+    final minLat = math.min(departure.latitude, destination.latitude);
+    final maxLat = math.max(departure.latitude, destination.latitude);
+    final minLng = math.min(departure.longitude, destination.longitude);
+    final maxLng = math.max(departure.longitude, destination.longitude);
+
+    // Thêm padding
+    final latPadding = (maxLat - minLat) * 0.1;
+    final lngPadding = (maxLng - minLng) * 0.1;
+
+    final adjustedMinLat = minLat - latPadding;
+    final adjustedMaxLat = maxLat + latPadding;
+    final adjustedMinLng = minLng - lngPadding;
+    final adjustedMaxLng = maxLng + lngPadding;
+
+    // Chuyển đổi tọa độ
+    final x = ((latLng.longitude - adjustedMinLng) / (adjustedMaxLng - adjustedMinLng)) * size.width;
+    final y = ((adjustedMaxLat - latLng.latitude) / (adjustedMaxLat - adjustedMinLat)) * size.height;
+
+    return Offset(x, y);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    return oldDelegate is MapPolylinePainter &&
+        (oldDelegate.departure != departure ||
+            oldDelegate.destination != destination ||
+            oldDelegate.polylinePoints != polylinePoints);
   }
 }

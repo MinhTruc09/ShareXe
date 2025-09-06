@@ -69,48 +69,6 @@ class ChatMessageDTO {
   }
 }
 
-class ChatRoom {
-  final String roomId;
-  final String otherUserEmail;
-  final String otherUserName;
-  final String? lastMessage;
-  final DateTime? lastMessageTime;
-  final int unreadCount;
-
-  ChatRoom({
-    required this.roomId,
-    required this.otherUserEmail,
-    required this.otherUserName,
-    this.lastMessage,
-    this.lastMessageTime,
-    this.unreadCount = 0,
-  });
-
-  factory ChatRoom.fromJson(Map<String, dynamic> json) {
-    return ChatRoom(
-      roomId: json['roomId'] ?? '',
-      otherUserEmail: json['otherUserEmail'] ?? '',
-      otherUserName: json['otherUserName'] ?? '',
-      lastMessage: json['lastMessage'],
-      lastMessageTime:
-          json['lastMessageTime'] != null
-              ? DateTime.parse(json['lastMessageTime'])
-              : null,
-      unreadCount: json['unreadCount'] ?? 0,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'roomId': roomId,
-      'otherUserEmail': otherUserEmail,
-      'otherUserName': otherUserName,
-      'lastMessage': lastMessage,
-      'lastMessageTime': lastMessageTime?.toIso8601String(),
-      'unreadCount': unreadCount,
-    };
-  }
-}
 
 class ApiResponseChatMessageDTO {
   final String message;

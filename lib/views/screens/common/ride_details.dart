@@ -1730,7 +1730,7 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
             receiverEmail: driverEmail,
           );
 
-          if (messageResult.success) {
+          if (messageResult['success'] == true) {
             print('✅ Đã gửi tin nhắn chào mừng thông qua phòng chat: $roomId');
           } else {
             print('⚠️ Không thể gửi tin nhắn chào mừng');

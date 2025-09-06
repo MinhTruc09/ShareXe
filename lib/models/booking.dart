@@ -177,11 +177,13 @@ class BookingDTO {
     }
 
     return BookingDTO(
-      id: json['id'],
-      rideId: json['rideId'],
-      seatsBooked: json['seatsBooked'],
-      status: json['status'],
-      createdAt: DateTime.parse(json['createdAt']),
+      id: json['id'] ?? 0,
+      rideId: json['rideId'] ?? 0,
+      seatsBooked: json['seatsBooked'] ?? 0,
+      status: json['status'] ?? 'PENDING',
+      createdAt: json['createdAt'] != null 
+          ? DateTime.parse(json['createdAt'])
+          : DateTime.now(),
       totalPrice: json['totalPrice']?.toDouble() ?? 0.0,
       departure: json['departure'] ?? '',
       destination: json['destination'] ?? '',
@@ -193,14 +195,14 @@ class BookingDTO {
       rideStatus: json['rideStatus'] ?? '',
       totalSeats: json['totalSeats'] ?? 0,
       availableSeats: json['availableSeats'] ?? 0,
-      driverId: json['driverId'],
+      driverId: json['driverId'] ?? 0,
       driverName: json['driverName'] ?? '',
       driverPhone: json['driverPhone'] ?? '',
       driverEmail: json['driverEmail'] ?? '',
       driverAvatarUrl: json['driverAvatarUrl'],
       driverStatus: json['driverStatus'] ?? '',
       vehicle: vehicle,
-      passengerId: json['passengerId'],
+      passengerId: json['passengerId'] ?? 0,
       passengerName: json['passengerName'] ?? '',
       passengerPhone: json['passengerPhone'] ?? '',
       passengerEmail: json['passengerEmail'] ?? '',

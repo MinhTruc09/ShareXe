@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../services/chat_service.dart';
 import '../../../services/websocket_service.dart';
 import '../../../models/chat_message.dart';
-import 'chat_list_screen_v2.dart';
+import 'chat_list_screen.dart';
 
 class ChatDemoScreen extends StatefulWidget {
   const ChatDemoScreen({Key? key}) : super(key: key);
@@ -36,7 +36,7 @@ class _ChatDemoScreenState extends State<ChatDemoScreen> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const ChatListScreenV2(),
+                    builder: (context) => const ChatListScreen(),
                   ),
                 );
               },

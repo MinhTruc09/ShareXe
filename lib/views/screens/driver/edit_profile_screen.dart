@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../models/user_profile.dart';
-import '../../../models/user_update_request.dart';
 import '../../../services/profile_service.dart';
 import '../../widgets/sharexe_background2.dart';
 
@@ -10,8 +9,7 @@ class DriverEditProfileScreen extends StatefulWidget {
   final UserProfile userProfile;
 
   const DriverEditProfileScreen({Key? key, required this.userProfile})
-    : assert(userProfile != null, "userProfile cannot be null"),
-      super(key: key);
+    : super(key: key);
 
   @override
   State<DriverEditProfileScreen> createState() =>
@@ -107,20 +105,6 @@ class _DriverEditProfileScreenState extends State<DriverEditProfileScreen> {
   }
 
   void _showImagePickerModal(int imageType) {
-    String title;
-    switch (imageType) {
-      case 1:
-        title = 'Chọn ảnh đại diện';
-        break;
-      case 2:
-        title = 'Chọn ảnh giấy phép lái xe';
-        break;
-      case 3:
-        title = 'Chọn ảnh xe';
-        break;
-      default:
-        title = 'Chọn ảnh';
-    }
 
     showModalBottomSheet(
       context: context,
@@ -170,7 +154,7 @@ class _DriverEditProfileScreenState extends State<DriverEditProfileScreen> {
           brand: '',
           model: '',
           color: '',
-          numberOfSeats: null,
+          numberOfSeats: 0,
           avatarImageUrl: widget.userProfile.avatarUrl,
           licenseImageUrl: widget.userProfile.licenseImageUrl,
           vehicleImageUrl: widget.userProfile.vehicleImageUrl,

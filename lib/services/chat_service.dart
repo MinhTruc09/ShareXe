@@ -19,6 +19,7 @@ class ChatService {
       }
 
       print('📱 Đang tải lịch sử chat cho room: $roomId');
+      print('📱 API URL: $baseUrl/chat/$roomId');
 
       final response = await http.get(
         Uri.parse("$baseUrl/chat/$roomId"),
@@ -59,6 +60,16 @@ class ChatService {
       print('❌ Lỗi khi tải lịch sử chat: $e');
       rethrow;
     }
+  }
+
+  // Alias for fetchMessages to maintain backward compatibility
+  Future<List<ChatMessage>> getChatHistory(String roomId) async {
+    return await fetchMessages(roomId);
+  }
+
+  // Alias for fetchChatRooms to maintain backward compatibility
+  Future<List<ChatRoom>> getChatRooms() async {
+    return await fetchChatRooms();
   }
 
   // Lấy danh sách phòng chat
@@ -110,6 +121,16 @@ class ChatService {
     }
   }
 
+  // Tạo hoặc lấy ID phòng chat với người dùng khác
+  Future<String?> createOrGetChatRoom(String otherUserEmail) async {
+    try {
+      return await getChatRoomId(otherUserEmail);
+    } catch (e) {
+      print('❌ Lỗi khi tạo/lấy phòng chat: $e');
+      return null;
+    }
+  }
+
   // Lấy ID phòng chat với người dùng khác
   Future<String> getChatRoomId(String otherUserEmail) async {
     try {
@@ -119,6 +140,7 @@ class ChatService {
       }
 
       print('📱 Đang lấy room ID với: $otherUserEmail');
+      print('📱 API URL: $baseUrl/chat/room/$otherUserEmail');
 
       final response = await http.get(
         Uri.parse("$baseUrl/chat/room/$otherUserEmail"),
@@ -236,6 +258,82 @@ class ChatService {
     } catch (e) {
       print('❌ Lỗi khi gửi tin nhắn: $e');
       rethrow;
+    }
+  }
+
+  // Send message via REST API (for fallback)
+  Future<Map<String, dynamic>> sendMessage({
+    required String roomId,
+    required String receiverEmail,
+    required String content,
+  }) async {
+    try {
+      final token = await _authManager.getToken();
+      if (token == null) {
+        throw Exception('Token không có sẵn');
+      }
+
+      print('📱 Đang gửi tin nhắn qua REST API: $content');
+
+      final response = await http.post(
+        Uri.parse("$baseUrl/chat/test/$roomId"),
+        headers: {
+          "Authorization": "Bearer $token",
+          "Content-Type": "application/json",
+        },
+        body: jsonEncode({
+          "content": content,
+          "receiverEmail": receiverEmail,
+        }),
+      );
+
+      print('📡 Send message API response: ${response.statusCode}');
+      print('📡 Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          print('✅ Đã gửi tin nhắn thành công');
+          return {'success': true, 'data': data['data']};
+        } else {
+          return {'success': false, 'message': data['message'] ?? 'Không thể gửi tin nhắn'};
+        }
+      } else if (response.statusCode == 401) {
+        return {'success': false, 'message': 'Phiên đăng nhập đã hết hạn'};
+      } else {
+        final errorData = jsonDecode(response.body);
+        return {
+          'success': false,
+          'message': errorData['message'] ?? "Không thể gửi tin nhắn: ${response.statusCode}"
+        };
+      }
+    } catch (e) {
+      print('❌ Lỗi khi gửi tin nhắn: $e');
+      return {'success': false, 'message': 'Lỗi khi gửi tin nhắn: $e'};
+    }
+  }
+
+  // Ensure chat room is created (placeholder method)
+  Future<void> ensureChatRoomIsCreated(String partnerEmail) async {
+    try {
+      // This method can be used to ensure the chat room exists
+      // For now, we'll just get the room ID which will create it if needed
+      await getChatRoomId(partnerEmail);
+    } catch (e) {
+      print('⚠️ Lỗi khi đảm bảo phòng chat tồn tại: $e');
+      // Don't throw error as this is not critical
+    }
+  }
+
+  // Trigger chat room sync (placeholder method)
+  Future<void> triggerChatRoomSync(String roomId, String partnerEmail) async {
+    try {
+      // This method can be used to trigger synchronization
+      // For now, we'll just ensure the room exists
+      await ensureChatRoomIsCreated(partnerEmail);
+    } catch (e) {
+      print('⚠️ Lỗi khi kích hoạt đồng bộ phòng chat: $e');
+      // Don't throw error as this is not critical
     }
   }
 }

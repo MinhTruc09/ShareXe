@@ -7,6 +7,27 @@ import '../models/user_update_request.dart';
 import '../utils/app_config.dart';
 import 'auth_manager.dart';
 
+// ChangePasswordRequest model
+class ChangePasswordRequest {
+  final String oldPass;
+  final String newPass;
+
+  ChangePasswordRequest({
+    required this.oldPass,
+    required this.newPass,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'oldPass': oldPass,
+      'newPass': newPass,
+    };
+  }
+}
+
+// UserUpdateRequestDTO model (alias for UserUpdateRequest)
+typedef UserUpdateRequestDTO = UserUpdateRequest;
+
 class ProfileService {
   final AuthManager _authManager = AuthManager();
   final AppConfig _appConfig = AppConfig();
@@ -83,7 +104,7 @@ class ProfileService {
       }
 
       // Kiểm tra nếu response body rỗng hoặc không hợp lệ
-      if (response.body == null || response.body.isEmpty) {
+      if (response.body.isEmpty) {
         return ProfileResponse(
           success: false,
           message: 'Máy chủ không trả về dữ liệu. Có thể URL ngrok đã hết hạn.',
