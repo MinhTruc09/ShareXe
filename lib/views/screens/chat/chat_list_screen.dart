@@ -275,8 +275,8 @@ class _ChatListScreenState extends State<ChatListScreen> {
               ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // TODO: Implement new chat functionality
-          // This would typically open a contact list
+          // Mở màn hình danh sách người dùng để tạo chat mới
+          Navigator.pushNamed(context, '/chat/user-list');
         },
         backgroundColor: const Color(0xFF002D72),
         child: const Icon(Icons.chat),

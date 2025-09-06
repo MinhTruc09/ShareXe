@@ -5,11 +5,16 @@ import '../../../models/booking.dart';
 import '../../../services/booking_service.dart';
 import '../../../services/notification_service.dart';
 import '../../../services/ride_service.dart';
+import '../../../services/tracking_service.dart';
+import '../../../services/location_service.dart';
+import '../../../services/auth_manager.dart';
 import '../../../utils/app_config.dart';
 import 'dart:async';
 import '../../widgets/sharexe_background2.dart';
 import '../../widgets/passenger_details_card.dart';
+import '../../widgets/tracking_map_widget.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:geolocator/geolocator.dart';
 
 class DriverRideDetailScreen extends StatefulWidget {
   final dynamic ride;
@@ -24,21 +29,38 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
   final BookingService _bookingService = BookingService();
   final RideService _rideService = RideService();
   final NotificationService _notificationService = NotificationService();
+  final TrackingService _trackingService = TrackingService();
+  final LocationService _locationService = LocationService();
 
   bool _isLoading = false;
   bool _isCompleting = false;
   bool _isConfirming = false;
   List<Booking> _bookings = [];
   List<BookingDTO> _bookingsDTO = [];
-  
+
   // Theo dõi trạng thái xác nhận của tài xế
   bool _driverConfirmed = false;
+
+  // Tracking variables
+  bool _isTracking = false;
+  bool _isLocationPermissionGranted = false;
+  Timer? _trackingTimer;
+  Position? _currentPosition;
+  String? _driverEmail;
 
   @override
   void initState() {
     super.initState();
     _loadBookings();
     _checkConfirmationStatus();
+    _checkLocationPermission();
+    _getDriverEmail();
+  }
+
+  @override
+  void dispose() {
+    _trackingTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadBookings() async {
@@ -76,7 +98,7 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
     try {
       // Parse the date string in ISO format
       final dateTime = DateTime.parse(timeString);
-      // Format to display date and time với giờ được hiển thị trước 
+      // Format to display date and time với giờ được hiển thị trước
       return DateFormat('HH:mm - dd/MM/yyyy').format(dateTime);
     } catch (e) {
       print('❌ Lỗi khi định dạng thời gian: $e, timeString: $timeString');
@@ -171,24 +193,23 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
         // Send notification to passengers about the completed ride
         try {
           // Gửi thông báo đến tất cả hành khách đã đặt chỗ cho chuyến đi này
-          if (_bookings.isNotEmpty) {
-            for (var booking in _bookings) {
+          if (_bookingsDTO.isNotEmpty) {
+            for (var bookingDTO in _bookingsDTO) {
               // Chỉ gửi thông báo cho các booking đã được chấp nhận
-              if (booking.status.toUpperCase() == 'ACCEPTED' || 
-                  booking.status.toUpperCase() == 'APPROVED' ||
-                  booking.status.toUpperCase() == 'IN_PROGRESS') {
-                // Fetch passenger's email from backend if needed
-                // For now, using a system notification without targeting a specific user
+              if (bookingDTO.status.toUpperCase() == 'ACCEPTED' ||
+                  bookingDTO.status.toUpperCase() == 'APPROVED' ||
+                  bookingDTO.status.toUpperCase() == 'IN_PROGRESS') {
+                // Gửi thông báo đến hành khách cụ thể
                 await _notificationService.sendNotification(
                   'Tài xế đã xác nhận hoàn thành',
                   'Tài xế ${rideData.driverName} đã xác nhận hoàn thành chuyến đi từ ${rideData.departure} đến ${rideData.destination}.',
                   AppConfig.NOTIFICATION_DRIVER_CONFIRMED,
                   {
                     'rideId': rideData.id,
-                    'bookingId': booking.id,
+                    'bookingId': bookingDTO.id,
                     'status': 'DRIVER_CONFIRMED',
-                  }
-                  // Not specifying recipient - will be handled by backend
+                  },
+                  recipientEmail: bookingDTO.passengerEmail,
                 );
               }
             }
@@ -197,11 +218,8 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
             await _notificationService.sendNotification(
               'Chuyến đi hoàn thành',
               'Chuyến đi đã được đánh dấu hoàn thành bởi tài xế',
-              'ride_completed',
-              {
-                'rideId': rideData.id,
-                'status': 'COMPLETED',
-              }
+              AppConfig.NOTIFICATION_RIDE_COMPLETED,
+              {'rideId': rideData.id, 'status': 'COMPLETED'},
             );
           }
         } catch (notifError) {
@@ -227,10 +245,12 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
             ride.status = 'COMPLETED';
           }
         });
-        
+
         // Quay về màn hình trước đó ngay lập tức sau khi hoàn thành thành công
         if (!mounted) return;
-        Navigator.of(currentContext).pop(true); // Trả về true để báo hiệu hoàn thành thành công
+        Navigator.of(
+          currentContext,
+        ).pop(true); // Trả về true để báo hiệu hoàn thành thành công
       } else {
         if (!mounted) return;
         ScaffoldMessenger.of(currentContext).showSnackBar(
@@ -271,7 +291,9 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Xác nhận huỷ chuyến'),
-          content: const Text('Bạn có chắc chắn muốn huỷ chuyến đi này? Hành động này không thể hoàn tác.'),
+          content: const Text(
+            'Bạn có chắc chắn muốn huỷ chuyến đi này? Hành động này không thể hoàn tác.',
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -340,36 +362,38 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
             ride.status = 'CANCELLED';
           }
         });
-        
+
         // Quay về màn hình trước đó ngay lập tức sau khi hủy thành công
         if (!mounted) return;
-        
+
         // Gửi thông báo cho hành khách đã đặt chỗ
         try {
-          // Thay thế phương thức sendRideCancelledNotification bằng sendNotification riêng lẻ
-          // cho từng booking nhưng không gửi trực tiếp đến email hành khách
-          for (var booking in _bookings.where((b) => 
-              b.status.toUpperCase() == 'APPROVED' || 
-              b.status.toUpperCase() == 'ACCEPTED')) {
-                
+          // Gửi thông báo cho từng booking đã được chấp nhận
+          for (var bookingDTO in _bookingsDTO.where(
+            (b) =>
+                b.status.toUpperCase() == 'APPROVED' ||
+                b.status.toUpperCase() == 'ACCEPTED',
+          )) {
             await _notificationService.sendNotification(
               'Chuyến đi đã bị hủy',
               'Chuyến đi từ ${rideData.departure} đến ${rideData.destination} đã bị hủy bởi tài xế ${rideData.driverName}.',
               AppConfig.NOTIFICATION_RIDE_CANCELLED,
               {
                 'rideId': rideData.id,
-                'bookingId': booking.id,
+                'bookingId': bookingDTO.id,
                 'status': 'CANCELLED',
-              }
-              // Backend sẽ xử lý việc gửi thông báo đến đúng hành khách
+              },
+              recipientEmail: bookingDTO.passengerEmail,
             );
           }
         } catch (e) {
           print('Lỗi khi gửi thông báo hủy chuyến: $e');
           // Không dừng luồng vì đây không phải lỗi chính
         }
-        
-        Navigator.of(currentContext).pop(true); // Trả về true để báo hiệu hủy thành công
+
+        Navigator.of(
+          currentContext,
+        ).pop(true); // Trả về true để báo hiệu hủy thành công
       } else {
         if (!mounted) return;
         showDialog(
@@ -436,11 +460,11 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
   Future<void> _checkConfirmationStatus() async {
     try {
       final Ride rideData = widget.ride as Ride;
-      
+
       // Call API to check if driver already confirmed this ride
       // For now, we rely on ride status
       final inProgress = rideData.status.toUpperCase() == 'IN_PROGRESS';
-      
+
       if (mounted) {
         setState(() {
           _driverConfirmed = inProgress;
@@ -499,31 +523,32 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
           _driverConfirmed = true;
           _isConfirming = false;
         });
-        
+
         // Gửi thông báo cho hành khách đã đặt chỗ
         try {
           // Gửi thông báo cho từng booking được chấp nhận
-          for (var booking in _bookings.where((b) => 
-              b.status.toUpperCase() == 'APPROVED' || 
-              b.status.toUpperCase() == 'ACCEPTED')) {
-            
+          for (var bookingDTO in _bookingsDTO.where(
+            (b) =>
+                b.status.toUpperCase() == 'APPROVED' ||
+                b.status.toUpperCase() == 'ACCEPTED',
+          )) {
             await _notificationService.sendNotification(
               'Chuyến đi đã bắt đầu',
               'Chuyến đi từ ${rideData.departure} đến ${rideData.destination} đã bắt đầu.',
               AppConfig.NOTIFICATION_RIDE_STARTED,
               {
                 'rideId': rideData.id,
-                'bookingId': booking.id,
+                'bookingId': bookingDTO.id,
                 'status': 'IN_PROGRESS',
-              }
-              // Backend sẽ xử lý việc gửi thông báo đến đúng hành khách
+              },
+              recipientEmail: bookingDTO.passengerEmail,
             );
           }
         } catch (e) {
           print('Lỗi khi gửi thông báo bắt đầu chuyến: $e');
           // Không dừng luồng vì đây không phải lỗi chính
         }
-        
+
         ScaffoldMessenger.of(currentContext).showSnackBar(
           const SnackBar(
             content: Text(
@@ -537,7 +562,7 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
         setState(() {
           _isConfirming = false;
         });
-        
+
         ScaffoldMessenger.of(currentContext).showSnackBar(
           const SnackBar(
             content: Text(
@@ -553,7 +578,7 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
         setState(() {
           _isConfirming = false;
         });
-        
+
         ScaffoldMessenger.of(currentContext).showSnackBar(
           SnackBar(
             content: Text(
@@ -575,7 +600,9 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
     } else {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Không thể gọi đến số điện thoại: $phoneNumber')),
+        SnackBar(
+          content: Text('Không thể gọi đến số điện thoại: $phoneNumber'),
+        ),
       );
     }
   }
@@ -591,16 +618,16 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
       );
     }
   }
-  
+
   // Accept booking method
   Future<void> _acceptBooking(Booking booking) async {
     setState(() {
       _isLoading = true;
     });
-    
+
     try {
-      final success = await _bookingService.acceptBooking(booking.id);
-      
+      final success = await _bookingService.driverAcceptBookingDTO(booking.id);
+
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -619,10 +646,7 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Lỗi: $e'),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red),
       );
     } finally {
       if (mounted) {
@@ -632,40 +656,41 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
       }
     }
   }
-  
+
   // Reject booking method
   Future<void> _rejectBooking(Booking booking) async {
     // Show confirmation dialog
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Xác nhận từ chối'),
-        content: const Text('Bạn có chắc chắn muốn từ chối yêu cầu đặt chỗ này?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Hủy'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.red,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Xác nhận từ chối'),
+            content: const Text(
+              'Bạn có chắc chắn muốn từ chối yêu cầu đặt chỗ này?',
             ),
-            child: const Text('Từ chối'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Hủy'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text('Từ chối'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
-    
+
     if (confirmed != true) return;
-    
+
     setState(() {
       _isLoading = true;
     });
-    
+
     try {
-      final success = await _bookingService.rejectBooking(booking.id);
-      
+      final success = await _bookingService.driverRejectBookingDTO(booking.id);
+
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -684,10 +709,7 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Lỗi: $e'),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red),
       );
     } finally {
       if (mounted) {
@@ -705,7 +727,7 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
     final bool isCompletedOrCancelled =
         rideData.status.toUpperCase() == 'COMPLETED' ||
         rideData.status.toUpperCase() == 'CANCELLED';
-        
+
     // Kiểm tra nếu chuyến đi đã đến thời gian xuất phát
     final bool isReadyForDeparture = _rideService.canConfirmRide(rideData);
     final bool isInProgress = _rideService.isRideInProgress(rideData);
@@ -747,7 +769,10 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
                         const SizedBox(width: 4),
                         Text(
                           _formatTime(rideData.startTime),
-                          style: const TextStyle(color: Colors.white, fontSize: 16),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                          ),
                         ),
                       ],
                     ),
@@ -786,7 +811,9 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
                                 const SizedBox(width: 4),
                                 Text(
                                   rideData.pricePerSeat != null
-                                      ? currencyFormat.format(rideData.pricePerSeat)
+                                      ? currencyFormat.format(
+                                        rideData.pricePerSeat,
+                                      )
                                       : 'Miễn phí',
                                   style: const TextStyle(
                                     color: Colors.white,
@@ -814,7 +841,10 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
                     // Ride details section
                     const Text(
                       'Thông tin chuyến đi',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     _buildDetailRow(
@@ -845,7 +875,9 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
                     const Divider(height: 32),
 
                     // Xác nhận xuất phát
-                    if (isReadyForDeparture && !isCompletedOrCancelled && !isInProgress) ...[
+                    if (isReadyForDeparture &&
+                        !isCompletedOrCancelled &&
+                        !isInProgress) ...[
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
@@ -876,8 +908,8 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
                             const SizedBox(height: 8),
                             Text(
                               _driverConfirmed
-                                ? 'Bạn đã xác nhận khởi hành chuyến đi này.'
-                                : 'Hãy xác nhận khi bạn đã sẵn sàng để khởi hành chuyến đi.',
+                                  ? 'Bạn đã xác nhận khởi hành chuyến đi này.'
+                                  : 'Hãy xác nhận khi bạn đã sẵn sàng để khởi hành chuyến đi.',
                               style: TextStyle(
                                 color: Colors.grey.shade800,
                                 fontSize: 14,
@@ -888,24 +920,30 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
                               SizedBox(
                                 width: double.infinity,
                                 child: ElevatedButton.icon(
-                                  onPressed: _isConfirming ? null : _confirmDeparture,
-                                  icon: _isConfirming
-                                      ? const SizedBox(
-                                          width: 20,
-                                          height: 20,
-                                          child: CircularProgressIndicator(
-                                            color: Colors.white,
-                                            strokeWidth: 2,
-                                          ),
-                                        )
-                                      : const Icon(Icons.directions_car),
+                                  onPressed:
+                                      _isConfirming ? null : _confirmDeparture,
+                                  icon:
+                                      _isConfirming
+                                          ? const SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                              color: Colors.white,
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                          : const Icon(Icons.directions_car),
                                   label: Text(
-                                    _isConfirming ? 'Đang xác nhận...' : 'Xác nhận xuất phát'
+                                    _isConfirming
+                                        ? 'Đang xác nhận...'
+                                        : 'Xác nhận xuất phát',
                                   ),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.amber.shade700,
                                     foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -981,23 +1019,28 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
                               width: double.infinity,
                               child: ElevatedButton.icon(
                                 onPressed: _isCompleting ? null : _completeRide,
-                                icon: _isCompleting
-                                    ? const SizedBox(
-                                        width: 20,
-                                        height: 20,
-                                        child: CircularProgressIndicator(
-                                          color: Colors.white,
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : const Icon(Icons.check_circle),
+                                icon:
+                                    _isCompleting
+                                        ? const SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                            color: Colors.white,
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                        : const Icon(Icons.check_circle),
                                 label: Text(
-                                  _isCompleting ? 'Đang xác nhận...' : 'Hoàn thành chuyến đi'
+                                  _isCompleting
+                                      ? 'Đang xác nhận...'
+                                      : 'Hoàn thành chuyến đi',
                                 ),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.green.shade700,
                                   foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
                                 ),
                               ),
                             ),
@@ -1026,7 +1069,9 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
                               label: const Text('Hủy chuyến'),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.red,
-                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
                               ),
                             ),
                           ),
@@ -1048,7 +1093,9 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
                                       : const Text('Hoàn thành'),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.green,
-                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
                               ),
                             ),
                           ),
@@ -1057,11 +1104,25 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
 
                       const Divider(height: 32),
                     ],
+                  ],
+                ),
+              ),
 
-                    // Bookings list section
+              // Tracking map section
+              _buildTrackingMap(),
+
+              // Bookings list section
+              Container(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     const Text(
                       'Danh sách đặt chỗ',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 12),
 
@@ -1086,12 +1147,13 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
                             if (index < _bookingsDTO.length) {
                               final bookingDTO = _bookingsDTO[index];
                               final booking = _bookings[index];
-                              
+
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       Text(
                                         'Đặt chỗ #${booking.id}',
@@ -1124,21 +1186,24 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
                                           ),
                                         ),
                                         child: Text(
-                                          booking.status.toUpperCase() == 'PENDING'
+                                          booking.status.toUpperCase() ==
+                                                  'PENDING'
                                               ? 'Chờ duyệt'
                                               : booking.status.toUpperCase() ==
-                                                      'APPROVED'
-                                                  ? 'Đã duyệt'
-                                                  : booking.status.toUpperCase() ==
-                                                      'REJECTED'
-                                                  ? 'Đã từ chối'
-                                                  : booking.status,
+                                                  'APPROVED'
+                                              ? 'Đã duyệt'
+                                              : booking.status.toUpperCase() ==
+                                                  'REJECTED'
+                                              ? 'Đã từ chối'
+                                              : booking.status,
                                           style: TextStyle(
                                             fontSize: 12,
-                                            color: booking.status.toUpperCase() ==
-                                                    'PENDING'
-                                                ? Colors.orange
-                                                : booking.status.toUpperCase() ==
+                                            color:
+                                                booking.status.toUpperCase() ==
+                                                        'PENDING'
+                                                    ? Colors.orange
+                                                    : booking.status
+                                                            .toUpperCase() ==
                                                         'APPROVED'
                                                     ? Colors.green
                                                     : Colors.red,
@@ -1149,23 +1214,31 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
                                     ],
                                   ),
                                   const SizedBox(height: 10),
-                                  
+
                                   // Use our new PassengerDetailsCard widget
                                   PassengerDetailsCard.fromBookingDTO(
                                     bookingDTO,
-                                    onCall: () => _callPassenger(bookingDTO.passengerPhone),
-                                    onMessage: () => _messagePassenger(bookingDTO.passengerPhone),
+                                    onCall:
+                                        () => _callPassenger(
+                                          bookingDTO.passengerPhone,
+                                        ),
+                                    onMessage:
+                                        () => _messagePassenger(
+                                          bookingDTO.passengerPhone,
+                                        ),
                                   ),
-                                  
+
                                   const SizedBox(height: 16),
-                                  
+
                                   // Show action buttons based on booking status
                                   if (booking.status.toUpperCase() == 'PENDING')
                                     Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
                                       children: [
                                         OutlinedButton.icon(
-                                          onPressed: () => _rejectBooking(booking),
+                                          onPressed:
+                                              () => _rejectBooking(booking),
                                           icon: const Icon(Icons.cancel),
                                           label: const Text('Từ chối'),
                                           style: OutlinedButton.styleFrom(
@@ -1173,7 +1246,8 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
                                           ),
                                         ),
                                         ElevatedButton.icon(
-                                          onPressed: () => _acceptBooking(booking),
+                                          onPressed:
+                                              () => _acceptBooking(booking),
                                           icon: const Icon(Icons.check),
                                           label: const Text('Chấp nhận'),
                                           style: ElevatedButton.styleFrom(
@@ -1182,7 +1256,7 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
                                         ),
                                       ],
                                     ),
-                                    
+
                                   const SizedBox(height: 8),
                                 ],
                               );
@@ -1194,7 +1268,8 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
                                 child: Padding(
                                   padding: const EdgeInsets.all(12.0),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Row(
                                         mainAxisAlignment:
@@ -1214,36 +1289,40 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
                                             ),
                                             decoration: BoxDecoration(
                                               color:
-                                                  booking.status.toUpperCase() ==
+                                                  booking.status
+                                                              .toUpperCase() ==
                                                           'PENDING'
-                                                      ? Colors.orange.withOpacity(
-                                                        0.2,
-                                                      )
+                                                      ? Colors.orange
+                                                          .withOpacity(0.2)
                                                       : booking.status
                                                               .toUpperCase() ==
                                                           'APPROVED'
-                                                      ? Colors.green.withOpacity(
+                                                      ? Colors.green
+                                                          .withOpacity(0.2)
+                                                      : Colors.red.withOpacity(
                                                         0.2,
-                                                      )
-                                                      : Colors.red.withOpacity(0.2),
-                                              borderRadius: BorderRadius.circular(
-                                                12,
-                                              ),
+                                                      ),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
                                             ),
                                             child: Text(
                                               booking.status.toUpperCase() ==
                                                       'PENDING'
                                                   ? 'Chờ duyệt'
-                                                  : booking.status.toUpperCase() ==
-                                                          'APPROVED'
-                                                      ? 'Đã duyệt'
-                                                      : 'Từ chối',
+                                                  : booking.status
+                                                          .toUpperCase() ==
+                                                      'APPROVED'
+                                                  ? 'Đã duyệt'
+                                                  : 'Từ chối',
                                               style: TextStyle(
                                                 fontSize: 12,
-                                                color: booking.status.toUpperCase() ==
-                                                        'PENDING'
-                                                    ? Colors.orange
-                                                    : booking.status.toUpperCase() ==
+                                                color:
+                                                    booking.status
+                                                                .toUpperCase() ==
+                                                            'PENDING'
+                                                        ? Colors.orange
+                                                        : booking.status
+                                                                .toUpperCase() ==
                                                             'APPROVED'
                                                         ? Colors.green
                                                         : Colors.red,
@@ -1254,7 +1333,9 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
                                         ],
                                       ),
                                       const SizedBox(height: 8),
-                                      Text('Hành khách: ${booking.passengerName}'),
+                                      Text(
+                                        'Hành khách: ${booking.passengerName}',
+                                      ),
                                       Text('Số ghế: ${booking.seatsBooked}'),
                                       Text(
                                         'Thời gian đặt: ${_formatTime(booking.createdAt)}',
@@ -1273,6 +1354,156 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  // ========== TRACKING METHODS ==========
+
+  /// Check location permission
+  Future<void> _checkLocationPermission() async {
+    try {
+      final permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        final requestPermission = await Geolocator.requestPermission();
+        setState(() {
+          _isLocationPermissionGranted =
+              requestPermission == LocationPermission.whileInUse ||
+              requestPermission == LocationPermission.always;
+        });
+      } else {
+        setState(() {
+          _isLocationPermissionGranted =
+              permission == LocationPermission.whileInUse ||
+              permission == LocationPermission.always;
+        });
+      }
+    } catch (e) {
+      print('❌ Lỗi khi kiểm tra quyền vị trí: $e');
+      setState(() {
+        _isLocationPermissionGranted = false;
+      });
+    }
+  }
+
+  /// Get driver email for tracking
+  Future<void> _getDriverEmail() async {
+    try {
+      // Get email from AuthManager
+      final authManager = AuthManager();
+      final email = await authManager.getUserEmail();
+      setState(() {
+        _driverEmail = email;
+      });
+    } catch (e) {
+      print('❌ Lỗi khi lấy email tài xế: $e');
+    }
+  }
+
+  /// Start tracking location
+  Future<void> _startTracking() async {
+    if (!_isLocationPermissionGranted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cần cấp quyền truy cập vị trí để theo dõi'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (_driverEmail == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Không thể lấy thông tin tài xế'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isTracking = true;
+    });
+
+    // Start periodic location updates every 10 seconds
+    _trackingTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      _sendLocationUpdate();
+    });
+
+    // Send initial location
+    _sendLocationUpdate();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Bắt đầu theo dõi vị trí'),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+
+  /// Stop tracking location
+  void _stopTracking() {
+    _trackingTimer?.cancel();
+    setState(() {
+      _isTracking = false;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Dừng theo dõi vị trí'),
+        backgroundColor: Colors.orange,
+      ),
+    );
+  }
+
+  /// Send location update to server
+  Future<void> _sendLocationUpdate() async {
+    try {
+      final position = await _locationService.getCurrentLocation();
+      if (position == null) return;
+
+      setState(() {
+        _currentPosition = position;
+      });
+
+      final Ride rideData = widget.ride as Ride;
+      final result = await _trackingService.updateDriverLocation(
+        rideId: rideData.id.toString(),
+        latitude: position.latitude,
+        longitude: position.longitude,
+      );
+
+      if (result) {
+        print(
+          '✅ Gửi vị trí thành công: ${position.latitude}, ${position.longitude}',
+        );
+      } else {
+        print('❌ Gửi vị trí thất bại');
+      }
+    } catch (e) {
+      print('❌ Lỗi khi gửi vị trí: $e');
+    }
+  }
+
+  /// Build tracking map widget
+  Widget _buildTrackingMap() {
+    final Ride rideData = widget.ride as Ride;
+    final bool canTrack =
+        rideData.status == 'ACTIVE' &&
+        _bookingsDTO.any(
+          (b) => b.status == 'ACCEPTED' || b.status == 'IN_PROGRESS',
+        );
+
+    if (!canTrack) {
+      return const SizedBox.shrink();
+    }
+
+    return TrackingMapWidget(
+      ride: rideData,
+      currentPosition: _currentPosition,
+      isTracking: _isTracking,
+      onStartTracking: _startTracking,
+      onStopTracking: _stopTracking,
     );
   }
 }

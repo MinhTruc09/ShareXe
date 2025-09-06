@@ -28,7 +28,7 @@ class TrackingService {
         );
       }
 
-      final endpoint = '${_appConfig.fullApiUrl}/tracking/test/$rideId';
+      final endpoint = _appConfig.getEndpoint('tracking/test/$rideId');
       print('Sending driver location to: $endpoint');
 
       final locationData = DriverLocation(

@@ -7,15 +7,15 @@ class UserProfile {
   final String phoneNumber;
   final String role;
   final String? avatarUrl;
-  final String? licenseImageUrl; // Driver only
-  final String? vehicleImageUrl; // Driver only
-  final String? status; // Driver only: PENDING, APPROVED, REJECTED
-  // Additional driver fields to match DriverDTO
-  final String? licensePlate; // Driver only
-  final String? brand; // Driver only
-  final String? model; // Driver only
-  final String? color; // Driver only
-  final int? numberOfSeats; // Driver only
+  // Driver only fields from DriverDTO
+  final String? status; // PENDING, APPROVED, REJECTED
+  final String? licensePlate;
+  final String? brand;
+  final String? model;
+  final String? color;
+  final int? numberOfSeats;
+  final String? vehicleImageUrl;
+  final String? licenseImageUrl;
 
   UserProfile({
     required this.id,
@@ -24,14 +24,14 @@ class UserProfile {
     required this.phoneNumber,
     required this.role,
     this.avatarUrl,
-    this.licenseImageUrl,
-    this.vehicleImageUrl,
     this.status,
     this.licensePlate,
     this.brand,
     this.model,
     this.color,
     this.numberOfSeats,
+    this.vehicleImageUrl,
+    this.licenseImageUrl,
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -71,14 +71,14 @@ class UserProfile {
       role: json['role'] ?? '',
       // Hỗ trợ cả avatarUrl và avatarImage
       avatarUrl: finalAvatarUrl,
-      licenseImageUrl: convertImageUrl(json['licenseImageUrl']),
-      vehicleImageUrl: convertImageUrl(json['vehicleImageUrl']),
       status: json['status'],
       licensePlate: json['licensePlate'],
       brand: json['brand'],
       model: json['model'],
       color: json['color'],
       numberOfSeats: json['numberOfSeats'],
+      vehicleImageUrl: convertImageUrl(json['vehicleImageUrl']),
+      licenseImageUrl: convertImageUrl(json['licenseImageUrl']),
     );
   }
 
@@ -90,14 +90,14 @@ class UserProfile {
       'phoneNumber': phoneNumber,
       'role': role,
       'avatarUrl': avatarUrl,
-      'licenseImageUrl': licenseImageUrl,
-      'vehicleImageUrl': vehicleImageUrl,
       'status': status,
       'licensePlate': licensePlate,
       'brand': brand,
       'model': model,
       'color': color,
       'numberOfSeats': numberOfSeats,
+      'vehicleImageUrl': vehicleImageUrl,
+      'licenseImageUrl': licenseImageUrl,
     };
   }
 
@@ -109,14 +109,14 @@ class UserProfile {
     String? phoneNumber,
     String? role,
     String? avatarUrl,
-    String? licenseImageUrl,
-    String? vehicleImageUrl,
     String? status,
     String? licensePlate,
     String? brand,
     String? model,
     String? color,
     int? numberOfSeats,
+    String? vehicleImageUrl,
+    String? licenseImageUrl,
   }) {
     return UserProfile(
       id: id ?? this.id,
@@ -125,14 +125,14 @@ class UserProfile {
       phoneNumber: phoneNumber ?? this.phoneNumber,
       role: role ?? this.role,
       avatarUrl: avatarUrl ?? this.avatarUrl,
-      licenseImageUrl: licenseImageUrl ?? this.licenseImageUrl,
-      vehicleImageUrl: vehicleImageUrl ?? this.vehicleImageUrl,
       status: status ?? this.status,
       licensePlate: licensePlate ?? this.licensePlate,
       brand: brand ?? this.brand,
       model: model ?? this.model,
       color: color ?? this.color,
       numberOfSeats: numberOfSeats ?? this.numberOfSeats,
+      vehicleImageUrl: vehicleImageUrl ?? this.vehicleImageUrl,
+      licenseImageUrl: licenseImageUrl ?? this.licenseImageUrl,
     );
   }
 }

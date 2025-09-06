@@ -42,9 +42,9 @@ class ProfileService {
       // Chọn endpoint phù hợp dựa vào vai trò
       String endpoint;
       if (userRole?.toUpperCase() == 'DRIVER') {
-        endpoint = '${_appConfig.fullApiUrl}/driver/profile';
+        endpoint = _appConfig.getEndpoint('driver/profile');
       } else {
-        endpoint = '${_appConfig.fullApiUrl}/passenger/profile';
+        endpoint = _appConfig.getEndpoint('passenger/profile');
       }
 
       print('Đang gọi API: $endpoint');
@@ -213,7 +213,7 @@ class ProfileService {
         );
       }
 
-      final uri = Uri.parse('${_appConfig.fullApiUrl}/user/update-profile');
+      final uri = Uri.parse(_appConfig.getEndpoint('user/update-profile'));
 
       var request = http.MultipartRequest('PUT', uri);
       request.headers['Authorization'] = 'Bearer $token';
@@ -349,7 +349,7 @@ class ProfileService {
       }
 
       // Endpoint chung cho mọi người dùng
-      final endpoint = '${_appConfig.fullApiUrl}/user/update-profile';
+      final endpoint = _appConfig.getEndpoint('user/update-profile');
 
       print('Gửi request đến: $endpoint');
 
@@ -504,7 +504,7 @@ class ProfileService {
       }
 
       // Endpoint chung cho mọi người dùng
-      final endpoint = '${_appConfig.fullApiUrl}/user/change-pass';
+      final endpoint = _appConfig.getEndpoint('user/change-pass');
       print('Gửi request đổi mật khẩu đến: $endpoint');
 
       final response = await http

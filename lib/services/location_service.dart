@@ -128,4 +128,62 @@ class LocationService {
           ),
     );
   }
+
+  /// Get current location as Position (alias for getCurrentPosition)
+  Future<Position?> getCurrentLocation() async {
+    try {
+      return await getCurrentPosition();
+    } catch (e) {
+      print('Error getting current location: $e');
+      return null;
+    }
+  }
+
+  /// Get address from LatLng
+  Future<String> getAddressFromLatLng(LatLng latLng) async {
+    try {
+      final placemarks = await getAddressFromCoordinates(
+        latLng.latitude,
+        latLng.longitude,
+      );
+      if (placemarks.isNotEmpty) {
+        final place = placemarks.first;
+        return '${place.street ?? ''} ${place.locality ?? ''} ${place.administrativeArea ?? ''} ${place.country ?? ''}'
+            .trim();
+      }
+      return '${latLng.latitude}, ${latLng.longitude}';
+    } catch (e) {
+      print('Error getting address from latlng: $e');
+      return '${latLng.latitude}, ${latLng.longitude}';
+    }
+  }
+
+  /// Get LatLng from address
+  Future<LatLng?> getLocationFromAddress(String address) async {
+    try {
+      final locations = await locationFromAddress(address);
+      if (locations.isNotEmpty) {
+        return LatLng(locations.first.latitude, locations.first.longitude);
+      }
+      return null;
+    } catch (e) {
+      print('Error getting location from address: $e');
+      return null;
+    }
+  }
+
+  /// Search places (simple implementation)
+  Future<List<String>> searchPlaces(String query) async {
+    // This is a simple implementation - in production you might want to use
+    // a more sophisticated geocoding service
+    try {
+      final locations = await locationFromAddress(query);
+      return locations
+          .map((location) => '${location.latitude}, ${location.longitude}')
+          .toList();
+    } catch (e) {
+      print('Error searching places: $e');
+      return [];
+    }
+  }
 }

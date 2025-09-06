@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../services/auth_manager.dart';
+import '../services/auth_service.dart';
 import 'package:flutter/material.dart';
 import 'app_config.dart';
 import 'dart:async';
@@ -9,10 +10,10 @@ class ApiClient {
   final AuthManager _authManager = AuthManager();
   final AppConfig _appConfig = AppConfig();
   static final ApiClient _instance = ApiClient._internal();
-  
+
   // Create a persistent HTTP client for connection pooling
   final http.Client _httpClient = http.Client();
-  
+
   // Default timeout duration
   final Duration _defaultTimeout = const Duration(seconds: 10);
 
@@ -47,11 +48,19 @@ class ApiClient {
 
     if (token != null) {
       headers['Authorization'] = 'Bearer $token';
-      
+
       // Validate token expiration
       if (_authManager.isTokenExpired(token)) {
-        print('⚠️ WARNING: Token is expired!');
-        // TODO: Handle token refresh or re-login
+        print('⚠️ WARNING: Token is expired! Attempting to refresh...');
+
+        try {
+          // Token expired, user needs to login again
+          print('❌ Token expired, user needs to login again');
+          throw Exception('Token expired. Please login again.');
+        } catch (e) {
+          print('❌ Error during token validation: $e');
+          throw Exception('Token expired. Please login again.');
+        }
       }
     } else if (requireAuth) {
       throw Exception('Authentication token required but not found');
@@ -72,7 +81,8 @@ class ApiClient {
   }
 
   // GET request with auth and timeout
-  Future<http.Response> get(String endpoint, {
+  Future<http.Response> get(
+    String endpoint, {
     bool requireAuth = true,
     Duration? timeout,
   }) async {
@@ -83,9 +93,14 @@ class ApiClient {
 
       final response = await _httpClient
           .get(url, headers: headers)
-          .timeout(duration, onTimeout: () {
-            throw TimeoutException('GET request timed out after ${duration.inSeconds}s: $url');
-          });
+          .timeout(
+            duration,
+            onTimeout: () {
+              throw TimeoutException(
+                'GET request timed out after ${duration.inSeconds}s: $url',
+              );
+            },
+          );
 
       _logResponse(response);
       return response;
@@ -113,9 +128,14 @@ class ApiClient {
             headers: headers,
             body: body != null ? jsonEncode(body) : null,
           )
-          .timeout(duration, onTimeout: () {
-            throw TimeoutException('POST request timed out after ${duration.inSeconds}s: $url');
-          });
+          .timeout(
+            duration,
+            onTimeout: () {
+              throw TimeoutException(
+                'POST request timed out after ${duration.inSeconds}s: $url',
+              );
+            },
+          );
 
       _logResponse(response);
       return response;
@@ -143,9 +163,14 @@ class ApiClient {
             headers: headers,
             body: body != null ? jsonEncode(body) : null,
           )
-          .timeout(duration, onTimeout: () {
-            throw TimeoutException('PUT request timed out after ${duration.inSeconds}s: $url');
-          });
+          .timeout(
+            duration,
+            onTimeout: () {
+              throw TimeoutException(
+                'PUT request timed out after ${duration.inSeconds}s: $url',
+              );
+            },
+          );
 
       _logResponse(response);
       return response;
@@ -173,9 +198,14 @@ class ApiClient {
             headers: headers,
             body: body != null ? jsonEncode(body) : null,
           )
-          .timeout(duration, onTimeout: () {
-            throw TimeoutException('PATCH request timed out after ${duration.inSeconds}s: $url');
-          });
+          .timeout(
+            duration,
+            onTimeout: () {
+              throw TimeoutException(
+                'PATCH request timed out after ${duration.inSeconds}s: $url',
+              );
+            },
+          );
 
       _logResponse(response);
       return response;
@@ -198,9 +228,14 @@ class ApiClient {
 
       final response = await _httpClient
           .delete(url, headers: headers)
-          .timeout(duration, onTimeout: () {
-            throw TimeoutException('DELETE request timed out after ${duration.inSeconds}s: $url');
-          });
+          .timeout(
+            duration,
+            onTimeout: () {
+              throw TimeoutException(
+                'DELETE request timed out after ${duration.inSeconds}s: $url',
+              );
+            },
+          );
 
       _logResponse(response);
       return response;
@@ -212,12 +247,13 @@ class ApiClient {
 
   // Log response for debugging
   void _logResponse(http.Response response) {
-    final isSuccessful = response.statusCode >= 200 && response.statusCode < 300;
+    final isSuccessful =
+        response.statusCode >= 200 && response.statusCode < 300;
     final responseLength = response.body.length;
-    
+
     // Limit response body logging to avoid memory issues with large responses
     final maxLogLength = 500;
-    
+
     if (isSuccessful) {
       try {
         // Check if the response is HTML (common when receiving error pages)
@@ -236,7 +272,9 @@ class ApiClient {
           if (logStr.length <= maxLogLength) {
             print('✅ Response: $logStr');
           } else {
-            print('✅ Response (truncated): ${logStr.substring(0, maxLogLength)}...');
+            print(
+              '✅ Response (truncated): ${logStr.substring(0, maxLogLength)}...',
+            );
           }
         } else {
           print('✅ Response is too large to log ($responseLength bytes)');
@@ -246,11 +284,15 @@ class ApiClient {
         if (responseLength < maxLogLength) {
           print('📄 Raw response: ${response.body}');
         } else {
-          print('📄 Raw response (truncated): ${response.body.substring(0, maxLogLength)}...');
+          print(
+            '📄 Raw response (truncated): ${response.body.substring(0, maxLogLength)}...',
+          );
         }
       }
     } else {
-      print('❌ Error Response (${response.statusCode}): ${response.body.length > maxLogLength ? response.body.substring(0, maxLogLength) + "..." : response.body}');
+      print(
+        '❌ Error Response (${response.statusCode}): ${response.body.length > maxLogLength ? response.body.substring(0, maxLogLength) + "..." : response.body}',
+      );
 
       // Check for auth errors
       if (response.statusCode == 401) {
@@ -265,8 +307,10 @@ class ApiClient {
     await _authManager.logout();
 
     // Navigate to login screen
-    Navigator.of(context, rootNavigator: true)
-        .pushNamedAndRemoveUntil('/login_passenger', (route) => false);
+    Navigator.of(
+      context,
+      rootNavigator: true,
+    ).pushNamedAndRemoveUntil('/login_passenger', (route) => false);
   }
 
   // Multipart request for file uploads with auth
@@ -282,7 +326,7 @@ class ApiClient {
       final path = _normalizeEndpoint(endpoint);
       final url = Uri.parse('${_appConfig.fullApiUrl}/$path');
       final duration = timeout ?? _defaultTimeout;
-      
+
       final request = http.MultipartRequest(method, url);
 
       // Add auth headers

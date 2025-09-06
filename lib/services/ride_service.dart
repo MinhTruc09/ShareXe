@@ -4,7 +4,6 @@ import 'dart:io'; // Add this import for SocketException
 import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import '../models/ride.dart';
-import '../models/booking.dart';
 import '../utils/http_client.dart';
 import '../services/auth_manager.dart';
 import 'package:http/http.dart' as http;
@@ -21,7 +20,6 @@ class RideService {
 
   // Cached rides to improve performance
   List<Ride> _cachedAvailableRides = [];
-  DateTime _lastCacheTime = DateTime(1970); // Set to epoch initially
 
   // Cached driver rides to improve performance
   List<Ride> _cachedDriverRides = [];
@@ -59,7 +57,6 @@ class RideService {
 
             // Update the cache with new data
             _cachedAvailableRides = List.from(availableRides);
-            _lastCacheTime = DateTime.now();
           }
         } catch (e) {
           debugPrint('Error parsing API response: $e');
@@ -157,7 +154,6 @@ class RideService {
 
           // Update the cache with filtered data
           _cachedAvailableRides = List.from(availableRides);
-          _lastCacheTime = DateTime.now();
         } else {
           print('🔍 Không có chuyến đi nào cần lọc bỏ');
         }
@@ -186,7 +182,6 @@ class RideService {
 
               // Update the cache with filtered data
               _cachedAvailableRides = List.from(availableRides);
-              _lastCacheTime = DateTime.now();
             }
           }
         } catch (e2) {
@@ -403,7 +398,6 @@ class RideService {
   void clearAvailableRidesCache() {
     print('🧹 Xóa cache danh sách chuyến đi có sẵn');
     _cachedAvailableRides = [];
-    _lastCacheTime = DateTime(1970); // Reset về epoch
   }
 
   // Get ride details
@@ -527,34 +521,6 @@ class RideService {
       print('❌ Error searching rides: $e');
       return [];
     }
-  }
-
-  // Creates mock pending bookings for demo purposes
-  List<Booking> _getMockPendingBookings() {
-    return [
-      Booking(
-        id: 101,
-        rideId: 1,
-        passengerId: 201,
-        seatsBooked: 2,
-        passengerName: "Nguyễn Văn A",
-        status: "PENDING",
-        createdAt:
-            DateTime.now().subtract(const Duration(hours: 1)).toIso8601String(),
-      ),
-      Booking(
-        id: 102,
-        rideId: 1,
-        passengerId: 202,
-        seatsBooked: 1,
-        passengerName: "Trần Thị B",
-        status: "PENDING",
-        createdAt:
-            DateTime.now()
-                .subtract(const Duration(minutes: 30))
-                .toIso8601String(),
-      ),
-    ];
   }
 
   // Tạo chuyến đi mới (cho tài xế)
@@ -1595,7 +1561,6 @@ class RideService {
 
               // Xóa cache để đảm bảo dữ liệu mới nhất
               _cachedAvailableRides = [];
-              _lastCacheTime = DateTime(1970);
 
               return true;
             } else {

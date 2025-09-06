@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sharexe/app_route.dart';
 import 'package:sharexe/views/widgets/custom_button.dart';
-import 'package:sharexe/views/widgets/custom_text_field.dart';
 import 'package:sharexe/views/widgets/custom_text_field1.dart';
 
 class LoginFormContainer1 extends StatelessWidget {
@@ -57,7 +56,9 @@ class LoginFormContainer1 extends StatelessWidget {
                 if (value == null || value.isEmpty) {
                   return 'Vui lòng nhập email';
                 }
-                if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                if (!RegExp(
+                  r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                ).hasMatch(value)) {
                   return 'Email không hợp lệ';
                 }
                 return null;
@@ -81,7 +82,7 @@ class LoginFormContainer1 extends StatelessWidget {
               },
             ),
             SizedBox(height: screenHeight * 0.01),
-            
+
             // Thêm nút quên mật khẩu
             Align(
               alignment: Alignment.centerRight,
@@ -97,14 +98,11 @@ class LoginFormContainer1 extends StatelessWidget {
                 ),
                 child: const Text(
                   'Quên mật khẩu?',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                 ),
               ),
             ),
-            
+
             SizedBox(height: screenHeight * 0.01),
             if (errorMessage.isNotEmpty)
               Container(
@@ -119,7 +117,11 @@ class LoginFormContainer1 extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.error_outline, color: Colors.red, size: 16),
+                    const Icon(
+                      Icons.error_outline,
+                      color: Colors.red,
+                      size: 16,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(

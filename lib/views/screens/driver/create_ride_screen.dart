@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../services/ride_service.dart';
-import '../../../services/auth_manager.dart';
 import '../../../services/profile_service.dart';
 import '../../../models/user_profile.dart';
 import '../../widgets/location_picker.dart';
+import '../../widgets/route_map_picker.dart';
 import '../../widgets/date_picker.dart';
 import '../../widgets/passenger_counter.dart';
 import '../../widgets/sharexe_background2.dart';
@@ -23,7 +23,6 @@ class CreateRideScreen extends StatefulWidget {
 
 class _CreateRideScreenState extends State<CreateRideScreen> {
   final RideService _rideService = RideService();
-  final AuthManager _authManager = AuthManager();
   final ProfileService _profileService = ProfileService();
   final _formKey = GlobalKey<FormState>();
 
@@ -40,6 +39,27 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
   int? _rideId;
 
   final TextEditingController _priceController = TextEditingController();
+
+  // Additional detailed location fields for departure
+  String? _departureWard;
+  String? _departureDistrict;
+  String? _departureProvince;
+  double? _departureLat;
+  double? _departureLng;
+
+  // Additional detailed location fields for destination
+  String? _destinationWard;
+  String? _destinationDistrict;
+  String? _destinationProvince;
+  double? _destinationLat;
+  double? _destinationLng;
+
+  // Route polyline data
+  List<LatLng> _polylinePoints = [];
+
+  // Driver information
+  String? _driverName;
+  String? _driverEmail;
 
   @override
   void initState() {
@@ -100,6 +120,10 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
             final UserProfile userProfile = response.data!;
             _driverStatus = userProfile.status;
             _isDriverApproved = userProfile.status == 'APPROVED';
+
+            // Lưu thông tin tài xế để gửi API
+            _driverName = userProfile.fullName;
+            _driverEmail = userProfile.email;
 
             // Nếu không phải là chế độ chỉnh sửa chuyến và tài xế chưa được duyệt,
             // hiển thị thông báo
@@ -205,8 +229,44 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
       if (!mounted) return;
       setState(() {
         _rideId = ride['id'];
-        _departure = LocationData(address: ride['departure'] ?? '');
-        _destination = LocationData(address: ride['destination'] ?? '');
+
+        _departure = LocationData(
+          address: ride['departure'] ?? '',
+          ward: ride['startWard'],
+          district: ride['startDistrict'],
+          province: ride['startProvince'],
+          latLng:
+              (ride['startLat'] != null && ride['startLng'] != null)
+                  ? LatLng(ride['startLat'], ride['startLng'])
+                  : null,
+        );
+
+        _destination = LocationData(
+          address: ride['destination'] ?? '',
+          ward: ride['endWard'],
+          district: ride['endDistrict'],
+          province: ride['endProvince'],
+          latLng:
+              (ride['endLat'] != null && ride['endLng'] != null)
+                  ? LatLng(ride['endLat'], ride['endLng'])
+                  : null,
+        );
+
+        _departureWard = ride['startWard'];
+        _departureDistrict = ride['startDistrict'];
+        _departureProvince = ride['startProvince'];
+        _departureLat =
+            ride['startLat'] != null ? ride['startLat'].toDouble() : null;
+        _departureLng =
+            ride['startLng'] != null ? ride['startLng'].toDouble() : null;
+
+        _destinationWard = ride['endWard'];
+        _destinationDistrict = ride['endDistrict'];
+        _destinationProvince = ride['endProvince'];
+        _destinationLat =
+            ride['endLat'] != null ? ride['endLat'].toDouble() : null;
+        _destinationLng =
+            ride['endLng'] != null ? ride['endLng'].toDouble() : null;
 
         if (ride['startTime'] != null) {
           try {
@@ -221,6 +281,45 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
         _priceController.text = _pricePerSeat.toString();
       });
     });
+  }
+
+  Future<void> _openRouteMapPicker() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder:
+            (context) => RouteMapPicker(
+              title: 'Chọn tuyến đường',
+              initialDeparture: _departure?.latLng,
+              initialDestination: _destination?.latLng,
+              onRouteSelected: (
+                departureAddress,
+                departureLatLng,
+                destinationAddress,
+                destinationLatLng,
+                polylinePoints,
+              ) {
+                setState(() {
+                  _departure = LocationData(
+                    address: departureAddress,
+                    latLng: departureLatLng,
+                  );
+                  _destination = LocationData(
+                    address: destinationAddress,
+                    latLng: destinationLatLng,
+                  );
+                  _polylinePoints = polylinePoints;
+
+                  // Update detailed location fields
+                  _departureLat = departureLatLng.latitude;
+                  _departureLng = departureLatLng.longitude;
+                  _destinationLat = destinationLatLng.latitude;
+                  _destinationLng = destinationLatLng.longitude;
+                });
+              },
+            ),
+      ),
+    );
   }
 
   Future<void> _submitRide() async {
@@ -350,13 +449,29 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
         return;
       }
 
-      // Chuẩn bị dữ liệu chuyến đi
+      // Chuẩn bị dữ liệu chuyến đi theo API specification
       final rideData = {
+        'id': 0, // API yêu cầu, sẽ được server gán
+        'availableSeats': _totalSeats, // Ban đầu bằng totalSeat
+        'driverName': _driverName ?? '', // Cần lấy từ profile
+        'driverEmail': _driverEmail ?? '', // Cần lấy từ profile
         'departure': _departure!.address,
+        'startLat': _departureLat ?? 0.0,
+        'startLng': _departureLng ?? 0.0,
+        'startAddress': _departure!.address, // Thêm trường này
+        'startWard': _departureWard ?? '',
+        'startDistrict': _departureDistrict ?? '',
+        'startProvince': _departureProvince ?? '',
+        'endLat': _destinationLat ?? 0.0,
+        'endLng': _destinationLng ?? 0.0,
+        'endAddress': _destination!.address, // Thêm trường này
+        'endWard': _destinationWard ?? '',
+        'endDistrict': _destinationDistrict ?? '',
+        'endProvince': _destinationProvince ?? '',
         'destination': _destination!.address,
         'startTime': _departureDate!.toIso8601String(),
-        'totalSeat': _totalSeats,
         'pricePerSeat': _pricePerSeat,
+        'totalSeat': _totalSeats,
         'status': 'ACTIVE',
       };
 
@@ -502,161 +617,231 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
           backgroundColor: const Color(0xFF002D72),
           title: const Text('Tạo chuyến đi mới'),
         ),
-        body: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Card(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  elevation: 4,
-                  child: Padding(
+        body:
+            _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : Form(
+                  key: _formKey,
+                  child: SingleChildScrollView(
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        LocationPicker(
-                          title: 'Điểm đi',
-                          icon: Icons.circle_outlined,
-                          hintText: 'Xuất phát từ',
-                          initialValue: _departure?.address ?? '',
-                          onLocationSelected: (location) {
-                            setState(() {
-                              _departure = location;
-                            });
-                          },
-                        ),
-                        const Divider(height: 16),
-                        LocationPicker(
-                          title: 'Điểm đến',
-                          icon: Icons.location_on_outlined,
-                          hintText: 'Điểm đến',
-                          initialValue: _destination?.address ?? '',
-                          onLocationSelected: (location) {
-                            setState(() {
-                              _destination = location;
-                            });
-                          },
-                        ),
-                        const Divider(height: 16),
-                        DatePickerField(
-                          icon: Icons.access_time,
-                          hintText: 'Thời gian xuất phát (ngày và giờ)',
-                          initialDate: _departureDate,
-                          includeTime: true,
-                          onDateSelected: (date) {
-                            setState(() {
-                              _departureDate = date;
-                              print(
-                                'Đã chọn thời gian: ${DateFormat('dd/MM/yyyy HH:mm').format(date)}',
-                              );
-                            });
-                          },
-                        ),
-                        const Divider(height: 16),
-                        PassengerCounter(
-                          icon: Icons.people_outline,
-                          hintText: 'Số ghế',
-                          initialCount: _totalSeats,
-                          maxCount: 8,
-                          onCountChanged: (count) {
-                            setState(() {
-                              _totalSeats = count;
-                            });
-                          },
-                        ),
-                        const Divider(height: 16),
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.monetization_on_outlined,
-                              color: Colors.grey,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: TextFormField(
-                                controller: _priceController,
-                                decoration: const InputDecoration(
-                                  hintText: 'Giá mỗi ghế (VND)',
-                                  border: InputBorder.none,
+                        Card(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          elevation: 4,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              children: [
+                                LocationPicker(
+                                  title: 'Điểm đi',
+                                  icon: Icons.circle_outlined,
+                                  hintText: 'Xuất phát từ',
+                                  initialValue: _departure?.address ?? '',
+                                  onLocationSelected: (location) {
+                                    setState(() {
+                                      _departure = location;
+                                      _departureWard = location.ward;
+                                      _departureDistrict = location.district;
+                                      _departureProvince = location.province;
+                                      _departureLat = location.latLng?.latitude;
+                                      _departureLng =
+                                          location.latLng?.longitude;
+                                    });
+                                  },
                                 ),
-                                keyboardType: TextInputType.number,
-                                onChanged: (value) {
-                                  setState(() {
-                                    _pricePerSeat = double.tryParse(value) ?? 0;
-                                  });
-                                },
-                                validator: (value) {
-                                  if (value == null || value.isEmpty) {
-                                    return 'Vui lòng nhập giá';
-                                  }
-                                  if (double.tryParse(value) == null) {
-                                    return 'Giá không hợp lệ';
-                                  }
-                                  return null;
-                                },
+                                const Divider(height: 16),
+                                LocationPicker(
+                                  title: 'Điểm đến',
+                                  icon: Icons.location_on_outlined,
+                                  hintText: 'Điểm đến',
+                                  initialValue: _destination?.address ?? '',
+                                  onLocationSelected: (location) {
+                                    setState(() {
+                                      _destination = location;
+                                      _destinationWard = location.ward;
+                                      _destinationDistrict = location.district;
+                                      _destinationProvince = location.province;
+                                      _destinationLat =
+                                          location.latLng?.latitude;
+                                      _destinationLng =
+                                          location.latLng?.longitude;
+                                    });
+                                  },
+                                ),
+                                const Divider(height: 16),
+                                // Map picker button
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton.icon(
+                                    onPressed: _openRouteMapPicker,
+                                    icon: const Icon(Icons.map),
+                                    label: const Text(
+                                      'Chọn tuyến đường trên bản đồ',
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF00AEEF),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                if (_polylinePoints.isNotEmpty) ...[
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: Colors.blue.shade50,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: Colors.blue.shade200,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.route,
+                                          color: Colors.blue.shade700,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            'Tuyến đường đã chọn: ${_polylinePoints.length} điểm',
+                                            style: TextStyle(
+                                              color: Colors.blue.shade700,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                                const Divider(height: 16),
+                                DatePickerField(
+                                  icon: Icons.access_time,
+                                  hintText: 'Thời gian xuất phát (ngày và giờ)',
+                                  initialDate: _departureDate,
+                                  includeTime: true,
+                                  onDateSelected: (date) {
+                                    setState(() {
+                                      _departureDate = date;
+                                      print(
+                                        'Đã chọn thời gian: ${DateFormat('dd/MM/yyyy HH:mm').format(date)}',
+                                      );
+                                    });
+                                  },
+                                ),
+                                const Divider(height: 16),
+                                PassengerCounter(
+                                  icon: Icons.people_outline,
+                                  hintText: 'Số ghế',
+                                  initialCount: _totalSeats,
+                                  maxCount: 8,
+                                  onCountChanged: (count) {
+                                    setState(() {
+                                      _totalSeats = count;
+                                    });
+                                  },
+                                ),
+                                const Divider(height: 16),
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.monetization_on_outlined,
+                                      color: Colors.grey,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: TextFormField(
+                                        controller: _priceController,
+                                        decoration: const InputDecoration(
+                                          hintText: 'Giá mỗi ghế (VND)',
+                                          border: InputBorder.none,
+                                        ),
+                                        keyboardType: TextInputType.number,
+                                        onChanged: (value) {
+                                          setState(() {
+                                            _pricePerSeat =
+                                                double.tryParse(value) ?? 0;
+                                          });
+                                        },
+                                        validator: (value) {
+                                          if (value == null || value.isEmpty) {
+                                            return 'Vui lòng nhập giá';
+                                          }
+                                          if (double.tryParse(value) == null) {
+                                            return 'Giá không hợp lệ';
+                                          }
+                                          return null;
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 50,
+                          child: ElevatedButton(
+                            onPressed:
+                                (_isSubmitting ||
+                                        (_isEditMode &&
+                                            widget.existingRide != null &&
+                                            widget.existingRide?['status']
+                                                    ?.toString()
+                                                    .toUpperCase() !=
+                                                AppConfig.RIDE_STATUS_ACTIVE))
+                                    ? null
+                                    : _submitRide,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor:
+                                  (_isEditMode &&
+                                          widget.existingRide != null &&
+                                          widget.existingRide?['status']
+                                                  ?.toString()
+                                                  .toUpperCase() !=
+                                              AppConfig.RIDE_STATUS_ACTIVE)
+                                      ? Colors.grey.shade400
+                                      : const Color(0xFF002D72),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
                               ),
                             ),
-                          ],
+                            child:
+                                _isSubmitting
+                                    ? const CircularProgressIndicator(
+                                      color: Colors.white,
+                                    )
+                                    : Text(
+                                      _isEditMode
+                                          ? 'Cập nhật chuyến đi'
+                                          : 'Tạo chuyến đi',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                          ),
                         ),
                       ],
                     ),
                   ),
                 ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton(
-                    onPressed:
-                        (_isSubmitting ||
-                                (_isEditMode &&
-                                    widget.existingRide != null &&
-                                    widget.existingRide?['status']
-                                            ?.toString()
-                                            .toUpperCase() !=
-                                        AppConfig.RIDE_STATUS_ACTIVE))
-                            ? null
-                            : _submitRide,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor:
-                          (_isEditMode &&
-                                  widget.existingRide != null &&
-                                  widget.existingRide?['status']
-                                          ?.toString()
-                                          .toUpperCase() !=
-                                      AppConfig.RIDE_STATUS_ACTIVE)
-                              ? Colors.grey.shade400
-                              : const Color(0xFF002D72),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child:
-                        _isSubmitting
-                            ? const CircularProgressIndicator(
-                              color: Colors.white,
-                            )
-                            : Text(
-                              _isEditMode
-                                  ? 'Cập nhật chuyến đi'
-                                  : 'Tạo chuyến đi',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../models/notification_model.dart';
 import '../../../services/notification_service.dart';
+import '../../../utils/app_config.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({Key? key}) : super(key: key);
@@ -109,12 +110,35 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       await _markAsRead(notification.id);
     }
 
-    if (notification.type == 'BOOKING_REQUEST') {
-      // Chuyển đến trang booking
-      // Navigator.pushNamed(context, '/booking-detail', arguments: notification.referenceId);
-    } else if (notification.type == 'CHAT_MESSAGE') {
-      // Chuyển đến trang chat
-      // Navigator.pushNamed(context, '/chat', arguments: notification.referenceId);
+    // Xử lý điều hướng theo loại thông báo
+    switch (notification.type) {
+      case AppConfig.NOTIFICATION_BOOKING_REQUEST:
+      case AppConfig.NOTIFICATION_BOOKING_ACCEPTED:
+      case AppConfig.NOTIFICATION_BOOKING_REJECTED:
+      case AppConfig.NOTIFICATION_BOOKING_CANCELLED:
+        // Điều hướng đến trang quản lý booking
+        Navigator.pushNamed(context, '/driver/bookings');
+        break;
+      case AppConfig.NOTIFICATION_CHAT_MESSAGE:
+        // Điều hướng đến trang chat
+        Navigator.pushNamed(
+          context,
+          '/chat_room',
+          arguments: {
+            'roomId': notification.referenceId,
+            'partnerName': notification.title.replaceAll('Tin nhắn từ ', ''),
+            'partnerEmail': notification.userEmail,
+          },
+        );
+        break;
+      case AppConfig.NOTIFICATION_DRIVER_APPROVED:
+        // Điều hướng đến trang thông tin tài xế
+        Navigator.pushNamed(context, '/driver/profile');
+        break;
+      case AppConfig.NOTIFICATION_DRIVER_REJECTED:
+        // Điều hướng đến trang chỉnh sửa hồ sơ tài xế
+        Navigator.pushNamed(context, '/driver/edit-profile');
+        break;
     }
   }
 
@@ -208,7 +232,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       itemCount: _notifications.length,
       itemBuilder: (context, index) {
         final notification = _notifications[index];
-        final isDriverRejection = notification.type == 'DRIVER_REJECTED';
+        final isDriverRejection =
+            notification.type == AppConfig.NOTIFICATION_DRIVER_REJECTED;
 
         return _buildNotificationItem(notification, isDriverRejection);
       },
@@ -511,15 +536,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   Widget _getIconForNotificationType(String type) {
     switch (type) {
-      case 'BOOKING_REQUEST':
+      case AppConfig.NOTIFICATION_BOOKING_REQUEST:
         return const Icon(Icons.car_rental, color: Colors.white);
-      case 'BOOKING_ACCEPTED':
+      case AppConfig.NOTIFICATION_BOOKING_ACCEPTED:
         return const Icon(Icons.check_circle, color: Colors.white);
-      case 'BOOKING_REJECTED':
+      case AppConfig.NOTIFICATION_BOOKING_REJECTED:
         return const Icon(Icons.cancel, color: Colors.white);
-      case 'DRIVER_REJECTED':
+      case AppConfig.NOTIFICATION_DRIVER_REJECTED:
         return const Icon(Icons.gpp_bad, color: Colors.white);
-      case 'CHAT_MESSAGE':
+      case AppConfig.NOTIFICATION_CHAT_MESSAGE:
         return const Icon(Icons.chat, color: Colors.white);
       case 'PAYMENT':
         return const Icon(Icons.payment, color: Colors.white);

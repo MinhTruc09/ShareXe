@@ -3,12 +3,8 @@ import 'package:sharexe/services/booking_service.dart';
 import 'package:sharexe/models/booking.dart';
 import 'package:sharexe/app_route.dart';
 import 'package:sharexe/views/widgets/sharexe_background1.dart';
-import 'package:intl/intl.dart';
-import 'package:sharexe/services/ride_service.dart';
 import 'package:flutter/foundation.dart';
-import 'package:sharexe/models/ride.dart';
 import 'package:sharexe/services/notification_service.dart';
-import 'package:sharexe/views/screens/common/ride_details.dart';
 import 'package:sharexe/views/widgets/booking_card.dart';
 import 'package:sharexe/utils/app_config.dart';
 import 'package:sharexe/views/screens/passenger/passenger_main_screen.dart';
@@ -25,7 +21,6 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen>
     with SingleTickerProviderStateMixin {
   final BookingService _bookingService = BookingService();
   final NotificationService _notificationService = NotificationService();
-  final RideService _rideService = RideService();
 
   late TabController _tabController;
   List<BookingDTO> _upcomingBookings = [];
@@ -34,9 +29,6 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen>
   List<BookingDTO> _cancelledOrExpiredBookings =
       []; // Chuyến đã hủy hoặc hết hạn
   bool _isLoading = false;
-
-  // Map to track the expanded state of each booking card
-  final Map<int, bool> _expandedState = {};
 
   @override
   void initState() {
@@ -185,7 +177,7 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen>
 
     try {
       // Gọi API để hủy booking
-      final success = await _bookingService.cancelBooking(booking.rideId);
+      final success = await _bookingService.cancelBookingDTO(booking.rideId);
 
       if (success) {
         // Gửi thông báo cho tài xế
@@ -266,139 +258,6 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen>
         );
       }
     }
-  }
-
-  // Xác nhận hoàn thành chuyến đi
-  Future<void> _confirmRideCompletion(BookingDTO booking) async {
-    // Hiển thị dialog xác nhận
-    bool? confirmComplete = await showDialog<bool>(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Xác nhận hoàn thành'),
-            content: const Text(
-              'Bạn xác nhận đã hoàn thành chuyến đi này? Hành động này không thể hoàn tác.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Không'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Xác nhận hoàn thành'),
-                style: TextButton.styleFrom(foregroundColor: Colors.green),
-              ),
-            ],
-          ),
-    );
-
-    if (confirmComplete != true) return;
-
-    // Hiển thị loading
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      // Gọi API để xác nhận hoàn thành chuyến đi
-      final success = await _rideService.passengerConfirmCompletion(
-        booking.rideId,
-      );
-
-      if (success) {
-        // Gửi thông báo cho tài xế
-        await _notificationService.sendNotification(
-          'Hành khách đã xác nhận hoàn thành',
-          'Hành khách ${booking.passengerName} đã xác nhận hoàn thành chuyến đi.',
-          'PASSENGER_CONFIRMED',
-          {'bookingId': booking.id, 'rideId': booking.rideId},
-          recipientEmail: booking.driverEmail,
-        );
-
-        // Làm mới danh sách bookings
-        await _loadBookings();
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Đã xác nhận hoàn thành chuyến đi'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
-      } else {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Không thể xác nhận hoàn thành. Vui lòng thử lại sau.',
-              ),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      print('❌ Lỗi khi xác nhận hoàn thành: $e');
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Đã xảy ra lỗi: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  // Xem chi tiết booking
-  void _viewBookingDetails(BookingDTO booking) async {
-    // Tạo đối tượng Ride từ thông tin trong BookingDTO
-    final ride = Ride(
-      id: booking.rideId,
-      driverName: booking.driverName,
-      driverEmail: booking.driverEmail,
-      departure: booking.departure,
-      startLat: 0.0,
-      startLng: 0.0,
-      startAddress: '',
-      startWard: '',
-      startDistrict: '',
-      startProvince: '',
-      endLat: 0.0,
-      endLng: 0.0,
-      endAddress: '',
-      endWard: '',
-      endDistrict: '',
-      endProvince: '',
-      destination: booking.destination,
-      startTime: booking.startTime.toIso8601String(),
-      pricePerSeat: booking.pricePerSeat,
-      availableSeats: booking.availableSeats,
-      totalSeat: booking.totalSeats,
-      status: booking.rideStatus,
-    );
-
-    // Convert BookingDTO to Booking for compatibility
-    final bookingObj = booking.toBooking();
-
-    // Navigate to RideDetailsScreen with both ride and booking
-    await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => RideDetailScreen(ride: ride)),
-    );
-
-    // Refresh bookings list after returning
-    _loadBookings();
   }
 
   @override
@@ -564,8 +423,8 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen>
       }
 
       // Gọi API để xác nhận hoàn thành
-      final result = await _rideService.passengerConfirmCompletion(
-        booking.rideId,
+      final result = await _bookingService.passengerConfirmCompletionDTO(
+        booking.id,
       );
 
       if (result) {
@@ -581,7 +440,7 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen>
           await _notificationService.sendNotification(
             'Hành khách đã xác nhận hoàn thành',
             'Hành khách ${booking.passengerName} đã xác nhận hoàn thành chuyến đi.',
-            'PASSENGER_CONFIRMED',
+            AppConfig.NOTIFICATION_PASSENGER_CONFIRMED,
             {'bookingId': booking.id, 'rideId': booking.rideId},
             recipientEmail: booking.driverEmail,
           );

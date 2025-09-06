@@ -171,8 +171,8 @@ class AuthService {
             'fullName': fullName,
             'phone': phone,
             'avatarImage': avatarImagePath ?? '',
-            'licenseImage': 'fake_license.jpg', // Giả lập trên web
-            'vehicleImage': 'fake_vehicle.jpg', // Giả lập trên web
+            'licenseImage': licenseImagePath ?? '',
+            'vehicleImage': vehicleImagePath ?? '',
             'licensePlate': licensePlate,
             'brand': brand,
             'model': model,

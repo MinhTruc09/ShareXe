@@ -110,33 +110,43 @@ class PassengerDetailsCard extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          const Icon(Icons.phone, size: 16, color: Colors.grey),
-                          const SizedBox(width: 4),
-                          Text(
-                            passengerPhone,
-                            style: const TextStyle(
-                              fontSize: 14,
+                      if (passengerPhone.isNotEmpty)
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.phone,
+                              size: 16,
                               color: Colors.grey,
                             ),
-                          ),
-                        ],
-                      ),
+                            const SizedBox(width: 4),
+                            Text(
+                              passengerPhone,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
                       const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          const Icon(Icons.email, size: 16, color: Colors.grey),
-                          const SizedBox(width: 4),
-                          Text(
-                            passengerEmail,
-                            style: const TextStyle(
-                              fontSize: 14,
+                      if (passengerEmail.isNotEmpty)
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.email,
+                              size: 16,
                               color: Colors.grey,
                             ),
-                          ),
-                        ],
-                      ),
+                            const SizedBox(width: 4),
+                            Text(
+                              passengerEmail,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
                     ],
                   ),
                 ),

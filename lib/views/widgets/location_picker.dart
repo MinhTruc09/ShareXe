@@ -6,8 +6,17 @@ import 'package:latlong2/latlong.dart';
 class LocationData {
   final String address;
   final LatLng? latLng;
+  final String? ward;
+  final String? district;
+  final String? province;
 
-  const LocationData({required this.address, this.latLng});
+  const LocationData({
+    required this.address,
+    this.latLng,
+    this.ward,
+    this.district,
+    this.province,
+  });
 }
 
 class LocationPicker extends StatefulWidget {

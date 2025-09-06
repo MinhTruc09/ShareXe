@@ -13,12 +13,17 @@ import '../../../models/user_profile.dart';
 import '../../../services/auth_manager.dart';
 import 'package:flutter/foundation.dart';
 import '../../../services/ride_service.dart';
+import '../../../services/tracking_service.dart';
+import '../../../services/location_service.dart';
 import 'driver_main_screen.dart'; // Import TabNavigator từ driver_main_screen.dart
 import '../../../utils/app_config.dart';
 import '../../../utils/api_debug_helper.dart'; // Add this import
 import '../../../utils/navigation_helper.dart'; // Thêm import NavigationHelper
 import '../../../views/widgets/skeleton_loader.dart';
 import '../../../views/widgets/notification_badge.dart'; // Add import for NotificationBadge
+import '../../../views/widgets/tracking_map_widget.dart';
+import 'package:geolocator/geolocator.dart';
+import 'dart:async';
 
 class HomeDscreen extends StatefulWidget {
   const HomeDscreen({super.key});
@@ -34,6 +39,8 @@ class _HomeDscreenState extends State<HomeDscreen> {
   final ProfileService _profileService = ProfileService();
   final AuthManager _authManager = AuthManager();
   final RideService _rideService = RideService();
+  final TrackingService _trackingService = TrackingService();
+  final LocationService _locationService = LocationService();
   final AppConfig _appConfig = AppConfig();
   bool _showDebugOptions = false;
 
@@ -45,6 +52,14 @@ class _HomeDscreenState extends State<HomeDscreen> {
   UserProfile? _userProfile;
   bool _isInitialLoad = true; // Track initial load to show skeleton
 
+  // Tracking variables
+  bool _isTracking = false;
+  bool _isLocationPermissionGranted = false;
+  Timer? _trackingTimer;
+  Position? _currentPosition;
+  String? _driverEmail;
+  Ride? _currentActiveRide;
+
   @override
   void initState() {
     super.initState();
@@ -52,6 +67,14 @@ class _HomeDscreenState extends State<HomeDscreen> {
     _loadPendingBookings();
     _loadUserProfile();
     _loadAvailableRides();
+    _checkLocationPermission();
+    _getDriverEmail();
+  }
+
+  @override
+  void dispose() {
+    _trackingTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadUserProfile() async {
@@ -110,16 +133,18 @@ class _HomeDscreenState extends State<HomeDscreen> {
           _isLoading = false;
           _isInitialLoad = false;
         });
+        // Find active ride for tracking
+        _findActiveRide();
       }
     } catch (e) {
       print('Error loading pending bookings: $e');
-      
+
       if (mounted) {
         setState(() {
           _isLoading = false;
           _isInitialLoad = false;
         });
-        
+
         // Show error to user
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -137,12 +162,14 @@ class _HomeDscreenState extends State<HomeDscreen> {
   Future<void> _loadAvailableRides() async {
     try {
       print('🔍 Fetching available rides for driver home screen...');
-      
+
       // Sử dụng phương thức dành riêng cho tài xế
       final rides = await _rideService.getDriverAvailableRides();
-      
-      print('✅ Successfully fetched ${rides.length} rides for driver home screen');
-      
+
+      print(
+        '✅ Successfully fetched ${rides.length} rides for driver home screen',
+      );
+
       if (mounted) {
         setState(() {
           _availableRides = rides;
@@ -163,7 +190,7 @@ class _HomeDscreenState extends State<HomeDscreen> {
   Future<void> _acceptBooking(Booking booking) async {
     // Lưu trữ dữ liệu booking hiện tại để phòng trường hợp lỗi API
     final Booking currentBooking = booking;
-    
+
     try {
       // Hiển thị dialog xác nhận
       final bool? confirmResult = await showDialog<bool>(
@@ -171,7 +198,9 @@ class _HomeDscreenState extends State<HomeDscreen> {
         builder: (BuildContext context) {
           return AlertDialog(
             title: const Text('Xác nhận duyệt yêu cầu'),
-            content: const Text('Bạn có chắc chắn muốn duyệt yêu cầu đặt chỗ này không?'),
+            content: const Text(
+              'Bạn có chắc chắn muốn duyệt yêu cầu đặt chỗ này không?',
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
@@ -180,25 +209,24 @@ class _HomeDscreenState extends State<HomeDscreen> {
               TextButton(
                 onPressed: () => Navigator.pop(context, true),
                 child: const Text('Duyệt'),
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.green,
-                ),
+                style: TextButton.styleFrom(foregroundColor: Colors.green),
               ),
             ],
           );
         },
       );
-      
+
       if (confirmResult != true) {
         return;
       }
-      
+
       setState(() {
         _isProcessingBooking = true;
         _processingBookingId = booking.id;
-        
+
         // Cập nhật UI trước để tránh mất dữ liệu nếu API gọi thất bại
-        _pendingBookings = _pendingBookings.where((b) => b.id != booking.id).toList();
+        _pendingBookings =
+            _pendingBookings.where((b) => b.id != booking.id).toList();
       });
 
       // Use DTO-based method to accept booking
@@ -207,7 +235,7 @@ class _HomeDscreenState extends State<HomeDscreen> {
       if (success) {
         // Cập nhật status trong Firebase nếu cần thiết
         try {
-          await _notificationService.updateBookingStatus(booking.id, "ACCEPTED");
+          // Không cần gọi updateBookingStatus vì API đã xử lý
         } catch (e) {
           print('⚠️ Lỗi khi cập nhật trạng thái trên Firebase: $e');
           // Không dừng quy trình vì đây không phải lỗi chính
@@ -228,15 +256,12 @@ class _HomeDscreenState extends State<HomeDscreen> {
 
         // Tạo thông báo cho hành khách
         try {
-          // Gửi thông báo hệ thống thay vì đến một email cụ thể
+          // Gửi thông báo đến hành khách cụ thể
           await _notificationService.sendNotification(
             'Đặt chỗ đã được chấp nhận',
             'Đặt chỗ #${booking.id} cho chuyến đi #${booking.rideId} đã được chấp nhận bởi tài xế.',
             AppConfig.NOTIFICATION_BOOKING_ACCEPTED,
-            {
-              'bookingId': booking.id,
-              'rideId': booking.rideId
-            }
+            {'bookingId': booking.id, 'rideId': booking.rideId},
             // Backend sẽ xử lý việc gửi thông báo đến đúng hành khách
           );
 
@@ -256,7 +281,7 @@ class _HomeDscreenState extends State<HomeDscreen> {
             // Thêm lại booking vào danh sách chờ duyệt để không mất dữ liệu
             _pendingBookings.add(currentBooking);
           });
-          
+
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
@@ -275,10 +300,13 @@ class _HomeDscreenState extends State<HomeDscreen> {
           // Thêm lại booking vào danh sách chờ duyệt
           _pendingBookings.add(currentBooking);
         });
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Lỗi: $e', style: const TextStyle(color: Colors.white)),
+            content: Text(
+              'Lỗi: $e',
+              style: const TextStyle(color: Colors.white),
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -320,10 +348,7 @@ class _HomeDscreenState extends State<HomeDscreen> {
             'Đặt chỗ đã bị từ chối',
             'Đặt chỗ #${booking.id} cho chuyến đi #${booking.rideId} đã bị từ chối bởi tài xế.',
             AppConfig.NOTIFICATION_BOOKING_REJECTED,
-            {
-              'bookingId': booking.id,
-              'rideId': booking.rideId
-            }
+            {'bookingId': booking.id, 'rideId': booking.rideId},
             // Backend sẽ xử lý việc gửi thông báo đến đúng hành khách
           );
         } catch (e) {
@@ -416,7 +441,9 @@ class _HomeDscreenState extends State<HomeDscreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Xác nhận đăng xuất'),
-          content: const Text('Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng không?'),
+          content: const Text(
+            'Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng không?',
+          ),
           actions: [
             TextButton(
               onPressed: () {
@@ -427,16 +454,14 @@ class _HomeDscreenState extends State<HomeDscreen> {
             TextButton(
               onPressed: () async {
                 Navigator.of(context).pop(); // Đóng dialog
-                
+
                 // Tiến hành đăng xuất
                 await _authController.logout(context);
                 if (mounted) {
                   // NavigationHelper sẽ xử lý việc điều hướng
                 }
               },
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.red,
-              ),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
               child: const Text('Đăng xuất'),
             ),
           ],
@@ -466,7 +491,9 @@ class _HomeDscreenState extends State<HomeDscreen> {
       final dateTime = DateTime.parse(dateTimeString);
       return DateFormat('HH:mm - dd/MM/yyyy').format(dateTime);
     } catch (e) {
-      print('❌ Lỗi khi định dạng ngày giờ: $e, dateTimeString: $dateTimeString');
+      print(
+        '❌ Lỗi khi định dạng ngày giờ: $e, dateTimeString: $dateTimeString',
+      );
       return dateTimeString ?? "N/A";
     }
   }
@@ -556,15 +583,15 @@ class _HomeDscreenState extends State<HomeDscreen> {
     setState(() {
       _showDebugOptions = !_showDebugOptions;
     });
-    
+
     if (_showDebugOptions) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đã bật chế độ debug')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Đã bật chế độ debug')));
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đã tắt chế độ debug')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Đã tắt chế độ debug')));
     }
   }
 
@@ -650,7 +677,12 @@ class _HomeDscreenState extends State<HomeDscreen> {
                       children: [
                         // Thẻ chào mừng với thiết kế mới
                         _buildWelcomeCard(),
-                        
+
+                        const SizedBox(height: 24),
+
+                        // Tracking map widget
+                        _buildTrackingMap(),
+
                         const SizedBox(height: 24),
 
                         // Phần yêu cầu chờ duyệt với thiết kế mới
@@ -694,61 +726,35 @@ class _HomeDscreenState extends State<HomeDscreen> {
           children: [
             Row(
               children: [
-                const SkeletonLoader(
-                  width: 50, 
-                  height: 50, 
-                  borderRadius: 25
-                ),
+                const SkeletonLoader(width: 50, height: 50, borderRadius: 25),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: const [
-                      SkeletonLoader(
-                        width: 200,
-                        height: 24,
-                        borderRadius: 4,
-                      ),
+                      SkeletonLoader(width: 200, height: 24, borderRadius: 4),
                       SizedBox(height: 6),
-                      SkeletonLoader(
-                        width: 160,
-                        height: 14,
-                        borderRadius: 4,
-                      ),
+                      SkeletonLoader(width: 160, height: 14, borderRadius: 4),
                     ],
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 20),
-            const SkeletonLoader(
-              width: 180,
-              height: 16,
-              borderRadius: 4,
-            ),
+            const SkeletonLoader(width: 180, height: 16, borderRadius: 4),
             const SizedBox(height: 15),
             Row(
               children: const [
-                Expanded(
-                  child: SkeletonLoader(
-                    height: 48,
-                    borderRadius: 10,
-                  ),
-                ),
+                Expanded(child: SkeletonLoader(height: 48, borderRadius: 10)),
                 SizedBox(width: 10),
-                Expanded(
-                  child: SkeletonLoader(
-                    height: 48,
-                    borderRadius: 10,
-                  ),
-                ),
+                Expanded(child: SkeletonLoader(height: 48, borderRadius: 10)),
               ],
             ),
           ],
         ),
       );
     }
-  
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -787,10 +793,7 @@ class _HomeDscreenState extends State<HomeDscreen> {
                     ),
                     const Text(
                       'Chào mừng bạn đến với ShareXE',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.white70,
-                      ),
+                      style: TextStyle(fontSize: 14, color: Colors.white70),
                     ),
                   ],
                 ),
@@ -810,14 +813,10 @@ class _HomeDscreenState extends State<HomeDscreen> {
           Row(
             children: [
               Expanded(
-                child: _buildActionButtonNew(
-                  'Tạo chuyến đi',
-                  Icons.add_road,
-                  () {
-                    // Sử dụng NavigationHelper để điều hướng đến trang tạo chuyến đi
-                    NavigationHelper.navigateToCreateRide(context);
-                  },
-                ),
+                child: _buildActionButtonNew('Tạo chuyến đi', Icons.add_road, () {
+                  // Sử dụng NavigationHelper để điều hướng đến trang tạo chuyến đi
+                  NavigationHelper.navigateToCreateRide(context);
+                }),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -825,10 +824,7 @@ class _HomeDscreenState extends State<HomeDscreen> {
                   'Chuyến đi',
                   Icons.directions_car,
                   () {
-                    Navigator.pushNamed(
-                      context,
-                      AppRoute.myRides,
-                    );
+                    Navigator.pushNamed(context, AppRoute.myRides);
                   },
                 ),
               ),
@@ -838,7 +834,7 @@ class _HomeDscreenState extends State<HomeDscreen> {
       ),
     );
   }
-  
+
   // Build pending bookings section
   Widget _buildPendingBookingsSection() {
     return Container(
@@ -879,10 +875,7 @@ class _HomeDscreenState extends State<HomeDscreen> {
                 ],
               ),
               IconButton(
-                icon: const Icon(
-                  Icons.refresh,
-                  color: Color(0xFF00AEEF),
-                ),
+                icon: const Icon(Icons.refresh, color: Color(0xFF00AEEF)),
                 onPressed: _loadPendingBookings,
               ),
             ],
@@ -916,10 +909,7 @@ class _HomeDscreenState extends State<HomeDscreen> {
                   const SizedBox(height: 10),
                   Text(
                     'Không có yêu cầu chờ duyệt',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey[700],
-                    ),
+                    style: TextStyle(fontSize: 16, color: Colors.grey[700]),
                   ),
                 ],
               ),
@@ -945,7 +935,7 @@ class _HomeDscreenState extends State<HomeDscreen> {
       ),
     );
   }
-  
+
   // Build a pending booking card - extracted to make the code more readable
   Widget _buildPendingBookingCard(Booking booking) {
     return Container(
@@ -953,9 +943,7 @@ class _HomeDscreenState extends State<HomeDscreen> {
       decoration: BoxDecoration(
         color: Colors.grey[100],
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: const Color(0xFF00AEEF).withOpacity(0.3),
-        ),
+        border: Border.all(color: const Color(0xFF00AEEF).withOpacity(0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -992,10 +980,7 @@ class _HomeDscreenState extends State<HomeDscreen> {
                 ),
                 child: Text(
                   _formatTime(booking.createdAt),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Colors.orange,
-                  ),
+                  style: const TextStyle(fontSize: 12, color: Colors.orange),
                 ),
               ),
             ],
@@ -1006,11 +991,7 @@ class _HomeDscreenState extends State<HomeDscreen> {
               const CircleAvatar(
                 radius: 18,
                 backgroundColor: Color(0xFF00AEEF),
-                child: Icon(
-                  Icons.person,
-                  color: Colors.white,
-                  size: 20,
-                ),
+                child: Icon(Icons.person, color: Colors.white, size: 20),
               ),
               const SizedBox(width: 12),
               Column(
@@ -1025,10 +1006,7 @@ class _HomeDscreenState extends State<HomeDscreen> {
                   ),
                   Text(
                     'Số ghế: ${booking.seatsBooked}',
-                    style: TextStyle(
-                      color: Colors.grey[700],
-                      fontSize: 14,
-                    ),
+                    style: TextStyle(color: Colors.grey[700], fontSize: 14),
                   ),
                 ],
               ),
@@ -1148,11 +1126,11 @@ class _HomeDscreenState extends State<HomeDscreen> {
                           ),
                           Text(
                             booking.pricePerSeat != null
-                              ? NumberFormat.currency(
+                                ? NumberFormat.currency(
                                   locale: 'vi_VN',
                                   symbol: '₫',
                                 ).format(booking.pricePerSeat)
-                              : 'N/A',
+                                : 'N/A',
                             style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
@@ -1179,11 +1157,7 @@ class _HomeDscreenState extends State<HomeDscreen> {
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              Icon(
-                Icons.arrow_forward_ios,
-                size: 14,
-                color: Color(0xFF00AEEF),
-              ),
+              Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFF00AEEF)),
             ],
           ),
 
@@ -1192,21 +1166,21 @@ class _HomeDscreenState extends State<HomeDscreen> {
             children: [
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: _isProcessingBooking &&
-                          _processingBookingId == booking.id
-                      ? null
-                      : () => _rejectBooking(booking),
-                  icon: _isProcessingBooking &&
-                          _processingBookingId == booking.id
-                      ? const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : const Icon(Icons.close, size: 18),
+                  onPressed:
+                      _isProcessingBooking && _processingBookingId == booking.id
+                          ? null
+                          : () => _rejectBooking(booking),
+                  icon:
+                      _isProcessingBooking && _processingBookingId == booking.id
+                          ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                          : const Icon(Icons.close, size: 18),
                   label: const Text('Từ chối'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.grey[300],
@@ -1222,21 +1196,21 @@ class _HomeDscreenState extends State<HomeDscreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: _isProcessingBooking &&
-                          _processingBookingId == booking.id
-                      ? null
-                      : () => _acceptBooking(booking),
-                  icon: _isProcessingBooking &&
-                          _processingBookingId == booking.id
-                      ? const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : const Icon(Icons.check, size: 18),
+                  onPressed:
+                      _isProcessingBooking && _processingBookingId == booking.id
+                          ? null
+                          : () => _acceptBooking(booking),
+                  icon:
+                      _isProcessingBooking && _processingBookingId == booking.id
+                          ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                          : const Icon(Icons.check, size: 18),
                   label: const Text('Chấp nhận'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF002D72),
@@ -1255,7 +1229,7 @@ class _HomeDscreenState extends State<HomeDscreen> {
       ),
     );
   }
-  
+
   // Build available rides section
   Widget _buildAvailableRidesSection() {
     return Container(
@@ -1296,10 +1270,7 @@ class _HomeDscreenState extends State<HomeDscreen> {
                 ],
               ),
               IconButton(
-                icon: const Icon(
-                  Icons.refresh,
-                  color: Color(0xFF00AEEF),
-                ),
+                icon: const Icon(Icons.refresh, color: Color(0xFF00AEEF)),
                 onPressed: _loadAvailableRides,
               ),
             ],
@@ -1325,18 +1296,11 @@ class _HomeDscreenState extends State<HomeDscreen> {
               ),
               child: Column(
                 children: [
-                  Icon(
-                    Icons.no_transfer,
-                    size: 40,
-                    color: Colors.grey[500],
-                  ),
+                  Icon(Icons.no_transfer, size: 40, color: Colors.grey[500]),
                   const SizedBox(height: 10),
                   Text(
                     'Bạn chưa có chuyến đi nào',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey[700],
-                    ),
+                    style: TextStyle(fontSize: 16, color: Colors.grey[700]),
                   ),
                 ],
               ),
@@ -1410,9 +1374,9 @@ class _HomeDscreenState extends State<HomeDscreen> {
       print('❌ Error parsing date from ride.startTime: ${ride.startTime}');
       startDateTime = DateTime.now();
     }
-    
+
     final priceFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
-    
+
     return Container(
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
@@ -1427,7 +1391,10 @@ class _HomeDscreenState extends State<HomeDscreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFF002D72).withOpacity(0.1),
                   borderRadius: BorderRadius.circular(20),
@@ -1444,17 +1411,13 @@ class _HomeDscreenState extends State<HomeDscreen> {
               _buildStatusBadge(ride.status),
             ],
           ),
-          
+
           const SizedBox(height: 5),
-          
+
           // Ngày và giờ xuất phát
           Row(
             children: [
-              const Icon(
-                Icons.access_time,
-                size: 16,
-                color: Colors.grey,
-              ),
+              const Icon(Icons.access_time, size: 16, color: Colors.grey),
               const SizedBox(width: 4),
               Text(
                 DateFormat('HH:mm dd/MM/yyyy').format(startDateTime),
@@ -1466,9 +1429,9 @@ class _HomeDscreenState extends State<HomeDscreen> {
               ),
             ],
           ),
-          
+
           const SizedBox(height: 15),
-          
+
           // Điểm đi
           Row(
             children: [
@@ -1491,10 +1454,7 @@ class _HomeDscreenState extends State<HomeDscreen> {
                   children: [
                     const Text(
                       'Điểm đi',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey,
-                      ),
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
                     ),
                     Text(
                       ride.departure,
@@ -1510,7 +1470,7 @@ class _HomeDscreenState extends State<HomeDscreen> {
               ),
             ],
           ),
-          
+
           // Đường kẻ dọc
           Padding(
             padding: const EdgeInsets.only(left: 14),
@@ -1523,7 +1483,7 @@ class _HomeDscreenState extends State<HomeDscreen> {
               ),
             ),
           ),
-          
+
           // Điểm đến
           Row(
             children: [
@@ -1546,10 +1506,7 @@ class _HomeDscreenState extends State<HomeDscreen> {
                   children: [
                     const Text(
                       'Điểm đến',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey,
-                      ),
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
                     ),
                     Text(
                       ride.destination,
@@ -1567,25 +1524,18 @@ class _HomeDscreenState extends State<HomeDscreen> {
           ),
 
           const SizedBox(height: 15),
-          
+
           // Thông tin chuyến đi (giá, ghế, tình trạng)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Row(
                 children: [
-                  const Icon(
-                    Icons.event_seat,
-                    size: 16,
-                    color: Colors.grey,
-                  ),
+                  const Icon(Icons.event_seat, size: 16, color: Colors.grey),
                   const SizedBox(width: 4),
                   Text(
                     'Còn ${ride.availableSeats} ghế',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Colors.black87,
-                    ),
+                    style: const TextStyle(fontSize: 14, color: Colors.black87),
                   ),
                 ],
               ),
@@ -1598,9 +1548,9 @@ class _HomeDscreenState extends State<HomeDscreen> {
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    ride.pricePerSeat != null 
-                      ? '${priceFormat.format(ride.pricePerSeat)}/ghế'
-                      : 'Miễn phí',
+                    ride.pricePerSeat != null
+                        ? '${priceFormat.format(ride.pricePerSeat)}/ghế'
+                        : 'Miễn phí',
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
@@ -1611,34 +1561,27 @@ class _HomeDscreenState extends State<HomeDscreen> {
               ),
             ],
           ),
-          
-          if (ride.driverEmail != null) 
+
+          if (ride.driverEmail != null)
             Padding(
               padding: const EdgeInsets.only(top: 8.0),
               child: Row(
                 children: [
-                  const Icon(
-                    Icons.person,
-                    size: 16,
-                    color: Colors.blue,
-                  ),
+                  const Icon(Icons.person, size: 16, color: Colors.blue),
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
                       'Tài xế: ${ride.driverName ?? 'Chưa có thông tin'}',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Colors.blue,
-                      ),
+                      style: const TextStyle(fontSize: 14, color: Colors.blue),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
               ),
             ),
-          
+
           const SizedBox(height: 15),
-          
+
           // Nút xem chi tiết chuyến đi (dành cho tài xế)
           Row(
             children: [
@@ -1667,26 +1610,27 @@ class _HomeDscreenState extends State<HomeDscreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: ride.driverEmail == _userProfile?.email 
-                    ? (ride.status.toUpperCase() == 'CANCELLED'
-                        ? null // Disable button if ride is cancelled
-                        : () {
-                          // Nếu đây là chuyến đi của tài xế hiện tại
-                          Navigator.pushNamed(
-                            context,
-                            DriverRoutes.createRide,
-                            arguments: {
-                              'id': ride.id,
-                              'departure': ride.departure,
-                              'destination': ride.destination,
-                              'startTime': ride.startTime,
-                              'totalSeat': ride.totalSeat,
-                              'pricePerSeat': ride.pricePerSeat,
-                              'status': ride.status,
-                            },
-                          );
-                        })
-                    : null, // Disable nút nếu không phải chuyến đi của tài xế này
+                  onPressed:
+                      ride.driverEmail == _userProfile?.email
+                          ? (ride.status.toUpperCase() == 'CANCELLED'
+                              ? null // Disable button if ride is cancelled
+                              : () {
+                                // Nếu đây là chuyến đi của tài xế hiện tại
+                                Navigator.pushNamed(
+                                  context,
+                                  DriverRoutes.createRide,
+                                  arguments: {
+                                    'id': ride.id,
+                                    'departure': ride.departure,
+                                    'destination': ride.destination,
+                                    'startTime': ride.startTime,
+                                    'totalSeat': ride.totalSeat,
+                                    'pricePerSeat': ride.pricePerSeat,
+                                    'status': ride.status,
+                                  },
+                                );
+                              })
+                          : null, // Disable nút nếu không phải chuyến đi của tài xế này
                   icon: const Icon(Icons.edit, size: 18),
                   label: const Text('Chỉnh sửa'),
                   style: ElevatedButton.styleFrom(
@@ -1764,7 +1708,8 @@ class _HomeDscreenState extends State<HomeDscreen> {
 
   Widget _buildUserAvatar() {
     // No need to check if _userProfile is null before accessing avatarUrl
-    if (_userProfile?.avatarUrl != null && _userProfile!.avatarUrl!.isNotEmpty) {
+    if (_userProfile?.avatarUrl != null &&
+        _userProfile!.avatarUrl!.isNotEmpty) {
       return CircleAvatar(
         backgroundColor: Colors.white,
         backgroundImage: NetworkImage(_userProfile!.avatarUrl!),
@@ -1772,13 +1717,181 @@ class _HomeDscreenState extends State<HomeDscreen> {
     } else {
       return const CircleAvatar(
         backgroundColor: Colors.white,
-        child: Icon(
-          Icons.person,
-          size: 40,
-          color: Colors.blue,
-        ),
+        child: Icon(Icons.person, size: 40, color: Colors.blue),
       );
     }
+  }
+
+  // ========== TRACKING METHODS ==========
+
+  /// Check location permission
+  Future<void> _checkLocationPermission() async {
+    try {
+      final permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        final requestPermission = await Geolocator.requestPermission();
+        setState(() {
+          _isLocationPermissionGranted =
+              requestPermission == LocationPermission.whileInUse ||
+              requestPermission == LocationPermission.always;
+        });
+      } else {
+        setState(() {
+          _isLocationPermissionGranted =
+              permission == LocationPermission.whileInUse ||
+              permission == LocationPermission.always;
+        });
+      }
+    } catch (e) {
+      print('❌ Lỗi khi kiểm tra quyền vị trí: $e');
+      setState(() {
+        _isLocationPermissionGranted = false;
+      });
+    }
+  }
+
+  /// Get driver email for tracking
+  Future<void> _getDriverEmail() async {
+    try {
+      final email = await _authManager.getUserEmail();
+      setState(() {
+        _driverEmail = email;
+      });
+    } catch (e) {
+      print('❌ Lỗi khi lấy email tài xế: $e');
+    }
+  }
+
+  /// Find active ride for tracking
+  void _findActiveRide() {
+    // Find ride with accepted bookings
+    for (final ride in _availableRides) {
+      final hasAcceptedBookings = _pendingBookings.any(
+        (booking) =>
+            booking.rideId == ride.id &&
+            (booking.status == 'ACCEPTED' || booking.status == 'IN_PROGRESS'),
+      );
+
+      if (hasAcceptedBookings) {
+        setState(() {
+          _currentActiveRide = ride;
+        });
+        break;
+      }
+    }
+  }
+
+  /// Start tracking location for active ride
+  Future<void> _startTracking() async {
+    if (!_isLocationPermissionGranted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cần cấp quyền truy cập vị trí để theo dõi'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (_driverEmail == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Không thể lấy thông tin tài xế'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (_currentActiveRide == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Không có chuyến đi đang hoạt động để theo dõi'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isTracking = true;
+    });
+
+    // Start periodic location updates every 10 seconds
+    _trackingTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      _sendLocationUpdate();
+    });
+
+    // Send initial location
+    _sendLocationUpdate();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Bắt đầu theo dõi vị trí'),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+
+  /// Stop tracking location
+  void _stopTracking() {
+    _trackingTimer?.cancel();
+    setState(() {
+      _isTracking = false;
+      _currentActiveRide = null;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Dừng theo dõi vị trí'),
+        backgroundColor: Colors.orange,
+      ),
+    );
+  }
+
+  /// Send location update to server
+  Future<void> _sendLocationUpdate() async {
+    if (_currentActiveRide == null) return;
+
+    try {
+      final position = await _locationService.getCurrentLocation();
+      if (position == null) return;
+
+      setState(() {
+        _currentPosition = position;
+      });
+
+      final result = await _trackingService.updateDriverLocation(
+        rideId: _currentActiveRide!.id.toString(),
+        latitude: position.latitude,
+        longitude: position.longitude,
+      );
+
+      if (result) {
+        print(
+          '✅ Gửi vị trí thành công: ${position.latitude}, ${position.longitude}',
+        );
+      } else {
+        print('❌ Gửi vị trí thất bại');
+      }
+    } catch (e) {
+      print('❌ Lỗi khi gửi vị trí: $e');
+    }
+  }
+
+  /// Build tracking map widget
+  Widget _buildTrackingMap() {
+    if (_currentActiveRide == null) {
+      return const SizedBox.shrink();
+    }
+
+    return TrackingMapWidget(
+      ride: _currentActiveRide!,
+      currentPosition: _currentPosition,
+      isTracking: _isTracking,
+      onStartTracking: _startTracking,
+      onStopTracking: _stopTracking,
+    );
   }
 }
 
@@ -1793,7 +1906,7 @@ class _ApiDebugScreenState extends State<ApiDebugScreen> {
   final AppConfig _appConfig = AppConfig();
   final ApiDebugHelper _apiDebugHelper = ApiDebugHelper();
   final List<Map<String, dynamic>> _endpoints = ApiDebugHelper().debugEndpoints;
-  
+
   String _connectionStatus = 'Chưa kiểm tra';
   bool _isTestingConnection = false;
 
@@ -1811,12 +1924,13 @@ class _ApiDebugScreenState extends State<ApiDebugScreen> {
 
     try {
       final isWorking = await _appConfig.isNgrokUrlWorking();
-      
+
       setState(() {
         _isTestingConnection = false;
-        _connectionStatus = isWorking
-            ? 'Kết nối API thành công ✅'
-            : 'Không thể kết nối đến API ❌';
+        _connectionStatus =
+            isWorking
+                ? 'Kết nối API thành công ✅'
+                : 'Không thể kết nối đến API ❌';
       });
     } catch (e) {
       setState(() {
@@ -1825,7 +1939,7 @@ class _ApiDebugScreenState extends State<ApiDebugScreen> {
       });
     }
   }
-  
+
   void _updateApiUrl() {
     _apiDebugHelper.showUpdateApiUrlDialog(
       context,
@@ -1898,9 +2012,10 @@ class _ApiDebugScreenState extends State<ApiDebugScreen> {
                           child: Text(
                             _connectionStatus,
                             style: TextStyle(
-                              color: _connectionStatus.contains('thành công')
-                                  ? Colors.green
-                                  : _connectionStatus.contains('kiểm tra')
+                              color:
+                                  _connectionStatus.contains('thành công')
+                                      ? Colors.green
+                                      : _connectionStatus.contains('kiểm tra')
                                       ? Colors.orange
                                       : Colors.red,
                               fontWeight: FontWeight.bold,
@@ -1911,9 +2026,7 @@ class _ApiDebugScreenState extends State<ApiDebugScreen> {
                           const SizedBox(
                             width: 16,
                             height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                            ),
+                            child: CircularProgressIndicator(strokeWidth: 2),
                           ),
                       ],
                     ),
@@ -1948,10 +2061,7 @@ class _ApiDebugScreenState extends State<ApiDebugScreen> {
             const SizedBox(height: 24),
             const Text(
               'Các API Endpoint',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             // List of available endpoints
@@ -2012,7 +2122,9 @@ class _ApiDebugScreenState extends State<ApiDebugScreen> {
                     Text(
                       '1. Kiểm tra ngrok URL có còn hoạt động không (thường hết hạn sau 2 giờ)',
                     ),
-                    Text('2. Chạy lại ngrok trên máy local và cập nhật URL mới'),
+                    Text(
+                      '2. Chạy lại ngrok trên máy local và cập nhật URL mới',
+                    ),
                     Text('3. Kiểm tra backend API có đang chạy không'),
                     Text('4. Kiểm tra xác thực token còn hợp lệ không'),
                   ],

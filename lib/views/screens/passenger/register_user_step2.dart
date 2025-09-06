@@ -50,21 +50,21 @@ class _RegisterUserStep2State extends State<RegisterUserStep2> {
 
   Future<void> _addImage(String type) async {
     if (kIsWeb) {
-      setState(() {
-        _avatarPath = 'fake_avatar_path.jpg';
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Đã chọn ảnh (giả lập)')),
-        );
-      });
+      // TODO: Implement real image selection
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Tính năng chọn ảnh đang được phát triển'),
+        ),
+      );
     } else {
       final picker = ImagePicker();
       final pickedFile = await picker.pickImage(source: ImageSource.gallery);
       if (pickedFile != null) {
         setState(() {
           _avatarPath = pickedFile.path;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Đã chọn ảnh')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Đã chọn ảnh')));
         });
       }
     }
@@ -75,7 +75,9 @@ class _RegisterUserStep2State extends State<RegisterUserStep2> {
       _data.phone = _phoneController.text.trim();
       _data.avatarImage = _avatarPath.isEmpty ? '' : _avatarPath;
 
-      if (_data.email.isEmpty || _data.password.isEmpty || _data.fullName.isEmpty) {
+      if (_data.email.isEmpty ||
+          _data.password.isEmpty ||
+          _data.fullName.isEmpty) {
         _setError('Vui lòng điền đầy đủ thông tin ở bước trước');
         return;
       }

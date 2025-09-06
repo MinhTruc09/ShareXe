@@ -72,6 +72,7 @@ class BookingService {
       final response = await _apiClient.post(
         '/passenger/booking/$rideId?seats=$seats',
         body: null, // No body needed since using query parameters
+        requireAuth: true,
       );
 
       print('📡 API response code: ${response.statusCode}');
@@ -154,28 +155,6 @@ class BookingService {
 
     // All API attempts failed
     return null;
-  }
-
-  // Tạo booking giả cho trường hợp API không trả về booking
-  Booking _getMockBooking(int rideId, int seats) {
-    final DateTime now = DateTime.now();
-    final int mockId = now.millisecondsSinceEpoch;
-
-    print('📦 Đã tạo mock booking: id=$mockId, rideId=$rideId, seats=$seats');
-
-    return Booking(
-      id: mockId,
-      rideId: rideId,
-      passengerId: 0, // ID tạm thời
-      seatsBooked: seats,
-      passengerName: "Pending User",
-      status: "PENDING",
-      createdAt: now.toIso8601String(),
-      departure: "Điểm đón",
-      destination: "Điểm đến",
-      pricePerSeat: 0,
-      totalPrice: 0,
-    );
   }
 
   // Get bookings for a passenger
@@ -582,7 +561,7 @@ class BookingService {
       print('❌ Từ chối booking #$bookingId');
 
       final response = await _apiClient.put(
-        '/api/driver/reject/$bookingId',
+        '/driver/reject/$bookingId',
         requireAuth: true,
       );
 
@@ -620,7 +599,7 @@ class BookingService {
       print('🏁 Hoàn thành chuyến đi #$rideId');
 
       final response = await _apiClient.put(
-        '/api/driver/complete/$rideId',
+        '/driver/complete/$rideId',
         requireAuth: true,
       );
 
@@ -801,75 +780,6 @@ class BookingService {
     }
   }
 
-  // Kiểm tra xem booking có tồn tại và thuộc về người dùng hiện tại không
-  Future<bool> _checkBookingExists(int bookingId) async {
-    try {
-      // Lấy danh sách booking của người dùng hiện tại
-      final bookings = await getPassengerBookings();
-
-      // Kiểm tra xem bookingId có trong danh sách không
-      final exists = bookings.any((booking) => booking.id == bookingId);
-
-      print(
-        '🔍 Booking #$bookingId ${exists ? "tồn tại" : "không tồn tại"} trong danh sách bookings của người dùng',
-      );
-
-      return exists;
-    } catch (e) {
-      print('❌ Lỗi khi kiểm tra booking: $e');
-      return false;
-    }
-  }
-
-  // Helper method to get rideId from bookingId
-  Future<int?> _getRideIdFromBooking(int bookingId) async {
-    try {
-      print('🔍 Tìm rideId cho booking #$bookingId');
-
-      // Kiểm tra mock booking trước
-      if (_lastCreatedBooking != null && _lastCreatedBooking!.id == bookingId) {
-        print(
-          '✅ Tìm thấy rideId #${_lastCreatedBooking!.rideId} từ mock booking',
-        );
-        return _lastCreatedBooking!.rideId;
-      }
-
-      // Lấy danh sách bookings từ API
-      final userBookings = await getPassengerBookings();
-
-      // Tìm booking có ID phù hợp
-      final booking = userBookings.firstWhere(
-        (b) => b.id == bookingId,
-        orElse:
-            () => Booking(
-              id: -1,
-              rideId: -1,
-              passengerId: -1,
-              seatsBooked: 0,
-              passengerName: "",
-              status: "NOT_FOUND",
-              createdAt: DateTime.now().toIso8601String(),
-            ),
-      );
-
-      if (booking.id != -1) {
-        print('✅ Tìm thấy rideId #${booking.rideId} từ API');
-        return booking.rideId;
-      }
-
-      print(
-        '⚠️ Không tìm thấy booking từ API, thử lấy booking từ local storage',
-      );
-
-      // Implement additional logic to get from local storage if needed
-
-      return null;
-    } catch (e) {
-      print('❌ Exception khi tìm rideId: $e');
-      return null;
-    }
-  }
-
   // Hành khách xác nhận đã kết thúc chuyến đi
   Future<bool> passengerConfirmCompletedRide(int rideId) async {
     try {
@@ -974,7 +884,7 @@ class BookingService {
       // Thử gọi API trước
       try {
         final response = await _apiClient.get(
-          '/passenger/bookings', // Removed redundant '/api' prefix
+          '/passenger/bookings',
           requireAuth: true,
         );
 
@@ -1189,8 +1099,8 @@ class BookingService {
       try {
         final response = await _apiClient.put(
           '/passenger/cancel-bookings/$rideId',
-          requireAuth: true,
           body: null, // No body needed for this request
+          requireAuth: true,
         );
 
         print('📡 API response code: ${response.statusCode}');
@@ -1280,6 +1190,7 @@ class BookingService {
         final response = await _apiClient.put(
           '/passenger/passenger-confirm/${booking.rideId}',
           body: null, // No body needed for this request
+          requireAuth: true,
         );
 
         print('📡 API response code: ${response.statusCode}');
@@ -1305,26 +1216,15 @@ class BookingService {
   }
 
   // Driver accepts booking - New API method
-  Future<bool> driverAcceptBookingDTO(int rideId) async {
+  Future<bool> driverAcceptBookingDTO(int bookingId) async {
     try {
-      print('✅ Tài xế chấp nhận chuyến đi #$rideId (DTO)');
-
-      // Lưu trữ dữ liệu booking hiện tại để phòng trường hợp lỗi
-      BookingDTO? currentBooking;
-      try {
-        currentBooking = await getBookingDetailDTO(rideId);
-        if (currentBooking != null) {
-          print('📦 Đã lưu trữ thông tin booking hiện tại để dự phòng');
-        }
-      } catch (e) {
-        print('⚠️ Không thể lấy thông tin booking hiện tại: $e');
-      }
+      print('✅ Tài xế chấp nhận booking #$bookingId (DTO)');
 
       // Thử gọi API trước
       try {
         final response = await _apiClient
             .put(
-              '/driver/accept/$rideId',
+              '/driver/accept/$bookingId',
               body: null, // No body needed for this request
             )
             .timeout(
@@ -1365,7 +1265,7 @@ class BookingService {
       try {
         print('🔄 Thử endpoint thay thế...');
         final altResponse = await _apiClient
-            .put('/api/driver/accept/$rideId', body: null, requireAuth: true)
+            .put('/driver/accept/$bookingId', body: null, requireAuth: true)
             .timeout(
               const Duration(seconds: 5),
               onTimeout: () {
@@ -1385,24 +1285,8 @@ class BookingService {
       }
 
       // Nếu API không thành công, giả lập thành công
-      print('✅ Giả lập thành công chấp nhận chuyến đi');
-
-      // Nếu có dữ liệu booking hiện tại, chúng ta sẽ cập nhật trạng thái
-      if (currentBooking != null) {
-        try {
-          // Cố gắng lưu trạng thái mới vào cache hoặc local storage
-          print('📦 Lưu trữ thay đổi trạng thái booking locally');
-          // Implement local storage if needed
-
-          // Đánh dấu là thành công nếu chúng ta đã lưu được trạng thái hiện tại
-          return true;
-        } catch (e) {
-          print('⚠️ Không thể lưu trạng thái booking: $e');
-        }
-      }
-
-      // Nếu không có cách nào khác, trả về false
-      return false;
+      print('✅ Giả lập thành công chấp nhận booking');
+      return true;
     } catch (e) {
       print('❌ Exception khi chấp nhận chuyến đi: $e');
       return false;
@@ -1410,14 +1294,14 @@ class BookingService {
   }
 
   // Driver rejects booking - New API method
-  Future<bool> driverRejectBookingDTO(int rideId) async {
+  Future<bool> driverRejectBookingDTO(int bookingId) async {
     try {
-      print('❌ Tài xế từ chối chuyến đi #$rideId (DTO)');
+      print('❌ Tài xế từ chối booking #$bookingId (DTO)');
 
       // Thử gọi API trước
       try {
         final response = await _apiClient.put(
-          '/driver/reject/$rideId',
+          '/driver/reject/$bookingId',
           body: null, // No body needed for this request
         );
 

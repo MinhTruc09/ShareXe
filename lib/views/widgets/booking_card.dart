@@ -9,7 +9,7 @@ class BookingCard extends StatelessWidget {
   final Function()? onConfirmComplete;
   final Function()? onCancel;
   final bool showCancelButton;
-  
+
   final AppConfig _appConfig = AppConfig();
 
   BookingCard({
@@ -34,7 +34,7 @@ class BookingCard extends StatelessWidget {
   // Format tiền tệ
   String _formatCurrency(double amount) {
     if (amount == 0) return "0 đ";
-    
+
     try {
       final formatter = NumberFormat.currency(locale: 'vi_VN', symbol: 'đ');
       return formatter.format(amount);
@@ -104,24 +104,24 @@ class BookingCard extends StatelessWidget {
   // Kiểm tra xem có nên hiển thị nút xác nhận không
   bool _shouldShowConfirmButton() {
     if (onConfirmComplete == null) return false;
-    
+
     final status = booking.status.toUpperCase();
     final now = DateTime.now();
-    
+
     // Dành cho hành khách: IN_PROGRESS, DRIVER_CONFIRMED hoặc đã đến thời điểm khởi hành
     if (status == 'DRIVER_CONFIRMED') {
-      return true;  // Hành khách cần xác nhận sau khi tài xế đã xác nhận
+      return true; // Hành khách cần xác nhận sau khi tài xế đã xác nhận
     }
-    
-    if ((status == 'IN_PROGRESS' || 
-         status == 'ACCEPTED' || 
-         status == 'APPROVED') && 
+
+    if ((status == 'IN_PROGRESS' ||
+            status == 'ACCEPTED' ||
+            status == 'APPROVED') &&
         now.isAfter(booking.startTime) &&
         status != 'PASSENGER_CONFIRMED' &&
         status != 'COMPLETED') {
-      return true;  // Có thể xác nhận khi đang đi và đã đến giờ
+      return true; // Có thể xác nhận khi đang đi và đã đến giờ
     }
-    
+
     return false;
   }
 
@@ -129,16 +129,15 @@ class BookingCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final statusText = _getStatusText(booking.status, booking.startTime);
     final statusColor = _getStatusColor(booking.status);
-    
+
     // Kiểm tra xem booking có bị hủy không
-    final bool isCancelled = booking.status.toUpperCase() == 'CANCELLED' || 
-                           booking.status.toUpperCase() == 'REJECTED';
+    final bool isCancelled =
+        booking.status.toUpperCase() == 'CANCELLED' ||
+        booking.status.toUpperCase() == 'REJECTED';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       elevation: 4,
       child: InkWell(
         onTap: isCancelled ? null : onTap,
@@ -184,7 +183,7 @@ class BookingCard extends StatelessWidget {
                 ],
               ),
             ),
-            
+
             // Thông tin chuyến đi
             Padding(
               padding: const EdgeInsets.all(16),
@@ -194,7 +193,11 @@ class BookingCard extends StatelessWidget {
                   // Thông tin thời gian
                   Row(
                     children: [
-                      const Icon(Icons.calendar_today, color: Colors.grey, size: 16),
+                      const Icon(
+                        Icons.calendar_today,
+                        color: Colors.grey,
+                        size: 16,
+                      ),
                       const SizedBox(width: 8),
                       Text(
                         _formatDateTime(booking.startTime),
@@ -206,12 +209,16 @@ class BookingCard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  
+
                   // Điểm đi
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.location_on, color: Colors.green.shade600, size: 18),
+                      Icon(
+                        Icons.location_on,
+                        color: Colors.green.shade600,
+                        size: 18,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -222,12 +229,16 @@ class BookingCard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  
+
                   // Điểm đến
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.location_on, color: Colors.red.shade600, size: 18),
+                      Icon(
+                        Icons.location_on,
+                        color: Colors.red.shade600,
+                        size: 18,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -238,14 +249,18 @@ class BookingCard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  
+
                   // Thông tin về số ghế và giá tiền
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.event_seat, color: Colors.blue, size: 16),
+                          const Icon(
+                            Icons.event_seat,
+                            color: Colors.blue,
+                            size: 16,
+                          ),
                           const SizedBox(width: 8),
                           Text(
                             '${booking.seatsBooked} ghế',
@@ -263,18 +278,117 @@ class BookingCard extends StatelessWidget {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 8),
+
+                  // Thông tin xe (nếu có)
+                  if (booking.vehicle != null) ...[
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.directions_car,
+                          color: Colors.blue,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '${booking.vehicle!.brand} ${booking.vehicle!.model} - ${booking.vehicle!.licensePlate}',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+
+                  // Thông tin hành khách cùng đi (nếu có)
+                  if (booking.fellowPassengers.isNotEmpty) ...[
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.group, color: Colors.purple, size: 16),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Hành khách cùng đi (${booking.fellowPassengers.length}):',
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              ...booking.fellowPassengers.map(
+                                (passenger) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 2),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 20,
+                                        height: 20,
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey.shade200,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child:
+                                            passenger.avatarUrl != null
+                                                ? ClipRRect(
+                                                  borderRadius:
+                                                      BorderRadius.circular(10),
+                                                  child: Image.network(
+                                                    passenger.avatarUrl!,
+                                                    fit: BoxFit.cover,
+                                                    errorBuilder:
+                                                        (
+                                                          context,
+                                                          error,
+                                                          stackTrace,
+                                                        ) => const Icon(
+                                                          Icons.person,
+                                                          size: 12,
+                                                          color: Colors.grey,
+                                                        ),
+                                                  ),
+                                                )
+                                                : const Icon(
+                                                  Icons.person,
+                                                  size: 12,
+                                                  color: Colors.grey,
+                                                ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          '${passenger.name} (${passenger.seatsBooked} ghế)',
+                                          style: const TextStyle(fontSize: 12),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                  ],
                 ],
               ),
             ),
-            
+
             // Thông tin tài xế
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 color: Colors.grey.shade50,
-                border: Border(
-                  top: BorderSide(color: Colors.grey.shade200),
-                ),
+                border: Border(top: BorderSide(color: Colors.grey.shade200)),
               ),
               child: Row(
                 children: [
@@ -286,17 +400,21 @@ class BookingCard extends StatelessWidget {
                       color: Colors.grey.shade200,
                       shape: BoxShape.circle,
                     ),
-                    child: booking.driverAvatarUrl != null
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(20),
-                            child: Image.network(
-                              booking.driverAvatarUrl!,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  const Icon(Icons.person, color: Colors.grey),
-                            ),
-                          )
-                        : const Icon(Icons.person, color: Colors.grey),
+                    child:
+                        booking.driverAvatarUrl != null
+                            ? ClipRRect(
+                              borderRadius: BorderRadius.circular(20),
+                              child: Image.network(
+                                booking.driverAvatarUrl!,
+                                fit: BoxFit.cover,
+                                errorBuilder:
+                                    (context, error, stackTrace) => const Icon(
+                                      Icons.person,
+                                      color: Colors.grey,
+                                    ),
+                              ),
+                            )
+                            : const Icon(Icons.person, color: Colors.grey),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -313,7 +431,11 @@ class BookingCard extends StatelessWidget {
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            const Icon(Icons.phone, size: 12, color: Colors.grey),
+                            const Icon(
+                              Icons.phone,
+                              size: 12,
+                              color: Colors.grey,
+                            ),
                             const SizedBox(width: 4),
                             Text(
                               booking.driverPhone,
@@ -333,10 +455,7 @@ class BookingCard extends StatelessWidget {
                     children: [
                       const Text(
                         'Đặt lúc:',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                        ),
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
                       ),
                       Text(
                         _formatBookingTime(),
@@ -350,9 +469,10 @@ class BookingCard extends StatelessWidget {
                 ],
               ),
             ),
-            
+
             // DRIVER_CONFIRMED - Hiển thị thông báo và nút xác nhận
-            if (booking.status.toUpperCase() == 'DRIVER_CONFIRMED' && !isCancelled)
+            if (booking.status.toUpperCase() == 'DRIVER_CONFIRMED' &&
+                !isCancelled)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                 child: Column(
@@ -394,9 +514,10 @@ class BookingCard extends StatelessWidget {
                   ],
                 ),
               ),
-            
+
             // PASSENGER_CONFIRMED - Hiển thị thông báo
-            if (booking.status.toUpperCase() == 'PASSENGER_CONFIRMED' && !isCancelled)
+            if (booking.status.toUpperCase() == 'PASSENGER_CONFIRMED' &&
+                !isCancelled)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                 child: Container(
@@ -416,7 +537,7 @@ class BookingCard extends StatelessWidget {
                   ),
                 ),
               ),
-            
+
             // Hiển thị nút làm mới
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -426,15 +547,13 @@ class BookingCard extends StatelessWidget {
                   onPressed: onTap,
                   icon: const Icon(Icons.refresh, size: 18),
                   label: const Text('Làm mới'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.blue,
-                  ),
+                  style: TextButton.styleFrom(foregroundColor: Colors.blue),
                 ),
               ),
             ),
-            
+
             // Hiển thị nút xác nhận hoàn thành (khi không phải là DRIVER_CONFIRMED)
-            if (_shouldShowConfirmButton() && 
+            if (_shouldShowConfirmButton() &&
                 booking.status.toUpperCase() != 'DRIVER_CONFIRMED' &&
                 !isCancelled)
               Padding(
@@ -452,12 +571,13 @@ class BookingCard extends StatelessWidget {
                   ),
                 ),
               ),
-            
+
             // Nút hủy (nếu được yêu cầu)
-            if (showCancelButton && !isCancelled && 
-                (booking.status.toUpperCase() == 'PENDING' || 
-                 booking.status.toUpperCase() == 'ACCEPTED' || 
-                 booking.status.toUpperCase() == 'APPROVED'))
+            if (showCancelButton &&
+                !isCancelled &&
+                (booking.status.toUpperCase() == 'PENDING' ||
+                    booking.status.toUpperCase() == 'ACCEPTED' ||
+                    booking.status.toUpperCase() == 'APPROVED'))
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                 child: Row(
@@ -474,14 +594,17 @@ class BookingCard extends StatelessWidget {
                   ],
                 ),
               ),
-            
+
             // Thông báo đã hủy
             if (isCancelled)
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 8.0,
+                    horizontal: 12.0,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.grey.shade100,
                     borderRadius: BorderRadius.circular(8),
@@ -505,4 +628,4 @@ class BookingCard extends StatelessWidget {
       ),
     );
   }
-} 
+}

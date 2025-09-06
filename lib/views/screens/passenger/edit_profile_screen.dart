@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../models/user_profile.dart';
-import '../../../models/user_update_request.dart';
 import '../../../services/profile_service.dart';
 
 class EditProfileScreen extends StatefulWidget {

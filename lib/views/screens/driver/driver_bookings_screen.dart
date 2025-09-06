@@ -13,38 +13,41 @@ import '../../widgets/sharexe_background2.dart';
 
 class DriverBookingsScreen extends StatefulWidget {
   final Ride ride;
-  
+
   const DriverBookingsScreen({Key? key, required this.ride}) : super(key: key);
 
   @override
   State<DriverBookingsScreen> createState() => _DriverBookingsScreenState();
 }
 
-class _DriverBookingsScreenState extends State<DriverBookingsScreen> with SingleTickerProviderStateMixin {
+class _DriverBookingsScreenState extends State<DriverBookingsScreen>
+    with SingleTickerProviderStateMixin {
   final BookingService _bookingService = BookingService();
   final AppConfig _appConfig = AppConfig();
   final ApiDebugHelper _apiDebugHelper = ApiDebugHelper();
   late TabController _tabController;
-  
+
   List<Booking> _pendingBookings = [];
   List<Booking> _acceptedBookings = [];
   List<Booking> _completedBookings = [];
   List<Booking> _ongoingBookings = [];
   List<Booking> _cancelledBookings = [];
-  
+
   bool _isLoading = false;
   bool _isInitialLoad = true; // Track initial load to show skeleton
-  bool _isUsingMockData = false;
   bool _isDebugMode = false;
   String _apiResponse = '';
   int _apiCallAttempts = 0;
   DateTime _lastRefreshTime = DateTime.now();
 
   // Quick statistics
-  int get _totalBookings => _pendingBookings.length + _acceptedBookings.length + 
-                           _ongoingBookings.length + _completedBookings.length + 
-                           _cancelledBookings.length;
-  
+  int get _totalBookings =>
+      _pendingBookings.length +
+      _acceptedBookings.length +
+      _ongoingBookings.length +
+      _completedBookings.length +
+      _cancelledBookings.length;
+
   int get _totalSeatsBooked {
     int sum = 0;
     for (var booking in _pendingBookings) sum += booking.seatsBooked;
@@ -53,7 +56,7 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
     for (var booking in _completedBookings) sum += booking.seatsBooked;
     return sum;
   }
-  
+
   double get _totalRevenue => _completedBookings
       .map((b) => (b.pricePerSeat ?? 0.0) * b.seatsBooked)
       .fold(0.0, (a, b) => a + b);
@@ -75,23 +78,20 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
     setState(() {
       _isDebugMode = !_isDebugMode;
     });
-    
+
     if (_isDebugMode) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đã bật chế độ debug')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Đã bật chế độ debug')));
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đã tắt chế độ debug')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Đã tắt chế độ debug')));
     }
   }
 
   void _updateApiUrl() {
-    _apiDebugHelper.showUpdateApiUrlDialog(
-      context,
-      onUpdated: _loadBookings,
-    );
+    _apiDebugHelper.showUpdateApiUrlDialog(context, onUpdated: _loadBookings);
   }
 
   Future<void> _loadBookings() async {
@@ -101,66 +101,45 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
         _isLoading = true;
       });
     }
-    
+
     setState(() {
       _apiResponse = '';
       _apiCallAttempts++;
     });
 
     try {
-      developer.log('Bắt đầu tải danh sách booking của tài xế...', name: 'driver_bookings');
-      developer.log('API Base URL: ${_appConfig.fullApiUrl}', name: 'driver_bookings');
-      
+      developer.log(
+        'Bắt đầu tải danh sách booking của tài xế...',
+        name: 'driver_bookings',
+      );
+      developer.log(
+        'API Base URL: ${_appConfig.fullApiUrl}',
+        name: 'driver_bookings',
+      );
+
       final stopwatch = Stopwatch()..start();
       final bookings = await _bookingService.getBookingsForDriver();
       stopwatch.stop();
-      
-      // Improved detection logic for real vs mock data
-      bool isRealData = false;
-      
-      if (bookings.isNotEmpty) {
-        // Check for real API data characteristics
-        // 1. In our app, mock data IDs are typically over 100 with hardcoded values
-        // 2. Real bookings likely have more detailed data and will vary more
-        // 3. We can also check for booking.rideId patterns as well
-        
-        isRealData = bookings.any((booking) => 
-            // Any non-hardcoded ID pattern suggests real data
-            (booking.id < 100 && booking.id > 0) || 
-            // Real data often has diverse rideIds  
-            (booking.rideId > 0 && booking.rideId < 1000) ||
-            // Real API data typically has more populated fields
-            (booking.passengerId > 0 && booking.departure != null && booking.destination != null)
-        );
-        
-        // Log detection details for debugging
-        developer.log('Data detection - First booking:', name: 'driver_bookings');
-        if (bookings.isNotEmpty) {
-          final firstBooking = bookings.first;
-          developer.log('  ID: ${firstBooking.id}, RideID: ${firstBooking.rideId}, PassengerID: ${firstBooking.passengerId}', 
-              name: 'driver_bookings');
-          developer.log('  Status: ${firstBooking.status}, Fields filled: ${_countFilledFields(firstBooking)}', 
-              name: 'driver_bookings');
-        }
-      }
-      
-      // Cập nhật trạng thái dữ liệu mẫu
+
       if (mounted) {
         setState(() {
-          _isUsingMockData = !isRealData;
-          _apiResponse = !isRealData 
-              ? 'Đang sử dụng dữ liệu mẫu. Không thể kết nối đến API thực. Đã cố gắng $_apiCallAttempts lần.'
-              : 'Đã lấy ${bookings.length} booking từ API trong ${stopwatch.elapsedMilliseconds}ms';
+          _apiResponse =
+              'Đã lấy ${bookings.length} booking từ API trong ${stopwatch.elapsedMilliseconds}ms';
           _lastRefreshTime = DateTime.now();
         });
       }
-      
+
       // Log thêm thông tin để debug
       if (bookings.isNotEmpty) {
-        developer.log('ID của một số booking đầu tiên:', name: 'driver_bookings');
+        developer.log(
+          'ID của một số booking đầu tiên:',
+          name: 'driver_bookings',
+        );
         for (int i = 0; i < min(5, bookings.length); i++) {
-          developer.log('   Booking #${i+1}: ID=${bookings[i].id}, RideID=${bookings[i].rideId}, Status=${bookings[i].status}', 
-              name: 'driver_bookings');
+          developer.log(
+            '   Booking #${i + 1}: ID=${bookings[i].id}, RideID=${bookings[i].rideId}, Status=${bookings[i].status}',
+            name: 'driver_bookings',
+          );
         }
       }
 
@@ -176,23 +155,29 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
       for (var booking in bookings) {
         final status = booking.status.toUpperCase();
         DateTime startTime;
-        
+
         try {
-          startTime = booking.startTime != null && booking.startTime!.isNotEmpty
-              ? DateTime.parse(booking.startTime!)
-              : DateTime(2000); // Fallback to past date
+          startTime =
+              booking.startTime != null && booking.startTime!.isNotEmpty
+                  ? DateTime.parse(booking.startTime!)
+                  : DateTime(2000); // Fallback to past date
         } catch (e) {
-          developer.log('Lỗi parse startTime cho booking #${booking.id}: ${booking.startTime}', 
-              name: 'driver_bookings', error: e);
+          developer.log(
+            'Lỗi parse startTime cho booking #${booking.id}: ${booking.startTime}',
+            name: 'driver_bookings',
+            error: e,
+          );
           // Fallback to current time - fixed
           startTime = DateTime.now();
         }
-        
+
         // "Đang đi": IN_PROGRESS, DRIVER_CONFIRMED, PASSENGER_CONFIRMED, ACCEPTED (đã đến giờ)
-        if (status == 'IN_PROGRESS' || status == 'DRIVER_CONFIRMED' || 
-            status == 'PASSENGER_CONFIRMED' || status == 'ONGOING') {
+        if (status == 'IN_PROGRESS' ||
+            status == 'DRIVER_CONFIRMED' ||
+            status == 'PASSENGER_CONFIRMED' ||
+            status == 'ONGOING') {
           ongoing.add(booking);
-        } 
+        }
         // "Sắp tới": PENDING, ACCEPTED/APPROVED (chưa đến giờ)
         else if (status == 'PENDING') {
           pending.add(booking);
@@ -202,23 +187,27 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
           // Đã đến giờ -> đang đi
           if (now.isAfter(startTime)) {
             ongoing.add(booking);
-          } 
+          }
           // Chưa đến giờ -> sắp tới
           else {
             accepted.add(booking);
           }
-        } 
+        }
         // "Hoàn thành": COMPLETED
         else if (status == 'COMPLETED' || status == 'DONE') {
           completed.add(booking);
-        } 
+        }
         // "Đã hủy": CANCELLED, REJECTED
-        else if (status == 'CANCELLED' || status == 'REJECTED' || status == 'CANCEL') {
+        else if (status == 'CANCELLED' ||
+            status == 'REJECTED' ||
+            status == 'CANCEL') {
           cancelled.add(booking);
-        } 
-        else {
+        } else {
           // Fallback for unknown status
-          developer.log('Booking #${booking.id} has unknown status: $status', name: 'driver_bookings');
+          developer.log(
+            'Booking #${booking.id} has unknown status: $status',
+            name: 'driver_bookings',
+          );
           pending.add(booking); // Default to pending
         }
       }
@@ -235,30 +224,48 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
         });
 
         developer.log('Phân loại booking:', name: 'driver_bookings');
-        developer.log('- Chờ duyệt: ${_pendingBookings.length}', name: 'driver_bookings');
-        developer.log('- Đã chấp nhận: ${_acceptedBookings.length}', name: 'driver_bookings');
-        developer.log('- Đang tiến hành: ${_ongoingBookings.length}', name: 'driver_bookings');
-        developer.log('- Hoàn thành: ${_completedBookings.length}', name: 'driver_bookings');
-        developer.log('- Đã hủy/từ chối: ${_cancelledBookings.length}', name: 'driver_bookings');
+        developer.log(
+          '- Chờ duyệt: ${_pendingBookings.length}',
+          name: 'driver_bookings',
+        );
+        developer.log(
+          '- Đã chấp nhận: ${_acceptedBookings.length}',
+          name: 'driver_bookings',
+        );
+        developer.log(
+          '- Đang tiến hành: ${_ongoingBookings.length}',
+          name: 'driver_bookings',
+        );
+        developer.log(
+          '- Hoàn thành: ${_completedBookings.length}',
+          name: 'driver_bookings',
+        );
+        developer.log(
+          '- Đã hủy/từ chối: ${_cancelledBookings.length}',
+          name: 'driver_bookings',
+        );
       }
     } catch (e) {
-      developer.log('Lỗi khi tải danh sách booking: $e', name: 'driver_bookings', error: e);
-      
+      developer.log(
+        'Lỗi khi tải danh sách booking: $e',
+        name: 'driver_bookings',
+        error: e,
+      );
+
       if (mounted) {
         setState(() {
           _apiResponse = 'Lỗi: $e';
-          _isUsingMockData = true;
           _isLoading = false;
           _isInitialLoad = false; // Initial load completed
         });
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Không thể tải danh sách booking: $e')),
         );
       }
     }
   }
-  
+
   // Helper to count non-null fields in a booking
   int _countFilledFields(Booking booking) {
     int count = 0;
@@ -266,7 +273,8 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
     if (booking.rideId > 0) count++;
     if (booking.passengerId > 0) count++;
     if (booking.status.isNotEmpty) count++;
-    if (booking.passengerName != null && booking.passengerName.isNotEmpty) count++;
+    if (booking.passengerName != null && booking.passengerName.isNotEmpty)
+      count++;
     if (booking.createdAt.isNotEmpty) count++;
     if (booking.departure != null && booking.departure!.isNotEmpty) count++;
     if (booking.destination != null && booking.destination!.isNotEmpty) count++;
@@ -286,17 +294,11 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
         children: [
           Row(
             children: [
-              Icon(
-                _isUsingMockData ? Icons.warning : Icons.check_circle,
-                color: _isUsingMockData ? Colors.orange : Colors.green,
-                size: 16,
-              ),
+              const Icon(Icons.check_circle, color: Colors.green, size: 16),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  _isUsingMockData 
-                      ? 'Đang sử dụng dữ liệu mẫu - Không có dữ liệu thực từ API' 
-                      : 'Đang sử dụng dữ liệu thực từ API',
+                child: const Text(
+                  'Đang sử dụng dữ liệu thực từ API',
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
@@ -312,19 +314,13 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
               Expanded(
                 child: Text(
                   'API URL: ${_appConfig.fullApiUrl}/driver/bookings',
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                  ),
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               Text(
                 'Cập nhật: ${DateFormat('HH:mm:ss').format(_lastRefreshTime)}',
-                style: const TextStyle(
-                  color: Colors.grey,
-                  fontSize: 12,
-                ),
+                style: const TextStyle(color: Colors.grey, fontSize: 12),
               ),
             ],
           ),
@@ -333,10 +329,7 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
               padding: const EdgeInsets.only(top: 4),
               child: Text(
                 _apiResponse,
-                style: TextStyle(
-                  color: _isUsingMockData ? Colors.orange : Colors.green,
-                  fontSize: 12,
-                ),
+                style: const TextStyle(color: Colors.green, fontSize: 12),
               ),
             ),
           const SizedBox(height: 4),
@@ -352,44 +345,56 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
               children: [
                 _buildStatItem('Tổng', _totalBookings.toString()),
                 _buildStatItem('Chờ duyệt', _pendingBookings.length.toString()),
-                _buildStatItem('Đã chấp nhận', _acceptedBookings.length.toString()),
-                _buildStatItem('Đang tiến hành', _ongoingBookings.length.toString()),
-                _buildStatItem('Hoàn thành', _completedBookings.length.toString()),
+                _buildStatItem(
+                  'Đã chấp nhận',
+                  _acceptedBookings.length.toString(),
+                ),
+                _buildStatItem(
+                  'Đang tiến hành',
+                  _ongoingBookings.length.toString(),
+                ),
+                _buildStatItem(
+                  'Hoàn thành',
+                  _completedBookings.length.toString(),
+                ),
               ],
             ),
           ),
           const SizedBox(height: 4),
           // Connection diagnostic info
-          if (_isUsingMockData)
-            Container(
-              padding: const EdgeInsets.all(4),
-              margin: const EdgeInsets.only(bottom: 4),
-              decoration: BoxDecoration(
-                color: Colors.red.shade900.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Lỗi kết nối:',
-                    style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                  ),
-                  Text(
-                    'Endpoint: /driver/bookings',
-                    style: const TextStyle(color: Colors.white70, fontSize: 11),
-                  ),
-                  Text(
-                    'Attempts: $_apiCallAttempts',
-                    style: const TextStyle(color: Colors.white70, fontSize: 11),
-                  ),
-                  const Text(
-                    'Kiểm tra: 1) API đang chạy 2) URL chính xác 3) Token hợp lệ',
-                    style: TextStyle(color: Colors.white70, fontSize: 10),
-                  ),
-                ],
-              ),
+          Container(
+            padding: const EdgeInsets.all(4),
+            margin: const EdgeInsets.only(bottom: 4),
+            decoration: BoxDecoration(
+              color: Colors.red.shade900.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(4),
             ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Lỗi kết nối:',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  'Endpoint: /driver/bookings',
+                  style: const TextStyle(color: Colors.white70, fontSize: 11),
+                ),
+                Text(
+                  'Attempts: $_apiCallAttempts',
+                  style: const TextStyle(color: Colors.white70, fontSize: 11),
+                ),
+                const Text(
+                  'Kiểm tra: 1) API đang chạy 2) URL chính xác 3) Token hợp lệ',
+                  style: TextStyle(color: Colors.white70, fontSize: 10),
+                ),
+              ],
+            ),
+          ),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
@@ -402,7 +407,10 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
                 ),
                 style: TextButton.styleFrom(
                   backgroundColor: Colors.blue.shade900,
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   minimumSize: Size.zero,
                 ),
               ),
@@ -416,7 +424,10 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
                 ),
                 style: TextButton.styleFrom(
                   backgroundColor: Colors.orange.shade900,
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   minimumSize: Size.zero,
                 ),
               ),
@@ -426,7 +437,7 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
       ),
     );
   }
-  
+
   Widget _buildStatItem(String label, String value) {
     return Column(
       children: [
@@ -440,79 +451,103 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
         ),
         Text(
           label,
-          style: const TextStyle(
-            color: Colors.white70,
-            fontSize: 10,
-          ),
+          style: const TextStyle(color: Colors.white70, fontSize: 10),
         ),
       ],
     );
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return SharexeBackground2(
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
-          title: Text('Danh sách đặt chỗ - ${widget.ride.departure} đến ${widget.ride.destination}'),
+          title: Text(
+            'Danh sách đặt chỗ - ${widget.ride.departure} đến ${widget.ride.destination}',
+          ),
           backgroundColor: const Color(0xFF002D72),
         ),
-        body: _isLoading && !_isInitialLoad
-            ? const Center(child: CircularProgressIndicator())
-            : Column(
-                children: [
-                  if (_isDebugMode) _buildDebugPanel(),
-                  
-                  // Statistics panel
-                  Container(
-                    color: Colors.grey.shade100,
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _buildStatCard(
-                          'Tổng số',
-                          _totalBookings.toString(),
-                          Icons.book_online,
-                          Colors.blue,
-                        ),
-                        _buildStatCard(
-                          'Ghế đã đặt',
-                          _totalSeatsBooked.toString(),
-                          Icons.airline_seat_recline_normal,
-                          Colors.green,
-                        ),
-                        _buildStatCard(
-                          'Doanh thu',
-                          NumberFormat('#,###', 'vi_VN').format(_totalRevenue) + ' đ',
-                          Icons.monetization_on,
-                          Colors.amber,
-                        ),
-                      ],
+        body:
+            _isLoading && !_isInitialLoad
+                ? const Center(child: CircularProgressIndicator())
+                : Column(
+                  children: [
+                    if (_isDebugMode) _buildDebugPanel(),
+
+                    // Statistics panel
+                    Container(
+                      color: Colors.grey.shade100,
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _buildStatCard(
+                            'Tổng số',
+                            _totalBookings.toString(),
+                            Icons.book_online,
+                            Colors.blue,
+                          ),
+                          _buildStatCard(
+                            'Ghế đã đặt',
+                            _totalSeatsBooked.toString(),
+                            Icons.airline_seat_recline_normal,
+                            Colors.green,
+                          ),
+                          _buildStatCard(
+                            'Doanh thu',
+                            NumberFormat(
+                                  '#,###',
+                                  'vi_VN',
+                                ).format(_totalRevenue) +
+                                ' đ',
+                            Icons.monetization_on,
+                            Colors.amber,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  
-                  // Tab content
-                  Expanded(
-                    child: TabBarView(
-                      controller: _tabController,
-                      children: [
-                        _buildBookingsList(_pendingBookings, BookingStatus.pending),
-                        _buildBookingsList(_acceptedBookings, BookingStatus.accepted),
-                        _buildBookingsList(_ongoingBookings, BookingStatus.ongoing),
-                        _buildBookingsList(_completedBookings, BookingStatus.completed),
-                        _buildBookingsList(_cancelledBookings, BookingStatus.cancelled),
-                      ],
+
+                    // Tab content
+                    Expanded(
+                      child: TabBarView(
+                        controller: _tabController,
+                        children: [
+                          _buildBookingsList(
+                            _pendingBookings,
+                            BookingStatus.pending,
+                          ),
+                          _buildBookingsList(
+                            _acceptedBookings,
+                            BookingStatus.accepted,
+                          ),
+                          _buildBookingsList(
+                            _ongoingBookings,
+                            BookingStatus.ongoing,
+                          ),
+                          _buildBookingsList(
+                            _completedBookings,
+                            BookingStatus.completed,
+                          ),
+                          _buildBookingsList(
+                            _cancelledBookings,
+                            BookingStatus.cancelled,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
       ),
     );
   }
-  
-  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+
+  Widget _buildStatCard(
+    String title,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
@@ -540,16 +575,13 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
           ),
           Text(
             title,
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey.shade700,
-            ),
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
           ),
         ],
       ),
     );
   }
-  
+
   Widget _buildBookingsList(List<Booking> bookings, BookingStatus status) {
     // Show skeleton loader during initial loading
     if (_isInitialLoad) {
@@ -559,24 +591,17 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
         itemBuilder: (context, index) => const BookingCardSkeleton(),
       );
     }
-    
+
     if (bookings.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              _getStatusIcon(status),
-              size: 64,
-              color: Colors.grey.shade400,
-            ),
+            Icon(_getStatusIcon(status), size: 64, color: Colors.grey.shade400),
             const SizedBox(height: 16),
             Text(
               _getEmptyStateMessage(status),
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey.shade600,
-              ),
+              style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
             ),
             const SizedBox(height: 24),
             if (status == BookingStatus.pending)
@@ -589,7 +614,7 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
         ),
       );
     }
-    
+
     return RefreshIndicator(
       onRefresh: _loadBookings,
       child: ListView.builder(
@@ -602,7 +627,7 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
       ),
     );
   }
-  
+
   String _getEmptyStateMessage(BookingStatus status) {
     switch (status) {
       case BookingStatus.pending:
@@ -617,7 +642,7 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
         return 'Không có chuyến đi nào đã bị hủy hoặc từ chối';
     }
   }
-  
+
   IconData _getStatusIcon(BookingStatus status) {
     switch (status) {
       case BookingStatus.pending:
@@ -632,14 +657,15 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
         return Icons.cancel_outlined;
     }
   }
-  
+
   Widget _buildBookingCard(Booking booking, BookingStatus status) {
-    final double totalPrice = booking.pricePerSeat != null 
-      ? booking.pricePerSeat! * booking.seatsBooked
-      : 0.0;
+    final double totalPrice =
+        booking.pricePerSeat != null
+            ? booking.pricePerSeat! * booking.seatsBooked
+            : 0.0;
     final formattedPrice = NumberFormat('#,###', 'vi_VN').format(totalPrice);
     final formattedDate = _formatDateTime(booking.startTime.toString());
-    
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Column(
@@ -660,9 +686,7 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
               children: [
                 Text(
                   'Đặt chỗ #${booking.id}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 Chip(
                   label: Text(
@@ -680,7 +704,7 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
               ],
             ),
           ),
-          
+
           // Booking details
           Padding(
             padding: const EdgeInsets.all(16),
@@ -694,9 +718,7 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
                     Expanded(
                       child: Text(
                         'Hành khách: ${booking.passengerName}',
-                        style: const TextStyle(
-                          fontSize: 14,
-                        ),
+                        style: const TextStyle(fontSize: 14),
                       ),
                     ),
                   ],
@@ -722,23 +744,28 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
                   children: [
                     const Icon(Icons.access_time, size: 16, color: Colors.grey),
                     const SizedBox(width: 8),
-                    Text(
-                      formattedDate,
-                      style: const TextStyle(fontSize: 14),
-                    ),
+                    Text(formattedDate, style: const TextStyle(fontSize: 14)),
                   ],
                 ),
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    const Icon(Icons.airline_seat_recline_normal, size: 16, color: Colors.grey),
+                    const Icon(
+                      Icons.airline_seat_recline_normal,
+                      size: 16,
+                      color: Colors.grey,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       '${booking.seatsBooked} ghế',
                       style: const TextStyle(fontSize: 14),
                     ),
                     const Spacer(),
-                    const Icon(Icons.attach_money, size: 16, color: Colors.grey),
+                    const Icon(
+                      Icons.attach_money,
+                      size: 16,
+                      color: Colors.grey,
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       '$formattedPrice đ',
@@ -750,7 +777,7 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
                     ),
                   ],
                 ),
-                
+
                 // Action buttons based on status
                 const SizedBox(height: 16),
                 if (status == BookingStatus.pending)
@@ -758,7 +785,7 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
                 else if (status == BookingStatus.accepted)
                   _buildActionButtons(booking, status)
                 else if (status == BookingStatus.ongoing)
-                  _buildActionButtons(booking, status)
+                  _buildActionButtons(booking, status),
               ],
             ),
           ),
@@ -766,7 +793,7 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
       ),
     );
   }
-  
+
   Color _getStatusColor(BookingStatus status) {
     switch (status) {
       case BookingStatus.pending:
@@ -781,7 +808,7 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
         return Colors.red;
     }
   }
-  
+
   String _getStatusLabel(BookingStatus status) {
     switch (status) {
       case BookingStatus.pending:
@@ -796,7 +823,7 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
         return 'Đã hủy/từ chối';
     }
   }
-  
+
   Widget _buildActionButtons(Booking booking, BookingStatus status) {
     switch (status) {
       case BookingStatus.pending:
@@ -805,16 +832,12 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
           children: [
             OutlinedButton(
               onPressed: () => _rejectBooking(booking),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.red,
-              ),
+              style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
               child: const Text('Từ chối'),
             ),
             ElevatedButton(
               onPressed: () => _acceptBooking(booking),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-              ),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
               child: const Text('Chấp nhận'),
             ),
           ],
@@ -829,9 +852,7 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
             ),
             ElevatedButton(
               onPressed: () => _startTrip(booking),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-              ),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
               child: const Text('Bắt đầu chuyến đi'),
             ),
           ],
@@ -840,9 +861,7 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
         return Center(
           child: ElevatedButton(
             onPressed: () => _completeTrip(booking),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
             child: const Text('Hoàn thành chuyến đi'),
           ),
         );
@@ -850,25 +869,30 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
         return const SizedBox.shrink();
     }
   }
-  
+
   Future<void> _acceptBooking(Booking booking) async {
     // Lưu trữ dữ liệu booking hiện tại để đề phòng bị mất
     final Booking currentBooking = booking;
-    
+
     setState(() {
       _isLoading = true;
     });
-    
+
     try {
-      developer.log('Accepting booking #${booking.id}...', name: 'driver_bookings');
-      
+      developer.log(
+        'Accepting booking #${booking.id}...',
+        name: 'driver_bookings',
+      );
+
       // Hiển thị dialog xác nhận
       final bool? confirmResult = await showDialog<bool>(
         context: context,
         builder: (BuildContext context) {
           return AlertDialog(
             title: const Text('Xác nhận duyệt yêu cầu'),
-            content: const Text('Bạn có chắc chắn muốn duyệt yêu cầu đặt chỗ này không?'),
+            content: const Text(
+              'Bạn có chắc chắn muốn duyệt yêu cầu đặt chỗ này không?',
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
@@ -877,29 +901,27 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
               TextButton(
                 onPressed: () => Navigator.pop(context, true),
                 child: const Text('Duyệt'),
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.green,
-                ),
+                style: TextButton.styleFrom(foregroundColor: Colors.green),
               ),
             ],
           );
         },
       );
-      
+
       if (confirmResult != true) {
         setState(() {
           _isLoading = false;
         });
         return;
       }
-      
+
       // Tạm thời cập nhật UI trước để tránh mất dữ liệu nếu refresh thất bại
       setState(() {
         // Cập nhật booking trong danh sách hiện tại (tránh mất dữ liệu)
         final index = _pendingBookings.indexWhere((b) => b.id == booking.id);
         if (index != -1) {
           _pendingBookings.removeAt(index);
-          
+
           // Cập nhật trạng thái booking
           final updatedBooking = Booking(
             id: currentBooking.id,
@@ -914,15 +936,15 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
             pricePerSeat: currentBooking.pricePerSeat,
             totalPrice: currentBooking.totalPrice,
           );
-          
+
           // Thêm vào danh sách đã duyệt
           _acceptedBookings.add(updatedBooking);
         }
       });
-      
+
       // Use the booking service to accept the booking
-      final success = await _bookingService.driverAcceptBookingDTO(booking.rideId);
-      
+      final success = await _bookingService.driverAcceptBookingDTO(booking.id);
+
       if (success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -930,12 +952,16 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
             backgroundColor: Colors.green,
           ),
         );
-        
+
         // Reload data after action
         try {
           await _loadBookings();
         } catch (loadError) {
-          developer.log('Error reloading bookings: $loadError', name: 'driver_bookings', error: loadError);
+          developer.log(
+            'Error reloading bookings: $loadError',
+            name: 'driver_bookings',
+            error: loadError,
+          );
           // Không làm gì, vì đã cập nhật UI ở trên
         }
       } else if (mounted) {
@@ -950,14 +976,15 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
         });
       }
     } catch (e) {
-      developer.log('Error accepting booking: $e', name: 'driver_bookings', error: e);
-      
+      developer.log(
+        'Error accepting booking: $e',
+        name: 'driver_bookings',
+        error: e,
+      );
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lỗi: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red),
         );
         setState(() {
           _isLoading = false;
@@ -965,18 +992,21 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
       }
     }
   }
-  
+
   Future<void> _rejectBooking(Booking booking) async {
     setState(() {
       _isLoading = true;
     });
-    
+
     try {
-      developer.log('Rejecting booking #${booking.id}...', name: 'driver_bookings');
-      
+      developer.log(
+        'Rejecting booking #${booking.id}...',
+        name: 'driver_bookings',
+      );
+
       // Use the booking service to reject the booking
-      final success = await _bookingService.driverRejectBookingDTO(booking.rideId);
-      
+      final success = await _bookingService.driverRejectBookingDTO(booking.id);
+
       if (success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -984,7 +1014,7 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
             backgroundColor: Colors.orange,
           ),
         );
-        
+
         // Reload data after action
         _loadBookings();
       } else if (mounted) {
@@ -999,14 +1029,15 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
         });
       }
     } catch (e) {
-      developer.log('Error rejecting booking: $e', name: 'driver_bookings', error: e);
-      
+      developer.log(
+        'Error rejecting booking: $e',
+        name: 'driver_bookings',
+        error: e,
+      );
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lỗi: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red),
         );
         setState(() {
           _isLoading = false;
@@ -1014,37 +1045,37 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
       }
     }
   }
-  
+
   Future<void> _cancelBooking(Booking booking) async {
     // To be implemented
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Đã hủy yêu cầu đặt chỗ')),
-    );
-    
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Đã hủy yêu cầu đặt chỗ')));
+
     // Reload data after action
     _loadBookings();
   }
-  
+
   Future<void> _startTrip(Booking booking) async {
     // To be implemented
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Đã bắt đầu chuyến đi')),
-    );
-    
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Đã bắt đầu chuyến đi')));
+
     // Reload data after action
     _loadBookings();
   }
-  
+
   Future<void> _completeTrip(Booking booking) async {
     // To be implemented
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Đã hoàn thành chuyến đi')),
-    );
-    
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Đã hoàn thành chuyến đi')));
+
     // Reload data after action
     _loadBookings();
   }
-  
+
   String _formatDateTime(String dateTimeString) {
     try {
       final dateTime = DateTime.parse(dateTimeString);
@@ -1055,10 +1086,4 @@ class _DriverBookingsScreenState extends State<DriverBookingsScreen> with Single
   }
 }
 
-enum BookingStatus {
-  pending,
-  accepted,
-  ongoing,
-  completed,
-  cancelled,
-}
+enum BookingStatus { pending, accepted, ongoing, completed, cancelled }

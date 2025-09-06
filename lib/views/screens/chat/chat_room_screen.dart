@@ -491,8 +491,11 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
           if (syncedMessages.isNotEmpty && mounted) {
             setState(() {
               _messages =
-                  syncedMessages
-                    ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+                  syncedMessages..sort(
+                    (a, b) => (a.timestamp ?? DateTime.now()).compareTo(
+                      b.timestamp ?? DateTime.now(),
+                    ),
+                  );
               _isLoading = false;
             });
 
@@ -933,7 +936,9 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
                           return Column(
                             children: [
                               if (_shouldShowDate(index))
-                                _buildDateSeparator(message.timestamp),
+                                _buildDateSeparator(
+                                  message.timestamp ?? DateTime.now(),
+                                ),
                               _buildMessageBubble(message, isMe),
                             ],
                           );
@@ -1145,7 +1150,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
                   ),
                 ),
                 child: Text(
-                  message.content,
+                  message.content ?? '',
                   style: TextStyle(
                     color: isMe ? Colors.white : Colors.black87,
                     fontSize: 16,
@@ -1206,7 +1211,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
                           color: Colors.red.shade400,
                         ),
                       )
-                    else if (message.read)
+                    else if (message.read == true)
                       GestureDetector(
                         onTap: () {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -1297,7 +1302,10 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
       // Tìm tin nhắn trong danh sách và cập nhật trạng thái thành 'sending'
       for (int i = 0; i < _messages.length; i++) {
         if (_messages[i].content == message.content &&
-            _messages[i].timestamp.isAtSameMomentAs(message.timestamp!)) {
+            _messages[i].timestamp?.isAtSameMomentAs(
+                  message.timestamp ?? DateTime.now(),
+                ) ==
+                true) {
           _messages[i] = _messages[i].copyWith(status: 'sending');
           break;
         }
@@ -1310,7 +1318,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
       final result = await _chatService.sendMessage(
         roomId: widget.roomId,
         receiverEmail: widget.partnerEmail,
-        content: message.content,
+        content: message.content ?? '',
       );
       bool success = result.success;
 
@@ -1319,7 +1327,10 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
           // Tìm tin nhắn và cập nhật trạng thái
           for (int i = 0; i < _messages.length; i++) {
             if (_messages[i].content == message.content &&
-                _messages[i].timestamp.isAtSameMomentAs(message.timestamp!)) {
+                _messages[i].timestamp?.isAtSameMomentAs(
+                      message.timestamp ?? DateTime.now(),
+                    ) ==
+                    true) {
               _messages[i] = _messages[i].copyWith(status: 'sent');
               // Cập nhật tin nhắn trong bộ nhớ cục bộ
               _chatLocalStorage.updateMessageStatus(
@@ -1337,7 +1348,10 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
           // Tìm tin nhắn và đánh dấu là thất bại
           for (int i = 0; i < _messages.length; i++) {
             if (_messages[i].content == message.content &&
-                _messages[i].timestamp.isAtSameMomentAs(message.timestamp!)) {
+                _messages[i].timestamp?.isAtSameMomentAs(
+                      message.timestamp ?? DateTime.now(),
+                    ) ==
+                    true) {
               _messages[i] = _messages[i].copyWith(status: 'failed');
               break;
             }
@@ -1363,7 +1377,10 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
           // Tìm tin nhắn và đánh dấu là thất bại
           for (int i = 0; i < _messages.length; i++) {
             if (_messages[i].content == message.content &&
-                _messages[i].timestamp.isAtSameMomentAs(message.timestamp!)) {
+                _messages[i].timestamp?.isAtSameMomentAs(
+                      message.timestamp ?? DateTime.now(),
+                    ) ==
+                    true) {
               _messages[i] = _messages[i].copyWith(status: 'failed');
               break;
             }
@@ -1430,10 +1447,16 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
                 keyboardType: TextInputType.multiline,
                 textInputAction: TextInputAction.newline,
                 onChanged: (value) {
-                  // TODO: Thêm tính năng đang nhập tin nhắn
                   setState(() {
                     _isTyping = value.isNotEmpty;
                   });
+
+                  // Gửi typing indicator qua WebSocket
+                  if (value.isNotEmpty) {
+                    _sendTypingIndicator(true);
+                  } else {
+                    _sendTypingIndicator(false);
+                  }
                 },
               ),
             ),
@@ -1497,6 +1520,22 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   // Convert list of DTOs to list of ChatMessages
   List<ChatMessage> _convertDTOsToMessages(List<ChatMessageDTO> dtos) {
     return dtos.map(_convertDTOToMessage).toList();
+  }
+
+  // Gửi typing indicator qua WebSocket
+  void _sendTypingIndicator(bool isTyping) {
+    try {
+      // Gửi typing indicator qua WebSocket
+      // Sử dụng sendChatMessage với nội dung đặc biệt để đánh dấu typing
+      final typingContent = isTyping ? 'TYPING_INDICATOR' : 'STOP_TYPING';
+      _webSocketService.sendChatMessage(
+        widget.roomId,
+        widget.partnerEmail,
+        typingContent,
+      );
+    } catch (e) {
+      print('❌ Lỗi khi gửi typing indicator: $e');
+    }
   }
 
   // Helper method to find message by ID or content/timestamp fallback

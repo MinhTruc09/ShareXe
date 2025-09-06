@@ -4,6 +4,7 @@ import '../../../services/profile_service.dart';
 import '../../../services/auth_service.dart';
 import '../../../controllers/auth_controller.dart';
 import '../../../services/notification_service.dart';
+import '../../../utils/app_config.dart';
 import '../../widgets/sharexe_background2.dart';
 import 'edit_profile_screen.dart';
 import 'vehicle_info_screen.dart';
@@ -88,7 +89,8 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
           notifications
               .where(
                 (notification) =>
-                    notification.type == 'DRIVER_REJECTED' &&
+                    notification.type ==
+                        AppConfig.NOTIFICATION_DRIVER_REJECTED &&
                     notification.referenceId == _userProfile!.id,
               )
               .toList();
@@ -540,7 +542,11 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
                                   _showRequireApprovalDialog(context);
                                   return;
                                 }
-                                // TODO: Chuyển đến màn hình lịch sử chuyến
+                                // Chuyển đến màn hình lịch sử chuyến
+                                Navigator.pushNamed(
+                                  context,
+                                  '/driver/my-rides',
+                                );
                               },
                               isDisabled: _userProfile!.status != 'APPROVED',
                             ),
@@ -573,7 +579,11 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
                                   _showRequireApprovalDialog(context);
                                   return;
                                 }
-                                // TODO: Chuyển đến màn hình tạo chuyến đi
+                                // Chuyển đến màn hình tạo chuyến đi
+                                Navigator.pushNamed(
+                                  context,
+                                  '/driver/create-ride',
+                                );
                               },
                               isDisabled: _userProfile!.status != 'APPROVED',
                             ),

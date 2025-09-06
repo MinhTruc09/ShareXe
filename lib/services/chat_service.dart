@@ -22,7 +22,7 @@ class ChatService {
         );
       }
 
-      final endpoint = '${_appConfig.fullApiUrl}/chat/$roomId';
+      final endpoint = _appConfig.getEndpoint('chat/$roomId');
       print('Getting messages from: $endpoint');
 
       final response = await http
@@ -114,7 +114,7 @@ class ChatService {
         );
       }
 
-      final endpoint = '${_appConfig.fullApiUrl}/chat/rooms';
+      final endpoint = _appConfig.getEndpoint('chat/rooms');
       print('Getting chat rooms from: $endpoint');
 
       final response = await http
@@ -206,7 +206,7 @@ class ChatService {
         );
       }
 
-      final endpoint = '${_appConfig.fullApiUrl}/chat/room/$otherUserEmail';
+      final endpoint = _appConfig.getEndpoint('chat/room/$otherUserEmail');
       print('Getting chat room ID from: $endpoint');
 
       final response = await http
@@ -305,7 +305,7 @@ class ChatService {
         );
       }
 
-      final endpoint = '${_appConfig.fullApiUrl}/chat/test/$roomId';
+      final endpoint = _appConfig.getEndpoint('chat/test/$roomId');
       print('Sending message to: $endpoint');
 
       final messageData = ChatMessageDTO(
@@ -405,7 +405,7 @@ class ChatService {
         return false;
       }
 
-      final endpoint = '${_appConfig.fullApiUrl}/chat/$roomId/mark-read';
+      final endpoint = _appConfig.getEndpoint('chat/$roomId/mark-read');
       print('Marking messages as read at: $endpoint');
 
       final response = await http

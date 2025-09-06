@@ -1,3 +1,4 @@
+// Ride model - mapping with API RideRequestDTO schema
 class Ride {
   final int id;
   final int availableSeats;
@@ -81,6 +82,20 @@ class Ride {
         return defaultValue;
       }
 
+      // Handle startTime - could be DateTime string or already formatted
+      String parseStartTime(dynamic value) {
+        if (value == null) return DateTime.now().toIso8601String();
+        if (value is String) {
+          // Try to parse as DateTime and format
+          try {
+            return DateTime.parse(value).toIso8601String();
+          } catch (e) {
+            return value; // Return as is if parsing fails
+          }
+        }
+        return DateTime.now().toIso8601String();
+      }
+
       return Ride(
         id: parseIntSafely(json['id'], 0),
         availableSeats: parseIntSafely(json['availableSeats'], 0),
@@ -100,7 +115,7 @@ class Ride {
         endDistrict: json['endDistrict'] ?? '',
         endProvince: json['endProvince'] ?? '',
         destination: json['destination'] ?? 'Unknown',
-        startTime: json['startTime'] ?? DateTime.now().toIso8601String(),
+        startTime: parseStartTime(json['startTime']),
         pricePerSeat: parsePrice(json['pricePerSeat']),
         totalSeat: parseIntSafely(json['totalSeat'], 0),
         status: json['status'] ?? 'ACTIVE',
@@ -142,6 +157,32 @@ class Ride {
       'availableSeats': availableSeats,
       'driverName': driverName,
       'driverEmail': driverEmail,
+      'departure': departure,
+      'startLat': startLat,
+      'startLng': startLng,
+      'startAddress': startAddress,
+      'startWard': startWard,
+      'startDistrict': startDistrict,
+      'startProvince': startProvince,
+      'endLat': endLat,
+      'endLng': endLng,
+      'endAddress': endAddress,
+      'endWard': endWard,
+      'endDistrict': endDistrict,
+      'endProvince': endProvince,
+      'destination': destination,
+      'startTime': startTime,
+      'pricePerSeat': pricePerSeat,
+      'totalSeat': totalSeat,
+      'status': status,
+    };
+  }
+
+  // Helper method to convert to API format for creating/updating rides
+  Map<String, dynamic> toApiJson() {
+    return {
+      'id': id,
+      'availableSeats': availableSeats,
       'departure': departure,
       'startLat': startLat,
       'startLng': startLng,

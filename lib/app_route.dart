@@ -83,6 +83,7 @@ class AppRoute {
   // Chat routes
   static const String chatRoom = '/chat_room';
   static const String chatList = '/chat_list';
+  static const String chatUserList = '/chat/user-list';
 
   // Driver routes - adding these to fix references in driver screens
   static const String profileDriver = DriverRoutes.profile;
@@ -255,33 +256,13 @@ class AppRoute {
           builder: (_) => DriverBookingsScreen(ride: rideObj),
         );
       } else {
-        // Create a dummy ride with generic information if no ride data is provided
-        final dummyRide = Ride(
-          id: 0,
-          departure: 'Tất cả điểm đi',
-          startLat: 0.0,
-          startLng: 0.0,
-          startAddress: '',
-          startWard: '',
-          startDistrict: '',
-          startProvince: '',
-          endLat: 0.0,
-          endLng: 0.0,
-          endAddress: '',
-          endWard: '',
-          endDistrict: '',
-          endProvince: '',
-          destination: 'Tất cả điểm đến',
-          startTime: DateTime.now().toIso8601String(),
-          totalSeat: 0,
-          status: 'ACTIVE',
-          availableSeats: 0,
-          driverName: 'Tài xế',
-          driverEmail: 'example@sharexe.com',
-          pricePerSeat: null,
-        );
+        // Return error page if no ride data is provided
         return MaterialPageRoute(
-          builder: (_) => DriverBookingsScreen(ride: dummyRide),
+          builder:
+              (_) => Scaffold(
+                appBar: AppBar(title: const Text('Lỗi')),
+                body: const Center(child: Text('Không có dữ liệu chuyến đi')),
+              ),
         );
       }
     } else if (routeName == DriverRoutes.rideDetails) {
@@ -292,6 +273,8 @@ class AppRoute {
     }
     // Chat routes
     else if (routeName == chatList) {
+      return MaterialPageRoute(builder: (_) => const UserListScreen());
+    } else if (routeName == chatUserList) {
       return MaterialPageRoute(builder: (_) => const UserListScreen());
     } else if (routeName == chatRoom) {
       final args = settings.arguments;
@@ -306,6 +289,60 @@ class AppRoute {
         );
       }
       return _errorRoute();
+    }
+    // Additional routes for hardcoded paths
+    else if (routeName == '/driver/bookings') {
+      // Create a default ride object for the bookings screen
+      final defaultRide = Ride(
+        id: 0,
+        departure: 'Tất cả điểm đi',
+        startLat: 0.0,
+        startLng: 0.0,
+        startAddress: '',
+        startWard: '',
+        startDistrict: '',
+        startProvince: '',
+        endLat: 0.0,
+        endLng: 0.0,
+        endAddress: '',
+        endWard: '',
+        endDistrict: '',
+        endProvince: '',
+        destination: 'Tất cả điểm đến',
+        startTime: DateTime.now().toIso8601String(),
+        totalSeat: 0,
+        status: 'ACTIVE',
+        availableSeats: 0,
+        driverName: 'Tài xế',
+        driverEmail: 'example@sharexe.com',
+        pricePerSeat: null,
+      );
+      return MaterialPageRoute(
+        builder: (_) => DriverBookingsScreen(ride: defaultRide),
+      );
+    } else if (routeName == '/driver/profile') {
+      return MaterialPageRoute(builder: (_) => const DriverProfileScreen());
+    } else if (routeName == '/driver/edit-profile') {
+      final userProfile = settings.arguments;
+      if (userProfile is UserProfile) {
+        return MaterialPageRoute(
+          builder:
+              (context) => DriverEditProfileScreen(userProfile: userProfile),
+        );
+      } else {
+        return MaterialPageRoute(
+          builder:
+              (context) => Scaffold(
+                appBar: AppBar(title: const Text('Lỗi')),
+                body: const Center(
+                  child: Text(
+                    'Không thể tải thông tin hồ sơ. Vui lòng thử lại sau.',
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+        );
+      }
     }
     // Default error route
     else {

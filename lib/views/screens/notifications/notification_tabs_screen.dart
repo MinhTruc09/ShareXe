@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../models/notification_model.dart';
 import '../../../services/notification_service.dart';
-import '../../../services/ride_service.dart';
 import '../../../app_route.dart' show AppRoute, DriverRoutes;
+import '../../../utils/app_config.dart';
 
 class NotificationTabsScreen extends StatefulWidget {
   const NotificationTabsScreen({Key? key}) : super(key: key);
@@ -15,7 +15,6 @@ class _NotificationTabsScreenState extends State<NotificationTabsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final NotificationService _notificationService = NotificationService();
-  final RideService _rideService = RideService();
 
   List<NotificationModel> _allNotifications = [];
   List<NotificationModel> _bookingNotifications = [];
@@ -117,10 +116,13 @@ class _NotificationTabsScreenState extends State<NotificationTabsScreen>
         _allNotifications
             .where(
               (notification) =>
-                  notification.type == 'BOOKING_REQUEST' ||
-                  notification.type == 'BOOKING_ACCEPTED' ||
-                  notification.type == 'BOOKING_REJECTED' ||
-                  notification.type == 'BOOKING_CANCELED' ||
+                  notification.type == AppConfig.NOTIFICATION_BOOKING_REQUEST ||
+                  notification.type ==
+                      AppConfig.NOTIFICATION_BOOKING_ACCEPTED ||
+                  notification.type ==
+                      AppConfig.NOTIFICATION_BOOKING_REJECTED ||
+                  notification.type ==
+                      AppConfig.NOTIFICATION_BOOKING_CANCELLED ||
                   notification.type == 'NEW_BOOKING',
             )
             .toList();
@@ -128,7 +130,10 @@ class _NotificationTabsScreenState extends State<NotificationTabsScreen>
     // Lọc thông báo tin nhắn
     _messageNotifications =
         _allNotifications
-            .where((notification) => notification.type == 'CHAT_MESSAGE')
+            .where(
+              (notification) =>
+                  notification.type == AppConfig.NOTIFICATION_CHAT_MESSAGE,
+            )
             .toList();
 
     // Lọc thông báo liên quan đến tài xế
@@ -136,8 +141,8 @@ class _NotificationTabsScreenState extends State<NotificationTabsScreen>
         _allNotifications
             .where(
               (notification) =>
-                  notification.type == 'DRIVER_APPROVED' ||
-                  notification.type == 'DRIVER_REJECTED',
+                  notification.type == AppConfig.NOTIFICATION_DRIVER_APPROVED ||
+                  notification.type == AppConfig.NOTIFICATION_DRIVER_REJECTED,
             )
             .toList();
   }
@@ -473,7 +478,7 @@ class _NotificationTabsScreenState extends State<NotificationTabsScreen>
   Widget _buildActionButtons(NotificationModel notification) {
     // Tùy theo loại thông báo, hiển thị các nút hành động phù hợp
     switch (notification.type) {
-      case 'DRIVER_REJECTED':
+      case AppConfig.NOTIFICATION_DRIVER_REJECTED:
         return Container(
           width: double.infinity,
           padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 16.0),
@@ -517,7 +522,7 @@ class _NotificationTabsScreenState extends State<NotificationTabsScreen>
           ),
         );
 
-      case 'BOOKING_REQUEST':
+      case AppConfig.NOTIFICATION_BOOKING_REQUEST:
         return Container(
           width: double.infinity,
           padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 16.0),
@@ -566,7 +571,7 @@ class _NotificationTabsScreenState extends State<NotificationTabsScreen>
           ),
         );
 
-      case 'CHAT_MESSAGE':
+      case AppConfig.NOTIFICATION_CHAT_MESSAGE:
         return Container(
           width: double.infinity,
           padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 16.0),
@@ -626,20 +631,11 @@ class _NotificationTabsScreenState extends State<NotificationTabsScreen>
         // Làm mới danh sách thông báo
         await _loadNotifications();
 
-        // Lấy thông tin chi tiết chuyến đi
-        final ride = await _rideService.getRideDetails(bookingId);
-
         // Đóng loading indicator
         Navigator.of(context, rootNavigator: true).pop();
 
-        if (ride != null && mounted) {
-          // Điều hướng đến trang chi tiết chuyến đi
-          Navigator.pushNamed(context, AppRoute.rideDetails, arguments: ride);
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Không thể tải thông tin chuyến đi')),
-          );
-        }
+        // Điều hướng đến trang quản lý booking
+        Navigator.pushNamed(context, DriverRoutes.bookings);
       } else {
         // Đóng loading indicator
         Navigator.of(context, rootNavigator: true).pop();
@@ -789,51 +785,15 @@ class _NotificationTabsScreenState extends State<NotificationTabsScreen>
         Navigator.pushNamed(context, DriverRoutes.bookings);
         break;
 
-      case 'BOOKING_REQUEST':
-      case 'BOOKING_ACCEPTED':
-      case 'BOOKING_REJECTED':
-      case 'BOOKING_CANCELED':
-        try {
-          // Hiển thị loading indicator
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (BuildContext context) {
-              return const Center(child: CircularProgressIndicator());
-            },
-          );
-
-          // Lấy thông tin chi tiết chuyến đi
-          final ride = await _rideService.getRideDetails(
-            notification.referenceId,
-          );
-
-          // Đóng loading indicator
-          Navigator.of(context).pop();
-
-          if (ride != null && mounted) {
-            // Điều hướng đến trang chi tiết chuyến đi
-            Navigator.pushNamed(context, AppRoute.rideDetails, arguments: ride);
-          } else {
-            // Hiển thị thông báo lỗi nếu không thể lấy thông tin
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Không thể tải thông tin chuyến đi'),
-              ),
-            );
-          }
-        } catch (e) {
-          // Đóng loading indicator nếu có lỗi
-          Navigator.of(context, rootNavigator: true).pop();
-
-          // Hiển thị thông báo lỗi
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
-        }
+      case AppConfig.NOTIFICATION_BOOKING_REQUEST:
+      case AppConfig.NOTIFICATION_BOOKING_ACCEPTED:
+      case AppConfig.NOTIFICATION_BOOKING_REJECTED:
+      case AppConfig.NOTIFICATION_BOOKING_CANCELLED:
+        // Điều hướng đến trang quản lý booking
+        Navigator.pushNamed(context, DriverRoutes.bookings);
         break;
 
-      case 'CHAT_MESSAGE':
+      case AppConfig.NOTIFICATION_CHAT_MESSAGE:
         // Điều hướng đến trang chat
         Navigator.pushNamed(
           context,
@@ -846,12 +806,12 @@ class _NotificationTabsScreenState extends State<NotificationTabsScreen>
         );
         break;
 
-      case 'DRIVER_APPROVED':
+      case AppConfig.NOTIFICATION_DRIVER_APPROVED:
         // Điều hướng đến trang thông tin tài xế
         Navigator.pushNamed(context, AppRoute.profileDriver);
         break;
 
-      case 'DRIVER_REJECTED':
+      case AppConfig.NOTIFICATION_DRIVER_REJECTED:
         // Điều hướng đến trang chỉnh sửa hồ sơ tài xế
         Navigator.pushNamed(context, DriverRoutes.editProfile);
         break;
@@ -860,19 +820,19 @@ class _NotificationTabsScreenState extends State<NotificationTabsScreen>
 
   Widget _getIconForNotificationType(String type) {
     switch (type) {
-      case 'BOOKING_REQUEST':
+      case AppConfig.NOTIFICATION_BOOKING_REQUEST:
         return const Icon(Icons.car_rental, color: Colors.white);
-      case 'BOOKING_ACCEPTED':
+      case AppConfig.NOTIFICATION_BOOKING_ACCEPTED:
         return const Icon(Icons.check_circle, color: Colors.white);
-      case 'BOOKING_REJECTED':
+      case AppConfig.NOTIFICATION_BOOKING_REJECTED:
         return const Icon(Icons.cancel, color: Colors.white);
-      case 'BOOKING_CANCELED':
+      case AppConfig.NOTIFICATION_BOOKING_CANCELLED:
         return const Icon(Icons.block, color: Colors.white);
-      case 'DRIVER_REJECTED':
+      case AppConfig.NOTIFICATION_DRIVER_REJECTED:
         return const Icon(Icons.gpp_bad, color: Colors.white);
-      case 'DRIVER_APPROVED':
+      case AppConfig.NOTIFICATION_DRIVER_APPROVED:
         return const Icon(Icons.verified_user, color: Colors.white);
-      case 'CHAT_MESSAGE':
+      case AppConfig.NOTIFICATION_CHAT_MESSAGE:
         return const Icon(Icons.chat, color: Colors.white);
       case 'PAYMENT':
         return const Icon(Icons.payment, color: Colors.white);

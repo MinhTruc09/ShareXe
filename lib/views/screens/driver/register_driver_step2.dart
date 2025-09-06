@@ -51,14 +51,12 @@ class _RegisterDriverStep2State extends State<RegisterDriverStep2> {
 
   Future<void> _addImage(String type) async {
     if (kIsWeb) {
-      setState(() {
-        if (type == 'avatar') _avatarPath = 'fake_avatar_path.jpg';
-        if (type == 'license') _licenseImagePath = 'fake_license_path.jpg';
-        if (type == 'vehicle') _vehicleImagePath = 'fake_vehicle_path.jpg';
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Đã chọn ảnh (giả lập)')));
-      });
+      // TODO: Implement real image selection
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Tính năng chọn ảnh đang được phát triển'),
+        ),
+      );
     } else {
       final picker = ImagePicker();
       final pickedFile = await picker.pickImage(source: ImageSource.gallery);

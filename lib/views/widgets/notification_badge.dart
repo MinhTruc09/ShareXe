@@ -61,7 +61,11 @@ class _NotificationBadgeState extends State<NotificationBadge> {
         });
       }
     } catch (e) {
-      // Xử lý lỗi nếu cần
+      if (mounted) {
+        setState(() {
+          _unreadCount = 0;
+        });
+      }
     }
   }
 

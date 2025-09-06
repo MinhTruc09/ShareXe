@@ -14,7 +14,7 @@ class RideCard extends StatelessWidget {
   final Function()? onConfirmComplete;
   final bool isDriverView;
   final AppConfig _appConfig = AppConfig();
-  
+
   // Add a static cache for formatted time strings
   static final Map<String, String> _timeFormatCache = {};
 
@@ -35,16 +35,16 @@ class RideCard extends StatelessWidget {
     if (_timeFormatCache.containsKey(timeString)) {
       return _timeFormatCache[timeString]!;
     }
-    
+
     try {
       // Parse the date string in ISO format
       final dateTime = DateTime.parse(timeString);
       // Format to display date and time
       final formatted = DateFormat('HH:mm dd/MM/yyyy').format(dateTime);
-      
+
       // Store in cache for future use
       _timeFormatCache[timeString] = formatted;
-      
+
       return formatted;
     } catch (e) {
       // Cache the error result too to avoid repeated parsing attempts
@@ -57,24 +57,26 @@ class RideCard extends StatelessWidget {
     if (bookingDTO != null) {
       try {
         final key = 'bookingDTO_${bookingDTO!.createdAt.toIso8601String()}';
-        
+
         // Check cache first
         if (_timeFormatCache.containsKey(key)) {
           return _timeFormatCache[key]!;
         }
-        
-        final formatted = DateFormat('HH:mm dd/MM/yyyy').format(bookingDTO!.createdAt);
+
+        final formatted = DateFormat(
+          'HH:mm dd/MM/yyyy',
+        ).format(bookingDTO!.createdAt);
         _timeFormatCache[key] = formatted;
         return formatted;
       } catch (e) {
         print('Error formatting bookingDTO createdAt: $e');
       }
     }
-    
+
     if (booking != null) {
       return _formatTime(booking!.createdAt);
     }
-    
+
     return "N/A";
   }
 
@@ -82,28 +84,37 @@ class RideCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: 'đ');
     DateTime? startDateTime;
-    
+
     try {
       startDateTime = DateTime.parse(ride.startTime);
     } catch (e) {
       print('Error parsing startTime: $e');
     }
-    
+
     // Determine if confirmation button should be shown
     bool shouldShowConfirmButton = false;
-    
+
     if (startDateTime != null && onConfirmComplete != null) {
       if (isDriverView) {
         // Tài xế: Hiển thị nút khi chuyến đi đang diễn ra và chưa xác nhận
-        shouldShowConfirmButton = _appConfig.shouldShowDriverConfirmButton(ride.status, startDateTime);
+        shouldShowConfirmButton = _appConfig.shouldShowDriverConfirmButton(
+          ride.status,
+          startDateTime,
+        );
       } else if (booking != null) {
         // Hành khách (legacy Booking): Hiển thị nút khi booking đã qua thời gian khởi hành
         // Bao gồm cả trạng thái PENDING đã qua thời gian khởi hành
-        shouldShowConfirmButton = _appConfig.shouldShowPassengerConfirmButton(booking!.status, startDateTime);
+        shouldShowConfirmButton = _appConfig.shouldShowPassengerConfirmButton(
+          booking!.status,
+          startDateTime,
+        );
       } else if (bookingDTO != null) {
         // Hành khách (BookingDTO): Hiển thị nút khi booking đã qua thời gian khởi hành
         // Bao gồm cả trạng thái PENDING đã qua thời gian khởi hành
-        shouldShowConfirmButton = _appConfig.shouldShowPassengerConfirmButton(bookingDTO!.status, startDateTime);
+        shouldShowConfirmButton = _appConfig.shouldShowPassengerConfirmButton(
+          bookingDTO!.status,
+          startDateTime,
+        );
       }
     }
 
@@ -117,12 +128,19 @@ class RideCard extends StatelessWidget {
         // Xử lý cho view của hành khách
         if (booking != null || bookingDTO != null) {
           String bookingStatus = booking?.status ?? bookingDTO?.status ?? "";
-          statusLabel = _appConfig.getBookingStatusText(bookingStatus, startDateTime, ride.status);
+          statusLabel = _appConfig.getBookingStatusText(
+            bookingStatus,
+            startDateTime,
+            ride.status,
+          );
         } else {
-          statusLabel = _appConfig.getRideStatusText(ride.status, startDateTime);
+          statusLabel = _appConfig.getRideStatusText(
+            ride.status,
+            startDateTime,
+          );
         }
       }
-      
+
       // Xác định màu sắc
       switch (statusLabel) {
         case "Tài xế xác nhận":
@@ -193,14 +211,14 @@ class RideCard extends StatelessWidget {
     // Tính tổng giá
     double totalPrice = 0;
     if (ride.pricePerSeat != null) {
-      int bookedSeats = (ride.totalSeat ?? 0) - (ride.availableSeats ?? 0);
-      totalPrice = (ride.pricePerSeat ?? 0) * bookedSeats;
+      int bookedSeats = ride.totalSeat - ride.availableSeats;
+      totalPrice = ride.pricePerSeat! * bookedSeats;
     }
 
     // Format giá tiền với xử lý số lớn
     String formatPrice(double price) {
       if (price == 0) return "0 đ";
-      
+
       try {
         // Handle large numbers gracefully
         if (price >= 1000000000) {
@@ -278,7 +296,7 @@ class RideCard extends StatelessWidget {
                 ],
               ),
             ),
-            
+
             // Phần thông tin chuyến đi
             Padding(
               padding: const EdgeInsets.all(16.0),
@@ -288,7 +306,11 @@ class RideCard extends StatelessWidget {
                   // Ngày và thời gian
                   Row(
                     children: [
-                      const Icon(Icons.calendar_today, size: 18, color: Colors.grey),
+                      const Icon(
+                        Icons.calendar_today,
+                        size: 18,
+                        color: Colors.grey,
+                      ),
                       const SizedBox(width: 8),
                       Text(
                         formattedDate,
@@ -298,7 +320,11 @@ class RideCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 16),
-                      const Icon(Icons.access_time, size: 18, color: Colors.grey),
+                      const Icon(
+                        Icons.access_time,
+                        size: 18,
+                        color: Colors.grey,
+                      ),
                       const SizedBox(width: 8),
                       Text(
                         formattedTime,
@@ -309,14 +335,18 @@ class RideCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  
+
                   const SizedBox(height: 12),
-                  
+
                   // Địa điểm đi
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.location_on, size: 18, color: Colors.green.shade600),
+                      Icon(
+                        Icons.location_on,
+                        size: 18,
+                        color: Colors.green.shade600,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -329,14 +359,18 @@ class RideCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  
+
                   const SizedBox(height: 8),
-                  
+
                   // Địa điểm đến
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.location_on, size: 18, color: Colors.red.shade600),
+                      Icon(
+                        Icons.location_on,
+                        size: 18,
+                        color: Colors.red.shade600,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -349,9 +383,9 @@ class RideCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  
+
                   const SizedBox(height: 12),
-                  
+
                   // Số ghế và giá - Sửa để xử lý giá lớn
                   Row(
                     children: [
@@ -360,10 +394,14 @@ class RideCard extends StatelessWidget {
                         flex: 1,
                         child: Row(
                           children: [
-                            Icon(Icons.event_seat, color: Colors.blue.shade700, size: 18),
+                            Icon(
+                              Icons.event_seat,
+                              color: Colors.blue.shade700,
+                              size: 18,
+                            ),
                             const SizedBox(width: 4),
                             Text(
-                              '${ride.totalSeat - (ride.availableSeats ?? 0)} ghế',
+                              '${ride.totalSeat - ride.availableSeats} ghế',
                               style: const TextStyle(
                                 color: Colors.black87,
                                 fontSize: 14,
@@ -373,13 +411,17 @@ class RideCard extends StatelessWidget {
                           ],
                         ),
                       ),
-                      
+
                       // Giá mỗi ghế
                       Expanded(
                         flex: 1,
                         child: Row(
                           children: [
-                            Icon(Icons.attach_money, color: Colors.green.shade700, size: 18),
+                            Icon(
+                              Icons.attach_money,
+                              color: Colors.green.shade700,
+                              size: 18,
+                            ),
                             const SizedBox(width: 4),
                             Flexible(
                               child: Text(
@@ -388,13 +430,13 @@ class RideCard extends StatelessWidget {
                                   color: Colors.black87,
                                   fontSize: 14,
                                 ),
-                                overflow: TextOverflow.ellipsis, 
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],
                         ),
                       ),
-                      
+
                       // Tổng tiền
                       Expanded(
                         flex: 1,
@@ -427,10 +469,10 @@ class RideCard extends StatelessWidget {
                 ],
               ),
             ),
-            
+
             // Divider
             const Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
-            
+
             // Thông tin tài xế
             Padding(
               padding: const EdgeInsets.all(16.0),
@@ -440,7 +482,11 @@ class RideCard extends StatelessWidget {
                   CircleAvatar(
                     radius: 20,
                     backgroundColor: Colors.grey.shade200,
-                    child: const Icon(Icons.person, size: 24, color: Colors.blueGrey),
+                    child: const Icon(
+                      Icons.person,
+                      size: 24,
+                      color: Colors.blueGrey,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   // Thông tin tài xế
@@ -457,23 +503,34 @@ class RideCard extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 2),
-                        Row(
-                          children: [
-                            const Icon(Icons.phone, size: 14, color: Colors.grey),
-                            const SizedBox(width: 4),
-                            Text(
-                              '1234567890', // Thay thế bằng số điện thoại thực tế nếu có
-                              style: TextStyle(
-                                color: Colors.grey.shade700,
-                                fontSize: 13,
+                        // Hiển thị số điện thoại từ BookingDTO nếu có
+                        if (bookingDTO?.driverPhone != null &&
+                            bookingDTO!.driverPhone.isNotEmpty)
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.phone,
+                                size: 14,
+                                color: Colors.grey,
                               ),
-                            ),
-                          ],
-                        ),
+                              const SizedBox(width: 4),
+                              Text(
+                                bookingDTO!.driverPhone,
+                                style: TextStyle(
+                                  color: Colors.grey.shade700,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
                         const SizedBox(height: 2),
                         Row(
                           children: [
-                            const Icon(Icons.email, size: 14, color: Colors.grey),
+                            const Icon(
+                              Icons.email,
+                              size: 14,
+                              color: Colors.grey,
+                            ),
                             const SizedBox(width: 4),
                             Text(
                               ride.driverEmail,
@@ -490,35 +547,86 @@ class RideCard extends StatelessWidget {
                 ],
               ),
             ),
-            
+
             // Thông tin phụ
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
+              child: Column(
                 children: [
-                  const Icon(Icons.airline_seat_recline_normal, size: 16, color: Colors.grey),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Tổng số ghế: ${ride.totalSeat ?? 0}',
-                    style: TextStyle(
-                      color: Colors.grey.shade700,
-                      fontSize: 13,
-                    ),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.airline_seat_recline_normal,
+                        size: 16,
+                        color: Colors.grey,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Tổng số ghế: ${ride.totalSeat}',
+                        style: TextStyle(
+                          color: Colors.grey.shade700,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Icon(
+                        Icons.event_seat,
+                        size: 16,
+                        color: Colors.grey,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Còn trống: ${ride.availableSeats}',
+                        style: TextStyle(
+                          color: Colors.grey.shade700,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  const Icon(Icons.event_seat, size: 16, color: Colors.grey),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Còn trống: ${ride.availableSeats ?? 0}',
-                    style: TextStyle(
-                      color: Colors.grey.shade700,
-                      fontSize: 13,
+                  // Thông tin xe từ BookingDTO nếu có
+                  if (bookingDTO?.vehicle != null) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.directions_car,
+                          size: 16,
+                          color: Colors.grey,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${bookingDTO!.vehicle!.brand} ${bookingDTO!.vehicle!.model}',
+                          style: TextStyle(
+                            color: Colors.grey.shade700,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '(${bookingDTO!.vehicle!.color})',
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          bookingDTO!.vehicle!.licensePlate,
+                          style: TextStyle(
+                            color: Colors.blue.shade700,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
-            
+
             // Hiển thị thông tin thời gian đặt chỗ (nếu có)
             if (booking != null || bookingDTO != null)
               Padding(
@@ -537,7 +645,7 @@ class RideCard extends StatelessWidget {
                   ],
                 ),
               ),
-            
+
             // Nút xác nhận hoàn thành
             if (shouldShowConfirmButton)
               Padding(
@@ -556,16 +664,15 @@ class RideCard extends StatelessWidget {
                     ),
                     child: const Text(
                       "Xác nhận hoàn thành",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
               ),
-              
+
             // Nút Hủy cho vị trí cuối trang (nếu cần)
-            if (ride.status.toUpperCase() == 'PENDING' || ride.status.toUpperCase() == 'ACTIVE')
+            if (ride.status.toUpperCase() == 'PENDING' ||
+                ride.status.toUpperCase() == 'ACTIVE')
               Align(
                 alignment: Alignment.centerRight,
                 child: Padding(
@@ -576,7 +683,10 @@ class RideCard extends StatelessWidget {
                     },
                     style: TextButton.styleFrom(
                       foregroundColor: Colors.red,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
                     ),
                     child: const Text('Hủy'),
                   ),

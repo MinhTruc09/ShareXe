@@ -6,10 +6,8 @@ import 'package:sharexe/services/auth_service.dart';
 import 'package:sharexe/controllers/auth_controller.dart';
 import 'package:sharexe/app_route.dart';
 import 'package:sharexe/models/ride.dart';
-import 'package:sharexe/services/notification_service.dart';
 import '../../../services/profile_service.dart';
 import '../../../models/user_profile.dart';
-import '../../../services/auth_manager.dart';
 import '../../../services/ride_service.dart';
 import '../../../services/booking_service.dart';
 import '../../../models/booking.dart';
@@ -34,9 +32,7 @@ class NewHomePscreen extends StatefulWidget {
 class NewHomePscreenState extends State<NewHomePscreen>
     with WidgetsBindingObserver {
   late AuthController _authController;
-  final NotificationService _notificationService = NotificationService();
   final ProfileService _profileService = ProfileService();
-  final AuthManager _authManager = AuthManager();
   final RideService _rideService = RideService();
   final BookingService _bookingService = BookingService();
 
@@ -287,10 +283,6 @@ class NewHomePscreenState extends State<NewHomePscreen>
         destination: _destination,
         startTime: _departureDate,
         passengerCount: _passengerCount,
-        departureLat: _departureCoords?.latitude,
-        departureLng: _departureCoords?.longitude,
-        destinationLat: _destinationCoords?.latitude,
-        destinationLng: _destinationCoords?.longitude,
       );
 
       // Sort rides with newest (highest ID) first
@@ -897,41 +889,6 @@ class NewHomePscreenState extends State<NewHomePscreen>
                     ),
                   ),
                 ),
-      ),
-    );
-  }
-
-  // Widget để tạo nút hành động trong thẻ chào mừng
-  Widget _buildActionButtonNew(
-    String label,
-    IconData icon,
-    VoidCallback onTap,
-  ) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.15),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.white.withOpacity(0.3)),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: Colors.white, size: 24),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
       ),
     );
   }
