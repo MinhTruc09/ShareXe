@@ -57,9 +57,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
   // Route polyline data
   List<LatLng> _polylinePoints = [];
 
-  // Driver information
-  String? _driverName;
-  String? _driverEmail;
+  // Driver information (removed as not needed for API)
 
   @override
   void initState() {
@@ -122,8 +120,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
             _isDriverApproved = userProfile.status == 'APPROVED';
 
             // Lưu thông tin tài xế để gửi API
-            _driverName = userProfile.fullName;
-            _driverEmail = userProfile.email;
+            // Driver info loaded successfully
 
             // Nếu không phải là chế độ chỉnh sửa chuyến và tài xế chưa được duyệt,
             // hiển thị thông báo
@@ -449,22 +446,18 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
         return;
       }
 
-      // Chuẩn bị dữ liệu chuyến đi theo API specification
+      // Chuẩn bị dữ liệu chuyến đi theo API specification (chỉ gửi các trường bắt buộc)
       final rideData = {
-        'id': 0, // API yêu cầu, sẽ được server gán
-        'availableSeats': _totalSeats, // Ban đầu bằng totalSeat
-        'driverName': _driverName ?? '', // Cần lấy từ profile
-        'driverEmail': _driverEmail ?? '', // Cần lấy từ profile
         'departure': _departure!.address,
         'startLat': _departureLat ?? 0.0,
         'startLng': _departureLng ?? 0.0,
-        'startAddress': _departure!.address, // Thêm trường này
+        'startAddress': _departure!.address,
         'startWard': _departureWard ?? '',
         'startDistrict': _departureDistrict ?? '',
         'startProvince': _departureProvince ?? '',
         'endLat': _destinationLat ?? 0.0,
         'endLng': _destinationLng ?? 0.0,
-        'endAddress': _destination!.address, // Thêm trường này
+        'endAddress': _destination!.address,
         'endWard': _destinationWard ?? '',
         'endDistrict': _destinationDistrict ?? '',
         'endProvince': _destinationProvince ?? '',
@@ -472,7 +465,6 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
         'startTime': _departureDate!.toIso8601String(),
         'pricePerSeat': _pricePerSeat,
         'totalSeat': _totalSeats,
-        'status': 'ACTIVE',
       };
 
       print('📝 Đang gửi dữ liệu chuyến đi: $rideData');

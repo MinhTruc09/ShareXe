@@ -1,490 +1,241 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:http/http.dart' as http;
-import '../models/chat_model.dart';
+import '../models/chat_message.dart';
 import '../utils/app_config.dart';
 import 'auth_manager.dart';
 
 class ChatService {
-  final AuthManager _authManager = AuthManager();
   final AppConfig _appConfig = AppConfig();
+  final AuthManager _authManager = AuthManager();
 
-  /// Get messages for a specific chat room
-  Future<ApiResponseListChatMessageDTO> getMessages(String roomId) async {
+  String get baseUrl => '${_appConfig.apiBaseUrl}/api';
+
+  // Lấy lịch sử tin nhắn của một phòng chat
+  Future<List<ChatMessage>> fetchMessages(String roomId) async {
     try {
       final token = await _authManager.getToken();
       if (token == null) {
-        return ApiResponseListChatMessageDTO(
-          message: 'Chưa đăng nhập',
-          statusCode: 401,
-          data: [],
-          success: false,
-        );
+        throw Exception('Token không có sẵn');
       }
 
-      final endpoint = _appConfig.getEndpoint('chat/$roomId');
-      print('Getting messages from: $endpoint');
+      print('📱 Đang tải lịch sử chat cho room: $roomId');
 
-      final response = await http
-          .get(
-            Uri.parse(endpoint),
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $token',
-            },
-          )
-          .timeout(
-            const Duration(seconds: 10),
-            onTimeout: () {
-              throw Exception('Kết nối máy chủ quá hạn. Vui lòng thử lại sau.');
-            },
-          );
+      final response = await http.get(
+        Uri.parse("$baseUrl/chat/$roomId"),
+        headers: {
+          "Authorization": "Bearer $token",
+          "Content-Type": "application/json",
+        },
+      );
 
-      print('Chat messages response status: ${response.statusCode}');
-      print('Chat messages response body: ${response.body}');
-
-      if (response.statusCode == 401 || response.statusCode == 403) {
-        return ApiResponseListChatMessageDTO(
-          message: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
-          statusCode: response.statusCode,
-          data: [],
-          success: false,
-        );
-      }
+      print('📡 Chat API response: ${response.statusCode}');
+      print('📡 Response body: ${response.body}');
 
       if (response.statusCode == 200) {
-        try {
-          final responseData = json.decode(response.body);
-          return ApiResponseListChatMessageDTO.fromJson(responseData);
-        } catch (parseError) {
-          print('Error parsing chat messages response: $parseError');
-          return ApiResponseListChatMessageDTO(
-            message: 'Lấy tin nhắn thành công',
-            statusCode: 200,
-            data: [],
-            success: true,
-          );
+        final data = jsonDecode(response.body);
+        if (data['success'] == true && data['data'] != null) {
+          final messages =
+              (data['data'] as List)
+                  .map((e) => ChatMessage.fromJson(e))
+                  .toList();
+
+          print('✅ Đã tải ${messages.length} tin nhắn');
+          return messages;
+        } else {
+          throw Exception(data['message'] ?? 'Không thể tải tin nhắn');
         }
+      } else if (response.statusCode == 403) {
+        throw Exception('Không có quyền truy cập phòng chat này');
+      } else if (response.statusCode == 401) {
+        throw Exception('Phiên đăng nhập đã hết hạn');
       } else {
-        try {
-          final responseData = json.decode(response.body);
-          return ApiResponseListChatMessageDTO(
-            message: responseData['message'] ?? 'Lỗi không xác định',
-            statusCode: response.statusCode,
-            data: [],
-            success: false,
-          );
-        } catch (parseError) {
-          return ApiResponseListChatMessageDTO(
-            message: 'Lỗi khi lấy tin nhắn: ${response.statusCode}',
-            statusCode: response.statusCode,
-            data: [],
-            success: false,
-          );
-        }
+        final errorData = jsonDecode(response.body);
+        throw Exception(
+          errorData['message'] ??
+              "Không thể tải lịch sử chat: ${response.statusCode}",
+        );
       }
-    } on SocketException catch (_) {
-      return ApiResponseListChatMessageDTO(
-        message:
-            'Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.',
-        statusCode: 0,
-        data: [],
-        success: false,
-      );
     } catch (e) {
-      return ApiResponseListChatMessageDTO(
-        message: 'Lỗi: ${e.toString()}',
-        statusCode: 0,
-        data: [],
-        success: false,
-      );
+      print('❌ Lỗi khi tải lịch sử chat: $e');
+      rethrow;
     }
   }
 
-  /// Get chat rooms for current user
-  Future<ApiResponseListChatRoom> getChatRooms() async {
+  // Lấy danh sách phòng chat
+  Future<List<ChatRoom>> fetchChatRooms() async {
     try {
       final token = await _authManager.getToken();
       if (token == null) {
-        return ApiResponseListChatRoom(
-          message: 'Chưa đăng nhập',
-          statusCode: 401,
-          data: [],
-          success: false,
-        );
+        throw Exception('Token không có sẵn');
       }
 
-      final endpoint = _appConfig.getEndpoint('chat/rooms');
-      print('Getting chat rooms from: $endpoint');
+      print('📱 Đang tải danh sách phòng chat');
 
-      final response = await http
-          .get(
-            Uri.parse(endpoint),
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $token',
-            },
-          )
-          .timeout(
-            const Duration(seconds: 10),
-            onTimeout: () {
-              throw Exception('Kết nối máy chủ quá hạn. Vui lòng thử lại sau.');
-            },
-          );
+      final response = await http.get(
+        Uri.parse("$baseUrl/chat/rooms"),
+        headers: {
+          "Authorization": "Bearer $token",
+          "Content-Type": "application/json",
+        },
+      );
 
-      print('Chat rooms response status: ${response.statusCode}');
-      print('Chat rooms response body: ${response.body}');
-
-      if (response.statusCode == 401 || response.statusCode == 403) {
-        return ApiResponseListChatRoom(
-          message: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
-          statusCode: response.statusCode,
-          data: [],
-          success: false,
-        );
-      }
+      print('📡 Chat rooms API response: ${response.statusCode}');
+      print('📡 Response body: ${response.body}');
 
       if (response.statusCode == 200) {
-        try {
-          final responseData = json.decode(response.body);
-          return ApiResponseListChatRoom.fromJson(responseData);
-        } catch (parseError) {
-          print('Error parsing chat rooms response: $parseError');
-          return ApiResponseListChatRoom(
-            message: 'Lấy danh sách phòng chat thành công',
-            statusCode: 200,
-            data: [],
-            success: true,
+        final data = jsonDecode(response.body);
+        if (data['success'] == true && data['data'] != null) {
+          final rooms =
+              (data['data'] as List).map((e) => ChatRoom.fromJson(e)).toList();
+
+          print('✅ Đã tải ${rooms.length} phòng chat');
+          return rooms;
+        } else {
+          throw Exception(
+            data['message'] ?? 'Không thể tải danh sách phòng chat',
           );
         }
+      } else if (response.statusCode == 401) {
+        throw Exception('Phiên đăng nhập đã hết hạn');
       } else {
-        try {
-          final responseData = json.decode(response.body);
-          return ApiResponseListChatRoom(
-            message: responseData['message'] ?? 'Lỗi không xác định',
-            statusCode: response.statusCode,
-            data: [],
-            success: false,
-          );
-        } catch (parseError) {
-          return ApiResponseListChatRoom(
-            message: 'Lỗi khi lấy danh sách phòng chat: ${response.statusCode}',
-            statusCode: response.statusCode,
-            data: [],
-            success: false,
-          );
-        }
+        final errorData = jsonDecode(response.body);
+        throw Exception(
+          errorData['message'] ??
+              "Không thể tải danh sách phòng chat: ${response.statusCode}",
+        );
       }
-    } on SocketException catch (_) {
-      return ApiResponseListChatRoom(
-        message:
-            'Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.',
-        statusCode: 0,
-        data: [],
-        success: false,
-      );
     } catch (e) {
-      return ApiResponseListChatRoom(
-        message: 'Lỗi: ${e.toString()}',
-        statusCode: 0,
-        data: [],
-        success: false,
-      );
+      print('❌ Lỗi khi tải danh sách phòng chat: $e');
+      rethrow;
     }
   }
 
-  /// Get chat room ID for conversation with another user
-  Future<ApiResponseChatRoomId> getChatRoomId(String otherUserEmail) async {
+  // Lấy ID phòng chat với người dùng khác
+  Future<String> getChatRoomId(String otherUserEmail) async {
     try {
       final token = await _authManager.getToken();
       if (token == null) {
-        return ApiResponseChatRoomId(
-          message: 'Chưa đăng nhập',
-          statusCode: 401,
-          data: null,
-          success: false,
-        );
+        throw Exception('Token không có sẵn');
       }
 
-      final endpoint = _appConfig.getEndpoint('chat/room/$otherUserEmail');
-      print('Getting chat room ID from: $endpoint');
+      print('📱 Đang lấy room ID với: $otherUserEmail');
 
-      final response = await http
-          .get(
-            Uri.parse(endpoint),
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $token',
-            },
-          )
-          .timeout(
-            const Duration(seconds: 10),
-            onTimeout: () {
-              throw Exception('Kết nối máy chủ quá hạn. Vui lòng thử lại sau.');
-            },
-          );
+      final response = await http.get(
+        Uri.parse("$baseUrl/chat/room/$otherUserEmail"),
+        headers: {
+          "Authorization": "Bearer $token",
+          "Content-Type": "application/json",
+        },
+      );
 
-      print('Chat room ID response status: ${response.statusCode}');
-      print('Chat room ID response body: ${response.body}');
-
-      if (response.statusCode == 401 || response.statusCode == 403) {
-        return ApiResponseChatRoomId(
-          message: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
-          statusCode: response.statusCode,
-          data: null,
-          success: false,
-        );
-      }
+      print('📡 Get room ID API response: ${response.statusCode}');
+      print('📡 Response body: ${response.body}');
 
       if (response.statusCode == 200) {
-        try {
-          final responseData = json.decode(response.body);
-          return ApiResponseChatRoomId.fromJson(responseData);
-        } catch (parseError) {
-          print('Error parsing chat room ID response: $parseError');
-          return ApiResponseChatRoomId(
-            message: 'Lấy ID phòng chat thành công',
-            statusCode: 200,
-            data: null,
-            success: true,
-          );
+        final data = jsonDecode(response.body);
+        if (data['success'] == true && data['data'] != null) {
+          final roomId = data['data'] as String;
+          print('✅ Đã lấy room ID: $roomId');
+          return roomId;
+        } else {
+          throw Exception(data['message'] ?? 'Không thể lấy room ID');
         }
+      } else if (response.statusCode == 404) {
+        throw Exception('Người dùng không tồn tại');
+      } else if (response.statusCode == 401) {
+        throw Exception('Phiên đăng nhập đã hết hạn');
       } else {
-        try {
-          final responseData = json.decode(response.body);
-          return ApiResponseChatRoomId(
-            message: responseData['message'] ?? 'Lỗi không xác định',
-            statusCode: response.statusCode,
-            data: null,
-            success: false,
-          );
-        } catch (parseError) {
-          return ApiResponseChatRoomId(
-            message: 'Lỗi khi lấy ID phòng chat: ${response.statusCode}',
-            statusCode: response.statusCode,
-            data: null,
-            success: false,
-          );
-        }
+        final errorData = jsonDecode(response.body);
+        throw Exception(
+          errorData['message'] ??
+              "Không thể lấy room ID: ${response.statusCode}",
+        );
       }
-    } on SocketException catch (_) {
-      return ApiResponseChatRoomId(
-        message:
-            'Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.',
-        statusCode: 0,
-        data: null,
-        success: false,
-      );
     } catch (e) {
-      return ApiResponseChatRoomId(
-        message: 'Lỗi: ${e.toString()}',
-        statusCode: 0,
-        data: null,
-        success: false,
-      );
+      print('❌ Lỗi khi lấy room ID: $e');
+      rethrow;
     }
   }
 
-  /// Send message via HTTP (for testing)
-  Future<ApiResponseChatMessageDTO> sendMessage({
-    required String roomId,
-    required String content,
-    required String receiverEmail,
-    String? senderName,
-  }) async {
-    try {
-      final token = await _authManager.getToken();
-      final userEmail = await _authManager.getUserEmail();
-
-      if (token == null || userEmail == null) {
-        return ApiResponseChatMessageDTO(
-          message: 'Chưa đăng nhập',
-          statusCode: 401,
-          data: null,
-          success: false,
-        );
-      }
-
-      final endpoint = _appConfig.getEndpoint('chat/test/$roomId');
-      print('Sending message to: $endpoint');
-
-      final messageData = ChatMessageDTO(
-        token: token,
-        senderEmail: userEmail,
-        receiverEmail: receiverEmail,
-        senderName: senderName,
-        content: content,
-        roomId: roomId,
-        timestamp: DateTime.now(),
-        read: false,
-      );
-
-      final response = await http
-          .post(
-            Uri.parse(endpoint),
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $token',
-            },
-            body: json.encode(messageData.toJson()),
-          )
-          .timeout(
-            const Duration(seconds: 10),
-            onTimeout: () {
-              throw Exception('Kết nối máy chủ quá hạn. Vui lòng thử lại sau.');
-            },
-          );
-
-      print('Send message response status: ${response.statusCode}');
-      print('Send message response body: ${response.body}');
-
-      if (response.statusCode == 401 || response.statusCode == 403) {
-        return ApiResponseChatMessageDTO(
-          message: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
-          statusCode: response.statusCode,
-          data: null,
-          success: false,
-        );
-      }
-
-      if (response.statusCode == 200) {
-        try {
-          final responseData = json.decode(response.body);
-          return ApiResponseChatMessageDTO.fromJson(responseData);
-        } catch (parseError) {
-          print('Error parsing send message response: $parseError');
-          return ApiResponseChatMessageDTO(
-            message: 'Gửi tin nhắn thành công',
-            statusCode: 200,
-            data: messageData,
-            success: true,
-          );
-        }
-      } else {
-        try {
-          final responseData = json.decode(response.body);
-          return ApiResponseChatMessageDTO(
-            message: responseData['message'] ?? 'Lỗi không xác định',
-            statusCode: response.statusCode,
-            data: null,
-            success: false,
-          );
-        } catch (parseError) {
-          return ApiResponseChatMessageDTO(
-            message: 'Lỗi khi gửi tin nhắn: ${response.statusCode}',
-            statusCode: response.statusCode,
-            data: null,
-            success: false,
-          );
-        }
-      }
-    } on SocketException catch (_) {
-      return ApiResponseChatMessageDTO(
-        message:
-            'Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.',
-        statusCode: 0,
-        data: null,
-        success: false,
-      );
-    } catch (e) {
-      return ApiResponseChatMessageDTO(
-        message: 'Lỗi: ${e.toString()}',
-        statusCode: 0,
-        data: null,
-        success: false,
-      );
-    }
-  }
-
-  /// Mark messages as read in a chat room
-  Future<bool> markMessagesAsRead(String roomId) async {
+  // Đánh dấu tin nhắn đã đọc
+  Future<void> markMessagesAsRead(String roomId) async {
     try {
       final token = await _authManager.getToken();
       if (token == null) {
-        print('No token available for marking messages as read');
-        return false;
+        throw Exception('Token không có sẵn');
       }
 
-      final endpoint = _appConfig.getEndpoint('chat/$roomId/mark-read');
-      print('Marking messages as read at: $endpoint');
+      print('📱 Đang đánh dấu tin nhắn đã đọc cho room: $roomId');
 
-      final response = await http
-          .put(
-            Uri.parse(endpoint),
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $token',
-            },
-          )
-          .timeout(
-            const Duration(seconds: 10),
-            onTimeout: () {
-              throw Exception('Kết nối máy chủ quá hạn. Vui lòng thử lại sau.');
-            },
-          );
+      final response = await http.put(
+        Uri.parse("$baseUrl/chat/$roomId/mark-read"),
+        headers: {
+          "Authorization": "Bearer $token",
+          "Content-Type": "application/json",
+        },
+      );
 
-      print('Mark as read response status: ${response.statusCode}');
-      print('Mark as read response body: ${response.body}');
+      print('📡 Mark read API response: ${response.statusCode}');
 
       if (response.statusCode == 200) {
-        return true;
+        print('✅ Đã đánh dấu tin nhắn đã đọc');
+      } else if (response.statusCode == 401) {
+        throw Exception('Phiên đăng nhập đã hết hạn');
       } else {
-        print('Failed to mark messages as read: ${response.statusCode}');
-        return false;
+        print('⚠️ Không thể đánh dấu tin nhắn đã đọc: ${response.statusCode}');
       }
-    } on SocketException catch (_) {
-      print('Network error when marking messages as read');
-      return false;
     } catch (e) {
-      print('Error marking messages as read: $e');
-      return false;
+      print('❌ Lỗi khi đánh dấu tin nhắn đã đọc: $e');
+      // Không rethrow vì đây không phải lỗi nghiêm trọng
     }
   }
 
-  /// Ensure chat room is created (alias for getChatRoomId)
-  Future<String?> ensureChatRoomIsCreated(String otherUserEmail) async {
-    final result = await getChatRoomId(otherUserEmail);
-    return result.success ? result.data : null;
-  }
-
-  /// Get chat history (alias for getMessages)
-  Future<List<ChatMessageDTO>> getChatHistory(String roomId) async {
-    final result = await getMessages(roomId);
-    return result.success ? result.data : [];
-  }
-
-  /// Trigger chat room sync
-  Future<void> triggerChatRoomSync(String roomId, String partnerEmail) async {
-    // Sync chat room by fetching latest messages
+  // Gửi tin nhắn qua HTTP (test)
+  Future<ChatMessage> sendMessageViaHttp(String roomId, String content) async {
     try {
-      final messages = await getChatHistory(roomId);
-      if (messages.isNotEmpty) {
-        print('Chat room sync completed for room: $roomId');
+      final token = await _authManager.getToken();
+      if (token == null) {
+        throw Exception('Token không có sẵn');
+      }
+
+      print('📱 Đang gửi tin nhắn qua HTTP: $content');
+
+      final response = await http.post(
+        Uri.parse("$baseUrl/chat/test/$roomId"),
+        headers: {
+          "Authorization": "Bearer $token",
+          "Content-Type": "application/json",
+        },
+        body: jsonEncode({
+          "content": content,
+          "receiverEmail": "", // Sẽ được server xác định
+        }),
+      );
+
+      print('📡 Send message API response: ${response.statusCode}');
+      print('📡 Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true && data['data'] != null) {
+          final message = ChatMessage.fromJson(data['data']);
+          print('✅ Đã gửi tin nhắn thành công');
+          return message;
+        } else {
+          throw Exception(data['message'] ?? 'Không thể gửi tin nhắn');
+        }
+      } else if (response.statusCode == 401) {
+        throw Exception('Người dùng không tồn tại');
       } else {
-        print('No messages found during sync for room: $roomId');
+        final errorData = jsonDecode(response.body);
+        throw Exception(
+          errorData['message'] ??
+              "Không thể gửi tin nhắn: ${response.statusCode}",
+        );
       }
     } catch (e) {
-      print('Error during chat room sync: $e');
+      print('❌ Lỗi khi gửi tin nhắn: $e');
+      rethrow;
     }
-  }
-
-  /// Create or get chat room (alias for getChatRoomId)
-  Future<String?> createOrGetChatRoom(String otherUserEmail) async {
-    final result = await getChatRoomId(otherUserEmail);
-    return result.success ? result.data : null;
-  }
-
-  /// Send message with simplified signature for compatibility
-  Future<bool> sendMessageSimple(
-    String roomId,
-    String content,
-    String receiverEmail,
-  ) async {
-    final result = await sendMessage(
-      roomId: roomId,
-      content: content,
-      receiverEmail: receiverEmail,
-    );
-    return result.success;
   }
 }

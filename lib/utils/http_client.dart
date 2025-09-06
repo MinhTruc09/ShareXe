@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../services/auth_manager.dart';
-import '../services/auth_service.dart';
 import 'package:flutter/material.dart';
 import 'app_config.dart';
 import 'dart:async';
@@ -49,8 +48,15 @@ class ApiClient {
     if (token != null) {
       headers['Authorization'] = 'Bearer $token';
 
+      // Debug token validation
+      print(
+        '🔍 Token validation: ${token.length > 30 ? token.substring(0, 30) + '...' : token}',
+      );
+      final isExpired = _authManager.isTokenExpired(token);
+      print('🔍 Token expired: $isExpired');
+
       // Validate token expiration
-      if (_authManager.isTokenExpired(token)) {
+      if (isExpired) {
         print('⚠️ WARNING: Token is expired! Attempting to refresh...');
 
         try {
@@ -61,8 +67,11 @@ class ApiClient {
           print('❌ Error during token validation: $e');
           throw Exception('Token expired. Please login again.');
         }
+      } else {
+        print('✅ Token is valid, proceeding with request');
       }
     } else if (requireAuth) {
+      print('❌ No token found but authentication required');
       throw Exception('Authentication token required but not found');
     }
 
@@ -121,6 +130,13 @@ class ApiClient {
       final headers = await _getHeaders(requireAuth: requireAuth);
       final url = _buildUrl(endpoint);
       final duration = timeout ?? _defaultTimeout;
+
+      // Debug request data
+      if (body != null) {
+        print('📤 POST Request to: $url');
+        print('📤 Headers: $headers');
+        print('📤 Body: ${jsonEncode(body)}');
+      }
 
       final response = await _httpClient
           .post(

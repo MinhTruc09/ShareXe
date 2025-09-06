@@ -11,7 +11,7 @@ import 'views/screens/passenger/splash_pscreen.dart';
 import 'views/screens/passenger/login_passenger.dart';
 import 'views/screens/passenger/register_passenger_step1.dart';
 import 'views/screens/passenger/register_user_step2.dart';
-import 'views/screens/passenger/profile_screen.dart';
+import 'views/screens/passenger/profile_screen.dart' as passenger;
 import 'views/screens/passenger/edit_profile_screen.dart';
 import 'views/screens/passenger/passenger_main_screen.dart';
 import 'views/screens/passenger/passenger_bookings_screen.dart';
@@ -21,13 +21,13 @@ import 'views/screens/driver/splash_dscreen.dart';
 import 'views/screens/driver/login_driver.dart';
 import 'views/screens/driver/register_driver_step1.dart';
 import 'views/screens/driver/register_driver_step2.dart';
-import 'views/screens/driver/profile_screen.dart';
 import 'views/screens/driver/edit_profile_screen.dart';
 import 'views/screens/driver/create_ride_screen.dart';
 import 'views/screens/driver/my_rides_screen.dart';
 import 'views/screens/driver/driver_bookings_screen.dart';
 import 'views/screens/driver/driver_ride_detail_screen.dart';
 import 'views/screens/driver/driver_main_screen.dart';
+import 'views/screens/driver/driver_profile_screen.dart';
 
 // Chat screens
 import 'views/screens/chat/user_list_screen.dart';
@@ -149,7 +149,7 @@ class AppRoute {
         builder: (context) => RegisterUserStep2(role: 'PASSENGER', data: data),
       );
     } else if (routeName == PassengerRoutes.profile) {
-      return MaterialPageRoute(builder: (_) => const ProfileScreen());
+      return MaterialPageRoute(builder: (_) => const passenger.ProfileScreen());
     } else if (routeName == PassengerRoutes.editProfile) {
       return MaterialPageRoute(
         builder:

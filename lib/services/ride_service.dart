@@ -531,6 +531,15 @@ class RideService {
       // Check if URL needs to be switched to a working one
       await _appConfig.switchToWorkingUrl();
 
+      // Debug: Check token validity
+      final token = await _authManager.getToken();
+      if (token == null) {
+        print('❌ Không có token để tạo chuyến đi');
+        return false;
+      }
+      print('🔍 Token length: ${token.length}');
+      print('🔍 Token valid: ${!_authManager.isTokenExpired(token)}');
+
       // Attempt to create ride with timeout
       final response = await _apiClient
           .post('/ride', body: rideData, requireAuth: true)

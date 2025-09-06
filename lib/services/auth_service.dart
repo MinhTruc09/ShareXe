@@ -27,7 +27,7 @@ class AuthService {
 
       print('📝 Login response: Status ${response.statusCode}');
 
-      if (response.statusCode == 200) {
+      if (response.statusCode >= 200 && response.statusCode < 300) {
         final jsonResponse = jsonDecode(response.body);
         final parsed = Passenger.fromJson(jsonResponse);
 
@@ -98,15 +98,22 @@ class AuthService {
             'avatarImage': avatarImagePath ?? '',
           }),
         );
-        if (response.statusCode == 200) {
+        if (response.statusCode >= 200 && response.statusCode < 300) {
           final jsonResponse = jsonDecode(response.body);
           return Passenger.fromJson(jsonResponse);
         } else {
-          return Passenger(
-            success: false,
-            message: 'Registration failed: ${response.statusCode}',
-            data: null,
-          );
+          // Cố gắng đọc thông báo từ response body nếu có
+          String errorMessage = 'Registration failed: ${response.statusCode}';
+          try {
+            final jsonResponse = jsonDecode(response.body);
+            if (jsonResponse['message'] != null) {
+              errorMessage = jsonResponse['message'];
+            }
+          } catch (e) {
+            // Không làm gì nếu không parse được JSON
+          }
+
+          return Passenger(success: false, message: errorMessage, data: null);
         }
       } else {
         var request = http.MultipartRequest(
@@ -126,15 +133,22 @@ class AuthService {
         }
         final response = await request.send();
         final responseBody = await response.stream.bytesToString();
-        if (response.statusCode == 200) {
+        if (response.statusCode >= 200 && response.statusCode < 300) {
           final jsonResponse = jsonDecode(responseBody);
           return Passenger.fromJson(jsonResponse);
         } else {
-          return Passenger(
-            success: false,
-            message: 'Registration failed: ${response.statusCode}',
-            data: null,
-          );
+          // Cố gắng đọc thông báo từ response body nếu có
+          String errorMessage = 'Registration failed: ${response.statusCode}';
+          try {
+            final jsonResponse = jsonDecode(responseBody);
+            if (jsonResponse['message'] != null) {
+              errorMessage = jsonResponse['message'];
+            }
+          } catch (e) {
+            // Không làm gì nếu không parse được JSON
+          }
+
+          return Passenger(success: false, message: errorMessage, data: null);
         }
       }
     } catch (e) {
@@ -180,15 +194,22 @@ class AuthService {
             'numberOfSeats': numberOfSeats,
           }),
         );
-        if (response.statusCode == 200) {
+        if (response.statusCode >= 200 && response.statusCode < 300) {
           final jsonResponse = jsonDecode(response.body);
           return Passenger.fromJson(jsonResponse);
         } else {
-          return Passenger(
-            success: false,
-            message: 'Registration failed: ${response.statusCode}',
-            data: null,
-          );
+          // Cố gắng đọc thông báo từ response body nếu có
+          String errorMessage = 'Registration failed: ${response.statusCode}';
+          try {
+            final jsonResponse = jsonDecode(response.body);
+            if (jsonResponse['message'] != null) {
+              errorMessage = jsonResponse['message'];
+            }
+          } catch (e) {
+            // Không làm gì nếu không parse được JSON
+          }
+
+          return Passenger(success: false, message: errorMessage, data: null);
         }
       } else {
         var request = http.MultipartRequest(
@@ -218,15 +239,22 @@ class AuthService {
         );
         final response = await request.send();
         final responseBody = await response.stream.bytesToString();
-        if (response.statusCode == 200) {
+        if (response.statusCode >= 200 && response.statusCode < 300) {
           final jsonResponse = jsonDecode(responseBody);
           return Passenger.fromJson(jsonResponse);
         } else {
-          return Passenger(
-            success: false,
-            message: 'Registration failed: ${response.statusCode}',
-            data: null,
-          );
+          // Cố gắng đọc thông báo từ response body nếu có
+          String errorMessage = 'Registration failed: ${response.statusCode}';
+          try {
+            final jsonResponse = jsonDecode(responseBody);
+            if (jsonResponse['message'] != null) {
+              errorMessage = jsonResponse['message'];
+            }
+          } catch (e) {
+            // Không làm gì nếu không parse được JSON
+          }
+
+          return Passenger(success: false, message: errorMessage, data: null);
         }
       }
     } catch (e) {
@@ -253,7 +281,7 @@ class AuthService {
         },
       );
 
-      if (response.statusCode == 200) {
+      if (response.statusCode >= 200 && response.statusCode < 300) {
         final jsonResponse = jsonDecode(response.body);
         return Driver.fromJson(jsonResponse['data']);
       } else {
@@ -281,7 +309,7 @@ class AuthService {
         body: jsonEncode({'isActive': isActive}),
       );
 
-      return response.statusCode == 200;
+      return response.statusCode >= 200 && response.statusCode < 300;
     } catch (e) {
       print('Failed to update driver status: $e');
       return false;
@@ -304,7 +332,7 @@ class AuthService {
         body: jsonEncode({'lat': lat, 'lng': lng}),
       );
 
-      return response.statusCode == 200;
+      return response.statusCode >= 200 && response.statusCode < 300;
     } catch (e) {
       print('Failed to update driver location: $e');
       return false;
@@ -370,7 +398,7 @@ class AuthService {
         },
       );
 
-      if (response.statusCode == 200) {
+      if (response.statusCode >= 200 && response.statusCode < 300) {
         final jsonResponse = jsonDecode(response.body);
         return Passenger(
           success: true,

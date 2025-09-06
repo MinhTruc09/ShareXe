@@ -112,20 +112,24 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
 
     switch (status.toUpperCase()) {
       case 'ACTIVE':
+        color = Colors.blue;
+        label = 'Chờ đến giờ bắt đầu';
+        break;
+      case 'IN_PROGRESS':
         color = Colors.green;
-        label = 'Đang mở';
+        label = 'Đang diễn ra';
+        break;
+      case 'DRIVER_CONFIRMED':
+        color = Colors.orange;
+        label = 'Tài xế đã xác nhận';
+        break;
+      case 'COMPLETED':
+        color = Colors.green;
+        label = 'Hoàn thành';
         break;
       case 'CANCELLED':
         color = Colors.red;
         label = 'Đã hủy';
-        break;
-      case 'COMPLETED':
-        color = Colors.blue;
-        label = 'Hoàn thành';
-        break;
-      case 'PENDING':
-        color = Colors.orange;
-        label = 'Chờ xác nhận';
         break;
       default:
         color = Colors.grey;
@@ -1051,7 +1055,7 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
                     ],
 
                     // Actions for the ride
-                    if (!isCompletedOrCancelled && !isInProgress) ...[
+                    if (!isCompletedOrCancelled) ...[
                       const Text(
                         'Quản lý chuyến đi',
                         style: TextStyle(
@@ -1062,43 +1066,53 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
                       const SizedBox(height: 16),
                       Row(
                         children: [
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: _isLoading ? null : _cancelRide,
-                              icon: const Icon(Icons.cancel),
-                              label: const Text('Hủy chuyến'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
+                          // Nút hủy chuyến - chỉ hiển thị khi ACTIVE hoặc IN_PROGRESS
+                          if (rideData.status.toUpperCase() == 'ACTIVE' ||
+                              rideData.status.toUpperCase() == 'IN_PROGRESS')
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: _isLoading ? null : _cancelRide,
+                                icon: const Icon(Icons.cancel),
+                                label: const Text('Hủy chuyến'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: _isCompleting ? null : _completeRide,
-                              icon: const Icon(Icons.check_circle),
-                              label:
-                                  _isCompleting
-                                      ? const SizedBox(
-                                        width: 20,
-                                        height: 20,
-                                        child: CircularProgressIndicator(
-                                          color: Colors.white,
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                      : const Text('Hoàn thành'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
+
+                          // Nút hoàn thành - chỉ hiển thị khi IN_PROGRESS
+                          if (rideData.status.toUpperCase() ==
+                              'IN_PROGRESS') ...[
+                            if (rideData.status.toUpperCase() == 'ACTIVE' ||
+                                rideData.status.toUpperCase() == 'IN_PROGRESS')
+                              const SizedBox(width: 16),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: _isCompleting ? null : _completeRide,
+                                icon: const Icon(Icons.check_circle),
+                                label:
+                                    _isCompleting
+                                        ? const SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                            color: Colors.white,
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                        : const Text('Hoàn thành'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
+                          ],
                         ],
                       ),
 

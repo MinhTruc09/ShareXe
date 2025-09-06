@@ -24,24 +24,25 @@ class AuthManager {
   DateTime? _cachedTokenExpiry;
   String? _cachedRole;
   String? _cachedEmail;
+  String? _cachedUsername;
   bool? _cachedIsLoggedIn;
-  
+
   // Token refresh lock
   final _refreshLock = Lock();
-  
+
   // Save auth data after successful login
   Future<void> saveAuthData(
-    String token, 
-    String username, 
-    String role, 
-    {String? refreshToken}
-  ) async {
+    String token,
+    String username,
+    String role, {
+    String? refreshToken,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, token);
     await prefs.setString(_usernameKey, username);
     await prefs.setString(_roleKey, role);
     await prefs.setBool(_isLoggedInKey, true);
-    
+
     if (refreshToken != null) {
       await prefs.setString(_refreshTokenKey, refreshToken);
     }
@@ -53,26 +54,30 @@ class AuthManager {
       if (claims['sub'] != null) {
         await prefs.setString(_emailKey, claims['sub']);
       }
-      
+
       // Save token expiry
       if (claims['exp'] != null) {
-        final expiry = DateTime.fromMillisecondsSinceEpoch(claims['exp'] * 1000);
+        final expiry = DateTime.fromMillisecondsSinceEpoch(
+          claims['exp'] * 1000,
+        );
         await prefs.setString(_tokenExpiryKey, expiry.toIso8601String());
       }
     }
-    
+
     // Update in-memory cache
     _cachedToken = token;
     _cachedClaims = claims;
     _cachedRole = role;
     _cachedIsLoggedIn = true;
-    
+
     if (claims != null && claims['sub'] != null) {
       _cachedEmail = claims['sub'];
     }
-    
+
     if (claims != null && claims['exp'] != null) {
-      _cachedTokenExpiry = DateTime.fromMillisecondsSinceEpoch(claims['exp'] * 1000);
+      _cachedTokenExpiry = DateTime.fromMillisecondsSinceEpoch(
+        claims['exp'] * 1000,
+      );
     }
   }
 
@@ -82,13 +87,13 @@ class AuthManager {
     if (_cachedIsLoggedIn != null) {
       return _cachedIsLoggedIn!;
     }
-    
+
     final prefs = await SharedPreferences.getInstance();
     final isLoggedIn = prefs.getBool(_isLoggedInKey) ?? false;
-    
+
     // Cache the result
     _cachedIsLoggedIn = isLoggedIn;
-    
+
     return isLoggedIn;
   }
 
@@ -98,24 +103,25 @@ class AuthManager {
     if (_cachedToken != null) {
       return _cachedToken;
     }
-    
+
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString(_tokenKey);
-    
+
     // Cache the token
     if (token != null) {
       _cachedToken = token;
-      
+
       // Also cache the claims
       _cachedClaims = parseJwt(token);
-      
+
       // Parse expiry
       if (_cachedClaims != null && _cachedClaims!['exp'] != null) {
-        _cachedTokenExpiry = 
-            DateTime.fromMillisecondsSinceEpoch(_cachedClaims!['exp'] * 1000);
+        _cachedTokenExpiry = DateTime.fromMillisecondsSinceEpoch(
+          _cachedClaims!['exp'] * 1000,
+        );
       }
     }
-    
+
     return token;
   }
 
@@ -142,7 +148,7 @@ class AuthManager {
     if (_cachedEmail != null) {
       return _cachedEmail;
     }
-    
+
     final prefs = await SharedPreferences.getInstance();
     String? email = prefs.getString(_emailKey);
 
@@ -157,7 +163,7 @@ class AuthManager {
           _cachedClaims = claims;
         }
       }
-      
+
       if (claims != null && claims['sub'] != null) {
         email = claims['sub'] as String;
         // Save for future use
@@ -172,18 +178,34 @@ class AuthManager {
   }
 
   // Get stored user role (optimized)
+  Future<String?> getUserName() async {
+    // Use cached username if available
+    if (_cachedUsername != null) {
+      return _cachedUsername;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final username = prefs.getString(_usernameKey);
+
+    if (username != null) {
+      _cachedUsername = username;
+    }
+
+    return username;
+  }
+
   Future<String?> getUserRole() async {
     // Use cached role if available
     if (_cachedRole != null) {
       return _cachedRole;
     }
-    
+
     final prefs = await SharedPreferences.getInstance();
     final role = prefs.getString(_roleKey);
-    
+
     // Cache the role
     _cachedRole = role;
-    
+
     return role;
   }
 
@@ -210,7 +232,7 @@ class AuthManager {
     await prefs.remove(_emailKey);
     await prefs.remove(_tokenExpiryKey);
     await prefs.setBool(_isLoggedInKey, false);
-    
+
     // Clear cache
     _cachedToken = null;
     _cachedClaims = null;
@@ -249,7 +271,7 @@ class AuthManager {
     if (_cachedToken == token && _cachedTokenExpiry != null) {
       return DateTime.now().isAfter(_cachedTokenExpiry!);
     }
-    
+
     final claims = parseJwt(token);
     if (claims == null) return true;
 
@@ -267,27 +289,27 @@ class AuthManager {
     if (_cachedTokenExpiry != null) {
       return _cachedTokenExpiry;
     }
-    
+
     final token = await getToken();
     if (token == null) return null;
-    
+
     final claims = _cachedClaims ?? parseJwt(token);
     if (claims == null) return null;
-    
+
     final expiry = claims['exp'];
     if (expiry == null) return null;
-    
+
     final expiryDateTime = DateTime.fromMillisecondsSinceEpoch(expiry * 1000);
     _cachedTokenExpiry = expiryDateTime;
-    
+
     return expiryDateTime;
   }
-  
+
   // Time until token expires (returns duration in seconds, negative if expired)
   Future<int> getTimeUntilExpiry() async {
     final expiry = await getTokenExpiry();
     if (expiry == null) return 0;
-    
+
     final now = DateTime.now();
     return expiry.difference(now).inSeconds;
   }
@@ -310,7 +332,7 @@ class AuthManager {
     } else {
       valid = !isTokenExpired(token);
     }
-    
+
     return valid;
   }
 

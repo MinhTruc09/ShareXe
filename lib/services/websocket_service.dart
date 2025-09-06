@@ -1,336 +1,128 @@
 import 'dart:convert';
-import 'dart:async';
-import 'package:stomp_dart_client/stomp_dart_client.dart';
-import '../models/notification_model.dart';
-import '../models/chat_ui_models.dart';
-import 'package:flutter/foundation.dart';
+import 'package:stomp_dart_client/stomp.dart';
+import 'package:stomp_dart_client/stomp_frame.dart';
+import '../models/chat_message.dart';
 import '../utils/app_config.dart';
+import 'auth_manager.dart';
 
 class WebSocketService {
-  static final WebSocketService _instance = WebSocketService._internal();
-  factory WebSocketService() => _instance;
-  WebSocketService._internal();
+  final AppConfig _appConfig = AppConfig();
+  final AuthManager _authManager = AuthManager();
 
   StompClient? _stompClient;
-  Function(NotificationModel)? onNotificationReceived;
-  Function(ChatMessage)? onChatMessageReceived;
-  String? _userEmail;
-  String? _token;
-  String? _serverUrl;
-  final AppConfig _appConfig = AppConfig();
+  bool _isConnected = false;
+  final Map<String, Function(ChatMessage)> _messageCallbacks = {};
 
-  int _reconnectAttempts = 0;
-  Timer? _reconnectTimer;
-  final int _maxReconnectAttempts = 5;
-  bool _isInitializing = false;
-  bool _inFallbackMode = false;
+  bool get isConnected => _isConnected;
 
-  void initialize(String serverUrl, String token, String userEmail) {
-    if (_isInitializing) {
-      if (kDebugMode) {
-        print('🔄 WebSocket initialization already in progress, skipping');
+  // Kết nối WebSocket cho chat
+  Future<void> connectForChat(
+    String roomId,
+    Function(ChatMessage) onMessage,
+  ) async {
+    try {
+      final token = await _authManager.getToken();
+      if (token == null) {
+        throw Exception('Token không có sẵn');
       }
-      return;
-    }
 
-    if (_inFallbackMode) {
-      if (kDebugMode) {
-        print(
-          '⚠️ WebSocket in fallback mode due to persistent connection issues',
-        );
-        print('⚠️ Application will use REST API fallback for messaging');
-      }
-      return;
-    }
+      print('🔌 Đang kết nối WebSocket cho chat room: $roomId');
 
-    _isInitializing = true;
-    _userEmail = userEmail;
-    _token = token;
-    _serverUrl = serverUrl;
-    _reconnectAttempts = 0;
-
-    if (serverUrl.isNotEmpty) {
-      _appConfig.updateBaseUrl(serverUrl);
-    }
-
-    if (_stompClient != null && _stompClient!.connected) {
-      disconnect();
-    }
-
-    if (kDebugMode) {
-      print('🔄 Initializing WebSocket connection');
-      print('🔄 WebSocket URL: ${_appConfig.webSocketUrl}');
-      print('🔄 User email: $_userEmail');
-    }
+      // Lưu callback cho room này
+      _messageCallbacks[roomId] = onMessage;
 
     _stompClient = StompClient(
-      config: StompConfig(
-        url: _appConfig.webSocketUrl,
-        onConnect: _onConnect,
-        onStompError: (frame) {
-          if (kDebugMode) {
-            print('❌ STOMP protocol error: ${frame.headers} - ${frame.body}');
-          }
-          _scheduleReconnect();
-        },
-        onDisconnect: (frame) {
-          if (kDebugMode) {
-            print('❌ WebSocket disconnected: ${frame?.body}');
-          }
+        config: StompConfig.SockJS(
+          url: '${_appConfig.apiBaseUrl}/ws', // WebSocket endpoint
+          onConnect: (StompFrame frame) {
+            print("✅ Đã kết nối WebSocket cho chat");
+            _isConnected = true;
 
-          _scheduleReconnect();
-        },
-        onWebSocketError: (error) {
-          if (kDebugMode) {
-            print('❌ WebSocket error: $error');
-            print('❌ WebSocket URL: ${_appConfig.webSocketUrl}');
-
-            if (error.toString().contains('404')) {
-              print(
-                '❌ Error 404: WebSocket endpoint not found. Check server configuration.',
-              );
-            } else if (error.toString().contains('Connection refused')) {
-              print(
-                '❌ Connection refused: Server may be down or incorrect URL',
-              );
-            } else if (error.toString().contains('not upgraded to websocket')) {
-              print(
-                '❌ Connection not upgraded: Server may not support WebSockets or endpoint is incorrect',
-              );
-            }
-          }
-
-          _scheduleReconnect();
-        },
-        stompConnectHeaders: {'Authorization': 'Bearer $token'},
-        webSocketConnectHeaders: {'Authorization': 'Bearer $token'},
-        reconnectDelay: const Duration(milliseconds: 5000),
-        connectionTimeout: const Duration(seconds: 10),
-      ),
-    );
-
-    try {
-      _stompClient!.activate();
-      if (kDebugMode) {
-        print('✅ WebSocket activation initiated');
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('❌ Error activating WebSocket: $e');
-      }
-      _scheduleReconnect();
-    } finally {
-      _isInitializing = false;
-    }
-  }
-
-  void _scheduleReconnect() {
-    _reconnectTimer?.cancel();
-
-    if (_reconnectAttempts < _maxReconnectAttempts &&
-        _token != null &&
-        _userEmail != null) {
-      _reconnectAttempts++;
-      final delay = _calculateReconnectDelay();
-
-      if (kDebugMode) {
-        print(
-          '🔄 Scheduling WebSocket reconnect attempt $_reconnectAttempts in ${delay.inSeconds} seconds',
-        );
-      }
-
-      _reconnectTimer = Timer(delay, () {
-        if (kDebugMode) {
-          print(
-            '🔄 Attempting to reconnect WebSocket (attempt $_reconnectAttempts)',
-          );
-        }
-        initialize(_serverUrl ?? '', _token!, _userEmail!);
-      });
-    } else if (_reconnectAttempts >= _maxReconnectAttempts) {
-      if (kDebugMode) {
-        print('⚠️ Maximum WebSocket reconnect attempts reached');
-        print('⚠️ Switching to fallback mode - using REST API for messaging');
-      }
-      _inFallbackMode = true;
-
-      Timer(const Duration(minutes: 5), () {
-        if (kDebugMode) {
-          print('🔄 Attempting to reconnect WebSocket after cooldown period');
-        }
-        _inFallbackMode = false;
-        _reconnectAttempts = 0;
-
-        if (_token != null && _userEmail != null) {
-          initialize(_serverUrl ?? '', _token!, _userEmail!);
-        }
-      });
-    }
-  }
-
-  Duration _calculateReconnectDelay() {
-    final seconds = (1 << (_reconnectAttempts - 1)).clamp(1, 30);
-    return Duration(seconds: seconds);
-  }
-
-  void _onConnect(StompFrame frame) {
-    if (kDebugMode) {
-      print('✅ WebSocket connected successfully');
-    }
-
-    _reconnectAttempts = 0;
-
-    _stompClient!.subscribe(
-      destination: '/topic/notifications/$_userEmail',
+            // Subscribe room chat
+            _stompClient?.subscribe(
+              destination: "/topic/chat/$roomId",
       callback: (frame) {
         if (frame.body != null) {
           try {
-            final notification = NotificationModel.fromJson(
-              json.decode(frame.body!),
-            );
-            if (onNotificationReceived != null) {
-              onNotificationReceived!(notification);
-            }
+                    final msg = ChatMessage.fromJson(jsonDecode(frame.body!));
+                    onMessage(msg); // Callback -> update UI
+                    print('📨 Nhận tin nhắn mới: ${msg.content}');
           } catch (e) {
-            if (kDebugMode) {
-              print('❌ Error parsing notification: $e');
-              print('Body: ${frame.body}');
-            }
+                    print('❌ Lỗi parse tin nhắn: $e');
           }
         }
       },
     );
-
-    _stompClient!.subscribe(
-      destination: '/topic/chat/$_userEmail',
-      callback: (frame) {
-        if (frame.body != null) {
-          try {
-            if (kDebugMode) {
-              print('✉️ Received chat message via WebSocket: ${frame.body}');
-            }
-
-            final chatMessage = ChatMessage.fromApiJson(
-              json.decode(frame.body!),
-            );
-
-            if (kDebugMode) {
-              print('✉️ Parsed message details:');
-              print('   - Room ID: ${chatMessage.roomId}');
-              print('   - Sender: ${chatMessage.senderEmail}');
-              print('   - Receiver: ${chatMessage.receiverEmail}');
-              print(
-                '   - Content: ${chatMessage.content != null && chatMessage.content!.length > 30 ? '${chatMessage.content!.substring(0, 30)}...' : chatMessage.content}',
-              );
-              print('   - Timestamp: ${chatMessage.timestamp}');
-            }
-
-            if (onChatMessageReceived != null) {
-              onChatMessageReceived!(chatMessage);
-            } else if (kDebugMode) {
-              print('⚠️ No chat message handler registered');
-            }
-          } catch (e) {
-            if (kDebugMode) {
-              print('❌ Error parsing chat message: $e');
-              print('Body: ${frame.body}');
-              print('Stack trace: ${StackTrace.current}');
-            }
-          }
-        } else if (kDebugMode) {
-          print('⚠️ Received empty chat message frame');
-        }
-      },
-    );
-
-    _stompClient!.subscribe(
-      destination: '/topic/chat/global',
-      callback: (frame) {
-        if (frame.body != null && frame.body!.isNotEmpty) {
-          try {
-            final data = json.decode(frame.body!);
-            if (kDebugMode) {
-              print('📢 Global chat message: ${frame.body}');
-            }
-
-            if (data['receiverEmail'] == _userEmail ||
-                data['senderEmail'] == _userEmail) {
-              final chatMessage = ChatMessage.fromApiJson(data);
-              if (onChatMessageReceived != null) {
-                onChatMessageReceived!(chatMessage);
-              }
-            }
-          } catch (e) {
-            if (kDebugMode) {
-              print('❌ Error processing global chat message: $e');
-            }
-          }
-        }
-      },
-    );
-  }
-
-  bool isConnected() {
-    if (_inFallbackMode) {
-      return false;
-    }
-
-    final connected = _stompClient?.connected ?? false;
-    if (kDebugMode) {
-      print(
-        '🔍 WebSocket connection status: ${connected ? 'connected' : 'disconnected'}',
+          },
+          beforeConnect: () async {
+            print('⏳ Đang kết nối WebSocket...');
+          },
+          onWebSocketError: (dynamic error) {
+            print("❌ WebSocket Error: $error");
+            _isConnected = false;
+          },
+          onStompError: (StompFrame frame) {
+            print("❌ STOMP Error: ${frame.body}");
+            _isConnected = false;
+          },
+          onDisconnect: (StompFrame frame) {
+            print("🔌 Đã ngắt kết nối WebSocket");
+            _isConnected = false;
+          },
+          stompConnectHeaders: {
+            "Authorization": "Bearer $token", // gửi token vào header
+          },
+        ),
       );
+
+      _stompClient?.activate();
+          } catch (e) {
+      print('❌ Lỗi khi kết nối WebSocket: $e');
+      rethrow;
     }
-    return connected;
   }
 
-  void sendChatMessage(String roomId, String receiverEmail, String content) {
-    if (_stompClient?.connected != true) {
-      if (kDebugMode) {
-        print('❌ WebSocket not connected. Cannot send message.');
-      }
-      return;
-    }
-
-    final message = {
-      'senderEmail': _userEmail,
-      'receiverEmail': receiverEmail,
-      'content': content,
-      'roomId': roomId,
-      'timestamp': DateTime.now().toIso8601String(),
-      'token':
-          _stompClient!.config.stompConnectHeaders?['Authorization']
-              ?.replaceAll('Bearer ', '') ??
-          '',
-    };
-
-    if (kDebugMode) {
-      print('✉️ Sending message via WebSocket to /app/chat/$roomId');
-      print('Message: ${json.encode(message)}');
+  // Gửi tin nhắn qua WebSocket
+  Future<void> sendMessage(String roomId, ChatMessage message) async {
+    if (!_isConnected || _stompClient == null) {
+      throw Exception('WebSocket chưa được kết nối');
     }
 
     try {
+      print('📤 Đang gửi tin nhắn: ${message.content}');
+
+      final messageData = message.toJson();
+      // Thêm token vào payload như API yêu cầu
+      messageData['token'] = await _authManager.getToken();
+
       _stompClient!.send(
-        destination: '/app/chat/$roomId',
-        body: json.encode(message),
+        destination: "/app/chat/$roomId",
+        body: jsonEncode(messageData),
       );
-      if (kDebugMode) {
-        print('✅ Message sent successfully');
-      }
+
+      print('✅ Đã gửi tin nhắn thành công');
     } catch (e) {
-      if (kDebugMode) {
-        print('❌ Error sending message: $e');
-      }
+      print('❌ Lỗi khi gửi tin nhắn: $e');
+      rethrow;
     }
   }
 
+  // Ngắt kết nối WebSocket
   void disconnect() {
-    _reconnectTimer?.cancel();
-    if (_stompClient?.connected == true) {
-      if (kDebugMode) {
-        print('🔄 Disconnecting WebSocket');
-      }
-      _stompClient?.deactivate();
+    if (_stompClient != null) {
+      print('🔌 Đang ngắt kết nối WebSocket...');
+      _stompClient!.deactivate();
+      _stompClient = null;
+      _isConnected = false;
+      _messageCallbacks.clear();
+    }
+  }
+
+  // Kiểm tra kết nối và reconnect nếu cần
+  Future<void> ensureConnection() async {
+    if (!_isConnected) {
+      print('🔄 Đang thử kết nối lại WebSocket...');
+      // Có thể implement logic reconnect ở đây
     }
   }
 }

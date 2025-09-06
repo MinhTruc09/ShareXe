@@ -58,11 +58,14 @@ class RegisterController {
         );
       }
 
-      if (result.success == true) {
+      if (result.success) {
+        print('✅ Đăng ký thành công, đang chuyển hướng...');
+
         // Login automatically after successful registration
         final loginResult = await _authService.login(email, password);
 
         if (loginResult.success) {
+          print('✅ Đăng nhập tự động thành công');
           // Navigate directly to the home screen based on role
           if (role == 'DRIVER') {
             Navigator.pushNamedAndRemoveUntil(
@@ -78,6 +81,7 @@ class RegisterController {
             );
           }
         } else {
+          print('❌ Đăng nhập tự động thất bại: ${loginResult.message}');
           // If auto-login fails, still go to login screen
           Navigator.pushNamedAndRemoveUntil(
             context,
@@ -86,6 +90,7 @@ class RegisterController {
           );
         }
       } else {
+        print('❌ Đăng ký thất bại: ${result.message}');
         setError(result.message ?? 'Đăng ký thất bại');
       }
     } catch (e) {

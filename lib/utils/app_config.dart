@@ -368,21 +368,18 @@ class AppConfig {
 
   // Get appropriate ride status text based on status and time
   String getRideStatusText(String rideStatus, DateTime startTime) {
-    final now = DateTime.now();
     final status = rideStatus.toUpperCase();
 
     if (status == RIDE_STATUS_ACTIVE) {
-      if (now.isAfter(startTime)) {
-        return "Đang đi";
-      } else {
-        return "Sắp tới";
-      }
+      return "Chờ đến giờ bắt đầu";
+    } else if (status == "IN_PROGRESS") {
+      return "Đang diễn ra";
     } else if (status == RIDE_STATUS_DRIVER_CONFIRMED) {
-      return "Tài xế xác nhận";
+      return "Tài xế đã xác nhận";
     } else if (status == "PASSENGER_CONFIRMED") {
-      return "Khách đã xác nhận";
+      return "Hành khách đã xác nhận";
     } else if (status == RIDE_STATUS_COMPLETED) {
-      return "Đã hoàn thành";
+      return "Hoàn thành";
     } else if (status == RIDE_STATUS_CANCELLED) {
       return "Đã hủy";
     } else {
@@ -396,7 +393,6 @@ class AppConfig {
     DateTime startTime,
     String rideStatus,
   ) {
-    final now = DateTime.now();
     final status = bookingStatus.toUpperCase();
     final rideStatusUpper = rideStatus.toUpperCase();
 
@@ -407,34 +403,29 @@ class AppConfig {
 
     // Hiển thị theo trạng thái booking
     switch (status) {
-      case BOOKING_STATUS_PENDING:
+      case "PENDING":
         return "Đang chờ tài xế duyệt";
 
-      case BOOKING_STATUS_ACCEPTED:
-      case "APPROVED": // Thêm trạng thái APPROVED để xử lý đồng nhất với ACCEPTED
-        if (now.isAfter(startTime)) {
-          return "Đang đi";
-        } else {
-          return "Đã được duyệt - sắp tới";
-        }
+      case "ACCEPTED":
+        return "Đã được tài xế chấp nhận";
 
-      case BOOKING_STATUS_IN_PROGRESS:
-        return "Đang đi";
+      case "IN_PROGRESS":
+        return "Đang diễn ra";
 
-      case BOOKING_STATUS_PASSENGER_CONFIRMED:
-        return "Bạn đã xác nhận - Đợi tài xế xác nhận";
+      case "PASSENGER_CONFIRMED":
+        return "Bạn đã xác nhận hoàn thành";
 
-      case BOOKING_STATUS_DRIVER_CONFIRMED:
-        return "Tài xế xác nhận - Đợi bạn xác nhận";
+      case "DRIVER_CONFIRMED":
+        return "Tài xế đã xác nhận hoàn thành";
 
-      case BOOKING_STATUS_COMPLETED:
-        return "Đã hoàn thành";
+      case "COMPLETED":
+        return "Hoàn thành";
 
-      case BOOKING_STATUS_CANCELLED:
+      case "CANCELLED":
         return "Đã hủy";
 
-      case BOOKING_STATUS_REJECTED:
-        return "Từ chối";
+      case "REJECTED":
+        return "Bị từ chối";
 
       default:
         return "Trạng thái không xác định: $status";
