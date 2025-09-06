@@ -272,7 +272,7 @@ class _NotificationTabsScreenState extends State<NotificationTabsScreen>
             Icon(Icons.notifications_off, size: 64, color: Colors.grey[400]),
             const SizedBox(height: 16),
             Text(
-              'Không có thông báo nào',
+              'Không thông báo nào',
               style: TextStyle(fontSize: 16, color: Colors.grey[600]),
             ),
             const SizedBox(height: 16),
@@ -781,8 +781,17 @@ class _NotificationTabsScreenState extends State<NotificationTabsScreen>
     // Xử lý điều hướng theo loại thông báo
     switch (notification.type) {
       case 'NEW_BOOKING':
-        // Thông báo đặt chỗ mới - điều hướng đến màn hình quản lý booking
-        Navigator.pushNamed(context, DriverRoutes.bookings);
+        // Thông báo đặt chỗ mới - điều hướng đến chi tiết chuyến đi
+        if (notification.referenceId > 0) {
+          Navigator.pushNamed(
+            context,
+            AppRoute.rideDetails,
+            arguments: {'rideId': notification.referenceId},
+          );
+        } else {
+          // Fallback nếu không có referenceId
+          Navigator.pushNamed(context, DriverRoutes.bookings);
+        }
         break;
 
       case AppConfig.NOTIFICATION_BOOKING_REQUEST:

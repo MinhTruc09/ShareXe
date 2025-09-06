@@ -42,6 +42,9 @@ import 'models/registration_data.dart';
 import 'models/user_profile.dart';
 import 'models/ride.dart';
 
+// Services
+import 'services/ride_service.dart';
+
 // Passenger routes namespace
 class PassengerRoutes {
   static const String splash = '/passenger/splash';
@@ -112,10 +115,58 @@ class AppRoute {
     } else if (routeName == role) {
       return MaterialPageRoute(builder: (_) => const RoleScreen());
     } else if (routeName == rideDetails) {
-      final ride = settings.arguments;
-      return MaterialPageRoute(
-        builder: (context) => RideDetailScreen(ride: ride),
-      );
+      final arguments = settings.arguments;
+
+      // Nếu arguments là Map chứa rideId, cần lấy thông tin chuyến đi từ API
+      if (arguments is Map<String, dynamic> &&
+          arguments.containsKey('rideId')) {
+        final rideId = arguments['rideId'] as int;
+        final rideService = RideService();
+        return MaterialPageRoute(
+          builder:
+              (context) => FutureBuilder<Ride?>(
+                future: rideService.getRideDetails(rideId),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Scaffold(
+                      body: Center(child: CircularProgressIndicator()),
+                    );
+                  } else if (snapshot.hasError || !snapshot.hasData) {
+                    return Scaffold(
+                      appBar: AppBar(title: const Text('Lỗi')),
+                      body: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.error,
+                              size: 64,
+                              color: Colors.red,
+                            ),
+                            const SizedBox(height: 16),
+                            const Text('Không thể tải thông tin chuyến đi'),
+                            const SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('Quay lại'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  } else {
+                    return RideDetailScreen(ride: snapshot.data!);
+                  }
+                },
+              ),
+        );
+      } else {
+        // Trường hợp arguments là ride object trực tiếp (backward compatibility)
+        final ride = arguments;
+        return MaterialPageRoute(
+          builder: (context) => RideDetailScreen(ride: ride),
+        );
+      }
     } else if (routeName == forgotPassword) {
       return MaterialPageRoute(builder: (_) => const ForgotPasswordScreen());
     } else if (routeName == notifications) {

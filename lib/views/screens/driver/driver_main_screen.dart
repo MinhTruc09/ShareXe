@@ -24,7 +24,7 @@ class TabNavigator extends InheritedWidget {
   static TabNavigator? of(BuildContext context) {
     return context.dependOnInheritedWidgetOfExactType<TabNavigator>();
   }
-  
+
   // Phương thức chung để điều hướng đến màn hình tạo chuyến đi
   static void navigateToCreateRide(BuildContext context) {
     Navigator.pushNamed(context, DriverRoutes.createRide);
@@ -57,22 +57,10 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
 
   // Các tùy chọn menu
   final List<NavBarItem> _navItems = [
-    const NavBarItem(
-      icon: Icons.home_outlined,
-      label: 'Trang chủ',
-    ),
-    const NavBarItem(
-      icon: Icons.history_outlined,
-      label: 'Chuyến đi',
-    ),
-    const NavBarItem(
-      icon: Icons.chat_bubble_outline,
-      label: 'Liên hệ',
-    ),
-    const NavBarItem(
-      icon: Icons.person_outline,
-      label: 'Cá nhân',
-    ),
+    const NavBarItem(icon: Icons.home_outlined, label: 'Trang chủ'),
+    const NavBarItem(icon: Icons.history_outlined, label: 'Chuyến đi'),
+    const NavBarItem(icon: Icons.chat_bubble_outline, label: 'Liên hệ'),
+    const NavBarItem(icon: Icons.person_outline, label: 'Cá nhân'),
   ];
 
   @override
@@ -88,12 +76,8 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
       _currentIndex = index;
     });
 
-    // Sử dụng PageController để có hiệu ứng chuyển tab mượt hơn
-    _pageController.animateToPage(
-      index,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
+    // Sử dụng PageController để chuyển tab ngay lập tức
+    _pageController.jumpToPage(index);
   }
 
   void _onPageChanged(int index) {
@@ -123,7 +107,8 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
         body: PageView(
           controller: _pageController,
           onPageChanged: _onPageChanged,
-          physics: const NeverScrollableScrollPhysics(), // Ngăn người dùng vuốt giữa các trang
+          physics:
+              const NeverScrollableScrollPhysics(), // Ngăn người dùng vuốt giữa các trang
           children: _screens,
         ),
         bottomNavigationBar: CustomBottomNavBar(

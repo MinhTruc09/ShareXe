@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../../../models/notification_model.dart';
 import '../../../services/notification_service.dart';
 import '../../../utils/app_config.dart';
+import '../../../app_route.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({Key? key}) : super(key: key);
@@ -112,6 +113,19 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
     // Xử lý điều hướng theo loại thông báo
     switch (notification.type) {
+      case 'NEW_BOOKING':
+        // Thông báo đặt chỗ mới - điều hướng đến chi tiết chuyến đi
+        if (notification.referenceId > 0) {
+          Navigator.pushNamed(
+            context,
+            AppRoute.rideDetails,
+            arguments: {'rideId': notification.referenceId},
+          );
+        } else {
+          // Fallback nếu không có referenceId
+          Navigator.pushNamed(context, '/driver/bookings');
+        }
+        break;
       case AppConfig.NOTIFICATION_BOOKING_REQUEST:
       case AppConfig.NOTIFICATION_BOOKING_ACCEPTED:
       case AppConfig.NOTIFICATION_BOOKING_REJECTED:
