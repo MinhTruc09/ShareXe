@@ -227,7 +227,19 @@ class AppRoute {
           driverEmail: ride['driverEmail'] ?? 'no-email@example.com',
           driverName: ride['driverName'] ?? 'Tài xế',
           availableSeats: ride['availableSeats'] ?? 0,
-          pricePerSeat: ride['pricePerSeat'],
+          pricePerSeat: ride['pricePerSeat'] ?? 0.0,
+          startLat: ride['startLat']?.toDouble() ?? 0.0,
+          startLng: ride['startLng']?.toDouble() ?? 0.0,
+          startAddress: ride['startAddress'] ?? '',
+          startWard: ride['startWard'] ?? '',
+          startDistrict: ride['startDistrict'] ?? '',
+          startProvince: ride['startProvince'] ?? '',
+          endLat: ride['endLat']?.toDouble() ?? 0.0,
+          endLng: ride['endLng']?.toDouble() ?? 0.0,
+          endAddress: ride['endAddress'] ?? '',
+          endWard: ride['endWard'] ?? '',
+          endDistrict: ride['endDistrict'] ?? '',
+          endProvince: ride['endProvince'] ?? '',
         );
         return MaterialPageRoute(builder: (_) => DriverBookingsScreen(ride: rideObj));
       } else {
@@ -242,7 +254,19 @@ class AppRoute {
           availableSeats: 0,
           driverName: 'Tài xế',
           driverEmail: 'example@sharexe.com',
-          pricePerSeat: null,
+          pricePerSeat: 0.0,
+          startLat: 0.0,
+          startLng: 0.0,
+          startAddress: '',
+          startWard: '',
+          startDistrict: '',
+          startProvince: '',
+          endLat: 0.0,
+          endLng: 0.0,
+          endAddress: '',
+          endWard: '',
+          endDistrict: '',
+          endProvince: '',
         );
         return MaterialPageRoute(builder: (_) => DriverBookingsScreen(ride: dummyRide));
       }

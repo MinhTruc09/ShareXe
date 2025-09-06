@@ -22,13 +22,10 @@ class RegisterController {
       {String? licenseImagePath, 
       String? vehicleImagePath, 
       String? licensePlate,
-      String? licenseNumber,
-      String? licenseType,
-      String? licenseExpiry,
-      String? vehicleType,
-      String? vehicleColor,
-      String? vehicleModel,
-      String? vehicleYear}) async {
+      String? brand,
+      String? model,
+      String? color,
+      int? numberOfSeats}) async {
     _isLoading = true;
     try {
       Passenger result;
@@ -41,14 +38,11 @@ class RegisterController {
           licenseImagePath: licenseImagePath ?? '', // Sử dụng giá trị được truyền vào
           vehicleImagePath: vehicleImagePath ?? '', // Sử dụng giá trị được truyền vào
           avatarImagePath: avatarImagePath,
-          licensePlate: licensePlate, // Thêm biển số xe
-          licenseNumber: licenseNumber, // Thêm số giấy phép
-          licenseType: licenseType, // Thêm loại giấy phép
-          licenseExpiry: licenseExpiry, // Thêm ngày hết hạn giấy phép
-          vehicleType: vehicleType, // Thêm loại xe
-          vehicleColor: vehicleColor, // Thêm màu xe
-          vehicleModel: vehicleModel, // Thêm model xe
-          vehicleYear: vehicleYear, // Thêm năm sản xuất
+          licensePlate: licensePlate ?? '', // Thêm biển số xe
+          brand: brand ?? '', // Thêm hãng xe
+          model: model ?? '', // Thêm model xe
+          color: color ?? '', // Thêm màu xe
+          numberOfSeats: numberOfSeats ?? 0, // Thêm số ghế
         );
       } else {
         result = await _authService.register(

@@ -1,4 +1,5 @@
 import '../utils/app_config.dart';
+import 'vehicle.dart';
 
 class UserProfile {
   final int id;
@@ -10,6 +11,7 @@ class UserProfile {
   final String? licenseImageUrl; // Chỉ dành cho tài xế
   final String? vehicleImageUrl; // Chỉ dành cho tài xế
   final String? status; // Chỉ dành cho tài xế: PENDING, APPROVED, REJECTED
+  final VehicleDTO? vehicle;
 
   UserProfile({
     required this.id,
@@ -21,6 +23,7 @@ class UserProfile {
     this.licenseImageUrl,
     this.vehicleImageUrl,
     this.status,
+    this.vehicle,
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -58,6 +61,7 @@ class UserProfile {
       licenseImageUrl: convertImageUrl(json['licenseImageUrl']),
       vehicleImageUrl: convertImageUrl(json['vehicleImageUrl']),
       status: json['status'],
+      vehicle: json['vehicle'] != null ? VehicleDTO.fromJson(json['vehicle']) : null,
     );
   }
 
@@ -72,6 +76,7 @@ class UserProfile {
       'licenseImageUrl': licenseImageUrl,
       'vehicleImageUrl': vehicleImageUrl,
       'status': status,
+      'vehicle': vehicle?.toJson(),
     };
   }
 
@@ -86,6 +91,7 @@ class UserProfile {
     String? licenseImageUrl,
     String? vehicleImageUrl,
     String? status,
+    VehicleDTO? vehicle,
   }) {
     return UserProfile(
       id: id ?? this.id,
@@ -97,6 +103,7 @@ class UserProfile {
       licenseImageUrl: licenseImageUrl ?? this.licenseImageUrl,
       vehicleImageUrl: vehicleImageUrl ?? this.vehicleImageUrl,
       status: status ?? this.status,
+      vehicle: vehicle ?? this.vehicle,
     );
   }
 }

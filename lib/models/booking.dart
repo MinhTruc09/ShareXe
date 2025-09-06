@@ -1,3 +1,5 @@
+import 'vehicle.dart';
+
 // Booking and BookingDTO models - fixing DateTime startTime issues
 // Create a new FellowPassenger class to store data about fellow passengers
 class FellowPassenger {
@@ -6,12 +8,7 @@ class FellowPassenger {
   final String? email;
   final String? avatarUrl;
 
-  FellowPassenger({
-    required this.name,
-    this.phone,
-    this.email,
-    this.avatarUrl,
-  });
+  FellowPassenger({required this.name, this.phone, this.email, this.avatarUrl});
 
   factory FellowPassenger.fromJson(Map<String, dynamic> json) {
     return FellowPassenger(
@@ -28,6 +25,50 @@ class FellowPassenger {
       'phone': phone,
       'email': email,
       'avatarUrl': avatarUrl,
+    };
+  }
+}
+
+class PassengerInfoDTO {
+  final int id;
+  final String name;
+  final String phone;
+  final String email;
+  final String avatarUrl;
+  final String status;
+  final int seatsBooked;
+
+  PassengerInfoDTO({
+    required this.id,
+    required this.name,
+    required this.phone,
+    required this.email,
+    required this.avatarUrl,
+    required this.status,
+    required this.seatsBooked,
+  });
+
+  factory PassengerInfoDTO.fromJson(Map<String, dynamic> json) {
+    return PassengerInfoDTO(
+      id: json['id'] ?? 0,
+      name: json['name'] ?? '',
+      phone: json['phone'] ?? '',
+      email: json['email'] ?? '',
+      avatarUrl: json['avatarUrl'] ?? '',
+      status: json['status'] ?? '',
+      seatsBooked: json['seatsBooked'] ?? 0,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'phone': phone,
+      'email': email,
+      'avatarUrl': avatarUrl,
+      'status': status,
+      'seatsBooked': seatsBooked,
     };
   }
 }
@@ -65,9 +106,12 @@ class BookingDTO {
   final String passengerPhone;
   final String passengerEmail;
   final String? passengerAvatarUrl;
-  
+
   // Fellow passengers info
-  final List<FellowPassenger> fellowPassengers;
+  final List<PassengerInfoDTO> fellowPassengers;
+
+  // Vehicle info
+  final VehicleDTO? vehicle;
 
   BookingDTO({
     required this.id,
@@ -97,14 +141,20 @@ class BookingDTO {
     required this.passengerEmail,
     this.passengerAvatarUrl,
     this.fellowPassengers = const [],
+    this.vehicle,
   });
 
   factory BookingDTO.fromJson(Map<String, dynamic> json) {
-    List<FellowPassenger> fellowPassengers = [];
+    VehicleDTO? vehicle;
+    if (json['vehicle'] != null) {
+      vehicle = VehicleDTO.fromJson(json['vehicle']);
+    }
+    List<PassengerInfoDTO> fellowPassengers = [];
     if (json['fellowPassengers'] != null) {
-      fellowPassengers = (json['fellowPassengers'] as List)
-          .map((fellowJson) => FellowPassenger.fromJson(fellowJson))
-          .toList();
+      fellowPassengers =
+          (json['fellowPassengers'] as List)
+              .map((fellowJson) => PassengerInfoDTO.fromJson(fellowJson))
+              .toList();
     }
 
     return BookingDTO(
@@ -116,7 +166,10 @@ class BookingDTO {
       totalPrice: json['totalPrice']?.toDouble() ?? 0.0,
       departure: json['departure'] ?? '',
       destination: json['destination'] ?? '',
-      startTime: json['startTime'] != null ? DateTime.parse(json['startTime']) : DateTime.now(),
+      startTime:
+          json['startTime'] != null
+              ? DateTime.parse(json['startTime'])
+              : DateTime.now(),
       pricePerSeat: json['pricePerSeat']?.toDouble() ?? 0.0,
       rideStatus: json['rideStatus'] ?? '',
       totalSeats: json['totalSeats'] ?? 0,
@@ -135,6 +188,7 @@ class BookingDTO {
       passengerEmail: json['passengerEmail'] ?? '',
       passengerAvatarUrl: json['passengerAvatarUrl'],
       fellowPassengers: fellowPassengers,
+      vehicle: vehicle,
     );
   }
 
@@ -166,7 +220,9 @@ class BookingDTO {
       'passengerPhone': passengerPhone,
       'passengerEmail': passengerEmail,
       'passengerAvatarUrl': passengerAvatarUrl,
-      'fellowPassengers': fellowPassengers.map((fellow) => fellow.toJson()).toList(),
+      'fellowPassengers':
+          fellowPassengers.map((fellow) => fellow.toJson()).toList(),
+      'vehicle': vehicle?.toJson(),
     };
   }
 

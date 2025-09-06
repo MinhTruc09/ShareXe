@@ -202,7 +202,7 @@ class ApiDebugHelper {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              _appConfig.updateBaseUrl('https://6e3a-1-54-152-77.ngrok-free.app');
+              _appConfig.updateBaseUrl('https://carpooling-j5xn.onrender.com');
               
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Đã cập nhật về URL mặc định')),

@@ -21,6 +21,10 @@ class _RegisterDriverStep2State extends State<RegisterDriverStep2> {
   final _formKey = GlobalKey<FormState>();
   final _phoneController = TextEditingController();
   final _licensePlateController = TextEditingController();
+  final _brandController = TextEditingController();
+  final _modelController = TextEditingController();
+  final _colorController = TextEditingController();
+  final _numberOfSeatsController = TextEditingController();
   final _controller = RegisterController(AuthService());
   
   String _errorMessage = '';
@@ -32,6 +36,10 @@ class _RegisterDriverStep2State extends State<RegisterDriverStep2> {
   void dispose() {
     _phoneController.dispose();
     _licensePlateController.dispose();
+    _brandController.dispose();
+    _modelController.dispose();
+    _colorController.dispose();
+    _numberOfSeatsController.dispose();
     super.dispose();
   }
 
@@ -98,6 +106,10 @@ class _RegisterDriverStep2State extends State<RegisterDriverStep2> {
         licenseImagePath: widget.data.licenseImage,
         vehicleImagePath: widget.data.vehicleImage,
         licensePlate: widget.data.licensePlate,
+        brand: _brandController.text.trim(),
+        model: _modelController.text.trim(),
+        color: _colorController.text.trim(),
+        numberOfSeats: int.tryParse(_numberOfSeatsController.text.trim()) ?? 0,
       );
       setState(() {});
     }
@@ -140,6 +152,10 @@ class _RegisterDriverStep2State extends State<RegisterDriverStep2> {
                     formKey: _formKey,
                     phoneController: _phoneController,
                     licensePlateController: _licensePlateController,
+                    brandController: _brandController,
+                    modelController: _modelController,
+                    colorController: _colorController,
+                    numberOfSeatsController: _numberOfSeatsController,
                     errorMessage: _errorMessage,
                     onRegister: _controller.isLoading ? () {} : _register,
                     onLogin: _navigateToLogin,

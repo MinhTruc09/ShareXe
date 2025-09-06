@@ -23,6 +23,11 @@ class _DriverEditProfileScreenState extends State<DriverEditProfileScreen> {
 
   late TextEditingController _fullNameController;
   late TextEditingController _phoneController;
+  late TextEditingController _brandController;
+  late TextEditingController _modelController;
+  late TextEditingController _colorController;
+  late TextEditingController _licensePlateController;
+  late TextEditingController _numberOfSeatsController;
 
   File? _avatarImage;
   File? _licenseImage;
@@ -42,6 +47,11 @@ class _DriverEditProfileScreenState extends State<DriverEditProfileScreen> {
       _phoneController = TextEditingController(
         text: widget.userProfile.phoneNumber,
       );
+      _brandController = TextEditingController(text: widget.userProfile.vehicle?.brand ?? '');
+      _modelController = TextEditingController(text: widget.userProfile.vehicle?.model ?? '');
+      _colorController = TextEditingController(text: widget.userProfile.vehicle?.color ?? '');
+      _licensePlateController = TextEditingController(text: widget.userProfile.vehicle?.licensePlate ?? '');
+      _numberOfSeatsController = TextEditingController(text: widget.userProfile.vehicle?.numberOfSeats?.toString() ?? '');
       
       print('Khởi tạo EditProfileScreen thành công với: ${widget.userProfile.fullName}');
       
@@ -51,6 +61,11 @@ class _DriverEditProfileScreenState extends State<DriverEditProfileScreen> {
       print('Lỗi khi khởi tạo controllers: $e');
       _fullNameController = TextEditingController();
       _phoneController = TextEditingController();
+      _brandController = TextEditingController();
+      _modelController = TextEditingController();
+      _colorController = TextEditingController();
+      _licensePlateController = TextEditingController();
+      _numberOfSeatsController = TextEditingController();
     }
   }
 
@@ -73,6 +88,11 @@ class _DriverEditProfileScreenState extends State<DriverEditProfileScreen> {
   void dispose() {
     _fullNameController.dispose();
     _phoneController.dispose();
+    _brandController.dispose();
+    _modelController.dispose();
+    _colorController.dispose();
+    _licensePlateController.dispose();
+    _numberOfSeatsController.dispose();
     super.dispose();
   }
 
@@ -159,9 +179,14 @@ class _DriverEditProfileScreenState extends State<DriverEditProfileScreen> {
     });
 
     try {
-      final response = await _profileService.updateProfile(
+      final response = await _profileService.updateDriverProfile(
         fullName: _fullNameController.text.trim(),
         phone: _phoneController.text.trim(),
+        brand: _brandController.text.trim(),
+        model: _modelController.text.trim(),
+        color: _colorController.text.trim(),
+        licensePlate: _licensePlateController.text.trim(),
+        numberOfSeats: int.tryParse(_numberOfSeatsController.text.trim()) ?? 0,
         avatarImage: _avatarImage,
         licenseImage: _licenseImage,
         vehicleImage: _vehicleImage,
@@ -415,6 +440,110 @@ class _DriverEditProfileScreenState extends State<DriverEditProfileScreen> {
                             validator: (value) {
                               if (value == null || value.isEmpty) {
                                 return 'Vui lòng nhập số điện thoại';
+                              }
+                              return null;
+                            },
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          // Brand field
+                          TextFormField(
+                            controller: _brandController,
+                            decoration: InputDecoration(
+                              labelText: 'Hãng xe',
+                              prefixIcon: const Icon(Icons.directions_car),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Vui lòng nhập hãng xe';
+                              }
+                              return null;
+                            },
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          // Model field
+                          TextFormField(
+                            controller: _modelController,
+                            decoration: InputDecoration(
+                              labelText: 'Mẫu xe',
+                              prefixIcon: const Icon(Icons.directions_car),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Vui lòng nhập mẫu xe';
+                              }
+                              return null;
+                            },
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          // Color field
+                          TextFormField(
+                            controller: _colorController,
+                            decoration: InputDecoration(
+                              labelText: 'Màu xe',
+                              prefixIcon: const Icon(Icons.color_lens),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Vui lòng nhập màu xe';
+                              }
+                              return null;
+                            },
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          // License plate field
+                          TextFormField(
+                            controller: _licensePlateController,
+                            decoration: InputDecoration(
+                              labelText: 'Biển số xe',
+                              prefixIcon: const Icon(Icons.pin),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Vui lòng nhập biển số xe';
+                              }
+                              return null;
+                            },
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          // Number of seats field
+                          TextFormField(
+                            controller: _numberOfSeatsController,
+                            decoration: InputDecoration(
+                              labelText: 'Số ghế',
+                              prefixIcon: const Icon(Icons.event_seat),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            keyboardType: TextInputType.number,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Vui lòng nhập số ghế';
+                              }
+                              if (int.tryParse(value) == null) {
+                                return 'Số ghế phải là một con số';
                               }
                               return null;
                             },

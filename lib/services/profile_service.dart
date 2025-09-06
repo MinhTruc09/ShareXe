@@ -187,7 +187,7 @@ class ProfileService {
   }
 
   // Phương thức cập nhật thông tin cá nhân của hành khách
-  Future<ProfileResponse> updateUserProfile({
+  Future<ProfileResponse> updatePassengerProfile({
     required String fullName,
     required String phoneNumber,
     File? avatarImage,
@@ -210,6 +210,7 @@ class ProfileService {
       // Thêm các trường text
       request.fields['fullName'] = fullName;
       request.fields['phone'] = phoneNumber;
+
 
       // Thêm ảnh đại diện nếu có
       if (avatarImage != null) {
@@ -324,9 +325,14 @@ class ProfileService {
   }
 
   // Phương thức cập nhật thông tin cá nhân
-  Future<ProfileResponse> updateProfile({
+  Future<ProfileResponse> updateDriverProfile({
     required String fullName,
     required String phone,
+    required String brand,
+    required String model,
+    required String color,
+    required String licensePlate,
+    required int numberOfSeats,
     File? avatarImage,
     File? licenseImage,
     File? vehicleImage,
@@ -356,6 +362,11 @@ class ProfileService {
       // Thêm các trường text
       request.fields['fullName'] = fullName;
       request.fields['phone'] = phone;
+      request.fields['brand'] = brand;
+      request.fields['model'] = model;
+      request.fields['color'] = color;
+      request.fields['licensePlate'] = licensePlate;
+      request.fields['numberOfSeats'] = numberOfSeats.toString();
       
       print('Đang gửi fields: fullName=$fullName, phone=$phone');
 

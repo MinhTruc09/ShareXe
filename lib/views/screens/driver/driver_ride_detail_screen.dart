@@ -30,7 +30,7 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
   bool _isConfirming = false;
   List<Booking> _bookings = [];
   List<BookingDTO> _bookingsDTO = [];
-  
+
   // Theo dõi trạng thái xác nhận của tài xế
   bool _driverConfirmed = false;
 
@@ -227,7 +227,7 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
             ride.status = 'COMPLETED';
           }
         });
-        
+
         // Quay về màn hình trước đó ngay lập tức sau khi hoàn thành thành công
         if (!mounted) return;
         Navigator.of(currentContext).pop(true); // Trả về true để báo hiệu hoàn thành thành công
@@ -340,10 +340,10 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
             ride.status = 'CANCELLED';
           }
         });
-        
+
         // Quay về màn hình trước đó ngay lập tức sau khi hủy thành công
         if (!mounted) return;
-        
+
         // Gửi thông báo cho hành khách đã đặt chỗ
         try {
           // Thay thế phương thức sendRideCancelledNotification bằng sendNotification riêng lẻ
@@ -351,7 +351,7 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
           for (var booking in _bookings.where((b) => 
               b.status.toUpperCase() == 'APPROVED' || 
               b.status.toUpperCase() == 'ACCEPTED')) {
-                
+
             await _notificationService.sendNotification(
               'Chuyến đi đã bị hủy',
               'Chuyến đi từ ${rideData.departure} đến ${rideData.destination} đã bị hủy bởi tài xế ${rideData.driverName}.',
@@ -368,7 +368,7 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
           print('Lỗi khi gửi thông báo hủy chuyến: $e');
           // Không dừng luồng vì đây không phải lỗi chính
         }
-        
+
         Navigator.of(currentContext).pop(true); // Trả về true để báo hiệu hủy thành công
       } else {
         if (!mounted) return;
@@ -436,11 +436,11 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
   Future<void> _checkConfirmationStatus() async {
     try {
       final Ride rideData = widget.ride as Ride;
-      
+
       // Call API to check if driver already confirmed this ride
       // For now, we rely on ride status
       final inProgress = rideData.status.toUpperCase() == 'IN_PROGRESS';
-      
+
       if (mounted) {
         setState(() {
           _driverConfirmed = inProgress;
@@ -499,14 +499,14 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
           _driverConfirmed = true;
           _isConfirming = false;
         });
-        
+
         // Gửi thông báo cho hành khách đã đặt chỗ
         try {
           // Gửi thông báo cho từng booking được chấp nhận
           for (var booking in _bookings.where((b) => 
               b.status.toUpperCase() == 'APPROVED' || 
               b.status.toUpperCase() == 'ACCEPTED')) {
-            
+
             await _notificationService.sendNotification(
               'Chuyến đi đã bắt đầu',
               'Chuyến đi từ ${rideData.departure} đến ${rideData.destination} đã bắt đầu.',
@@ -523,7 +523,7 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
           print('Lỗi khi gửi thông báo bắt đầu chuyến: $e');
           // Không dừng luồng vì đây không phải lỗi chính
         }
-        
+
         ScaffoldMessenger.of(currentContext).showSnackBar(
           const SnackBar(
             content: Text(
@@ -537,7 +537,7 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
         setState(() {
           _isConfirming = false;
         });
-        
+
         ScaffoldMessenger.of(currentContext).showSnackBar(
           const SnackBar(
             content: Text(
@@ -553,7 +553,7 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
         setState(() {
           _isConfirming = false;
         });
-        
+
         ScaffoldMessenger.of(currentContext).showSnackBar(
           SnackBar(
             content: Text(
@@ -591,16 +591,16 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
       );
     }
   }
-  
+
   // Accept booking method
   Future<void> _acceptBooking(Booking booking) async {
     setState(() {
       _isLoading = true;
     });
-    
+
     try {
       final success = await _bookingService.acceptBooking(booking.id);
-      
+
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -632,7 +632,7 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
       }
     }
   }
-  
+
   // Reject booking method
   Future<void> _rejectBooking(Booking booking) async {
     // Show confirmation dialog
@@ -656,16 +656,16 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
         ],
       ),
     );
-    
+
     if (confirmed != true) return;
-    
+
     setState(() {
       _isLoading = true;
     });
-    
+
     try {
       final success = await _bookingService.rejectBooking(booking.id);
-      
+
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -705,7 +705,7 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
     final bool isCompletedOrCancelled =
         rideData.status.toUpperCase() == 'COMPLETED' ||
         rideData.status.toUpperCase() == 'CANCELLED';
-        
+
     // Kiểm tra nếu chuyến đi đã đến thời gian xuất phát
     final bool isReadyForDeparture = _rideService.canConfirmRide(rideData);
     final bool isInProgress = _rideService.isRideInProgress(rideData);
@@ -841,6 +841,63 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
                           ? 'Đang diễn ra'
                           : rideData.status,
                     ),
+
+                    // Vehicle information section
+                    if (rideData.licensePlate != null || 
+                        rideData.vehicleType != null || 
+                        rideData.vehicleColor != null || 
+                        rideData.vehicleModel != null || 
+                        rideData.vehicleBrand != null) ...[
+                      const SizedBox(height: 24),
+                      const Text(
+                        'Thông tin phương tiện',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 12),
+                      if (rideData.licensePlate != null)
+                        _buildDetailRow('Biển số xe:', rideData.licensePlate!),
+                      if (rideData.licensePlate != null)
+                        const SizedBox(height: 8),
+                      if (rideData.vehicleBrand != null || rideData.vehicleModel != null) 
+                        _buildDetailRow(
+                          'Xe:',
+                          [
+                            if (rideData.vehicleBrand != null) rideData.vehicleBrand,
+                            if (rideData.vehicleModel != null) rideData.vehicleModel,
+                          ].where((item) => item != null).join(' '),
+                        ),
+                      if (rideData.vehicleBrand != null || rideData.vehicleModel != null)
+                        const SizedBox(height: 8),
+                      if (rideData.vehicleType != null)
+                        _buildDetailRow('Loại xe:', rideData.vehicleType!),
+                      if (rideData.vehicleType != null)
+                        const SizedBox(height: 8),
+                      if (rideData.vehicleColor != null)
+                        _buildDetailRow('Màu xe:', rideData.vehicleColor!),
+                    ],
+
+                    // Driver information section
+                    if (rideData.driverPhone != null || 
+                        rideData.driverRating != null) ...[
+                      const SizedBox(height: 24),
+                      const Text(
+                        'Thông tin tài xế',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildDetailRow('Tên tài xế:', rideData.driverName),
+                      const SizedBox(height: 8),
+                      if (rideData.driverPhone != null) ...[
+                        _buildDetailRow('Số điện thoại:', rideData.driverPhone!),
+                        const SizedBox(height: 8),
+                      ],
+                      if (rideData.driverRating != null) ...[
+                        _buildDetailRow(
+                          'Đánh giá:',
+                          '${rideData.driverRating!.toStringAsFixed(1)} ⭐ (${rideData.driverRatingCount ?? 0} đánh giá)',
+                        ),
+                      ],
+                    ],
 
                     const Divider(height: 32),
 
@@ -1086,7 +1143,7 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
                             if (index < _bookingsDTO.length) {
                               final bookingDTO = _bookingsDTO[index];
                               final booking = _bookings[index];
-                              
+
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -1149,16 +1206,16 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
                                     ],
                                   ),
                                   const SizedBox(height: 10),
-                                  
+
                                   // Use our new PassengerDetailsCard widget
                                   PassengerDetailsCard.fromBookingDTO(
                                     bookingDTO,
                                     onCall: () => _callPassenger(bookingDTO.passengerPhone),
                                     onMessage: () => _messagePassenger(bookingDTO.passengerPhone),
                                   ),
-                                  
+
                                   const SizedBox(height: 16),
-                                  
+
                                   // Show action buttons based on booking status
                                   if (booking.status.toUpperCase() == 'PENDING')
                                     Row(
@@ -1182,7 +1239,7 @@ class _DriverRideDetailScreenState extends State<DriverRideDetailScreen> {
                                         ),
                                       ],
                                     ),
-                                    
+
                                   const SizedBox(height: 8),
                                 ],
                               );

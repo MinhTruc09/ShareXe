@@ -30,13 +30,26 @@ class PassengerDetailsCard extends StatelessWidget {
     VoidCallback? onMessage,
     Key? key,
   }) {
+    // Convert PassengerInfoDTO to FellowPassenger using a for loop
+    List<FellowPassenger> convertedPassengers = [];
+    for (var passengerInfo in booking.fellowPassengers) {
+      convertedPassengers.add(
+        FellowPassenger(
+          name: passengerInfo.name,
+          phone: passengerInfo.phone,
+          email: passengerInfo.email,
+          avatarUrl: passengerInfo.avatarUrl,
+        )
+      );
+    }
+
     return PassengerDetailsCard(
       key: key,
       passengerName: booking.passengerName,
       passengerPhone: booking.passengerPhone,
       passengerEmail: booking.passengerEmail,
       passengerAvatarUrl: booking.passengerAvatarUrl,
-      fellowPassengers: booking.fellowPassengers,
+      fellowPassengers: convertedPassengers,
       totalSeats: booking.seatsBooked,
       onCall: onCall,
       onMessage: onMessage,
@@ -72,7 +85,7 @@ class PassengerDetailsCard extends StatelessWidget {
                       : null,
                 ),
                 const SizedBox(width: 12),
-                
+
                 // Passenger details
                 Expanded(
                   child: Column(
@@ -141,7 +154,7 @@ class PassengerDetailsCard extends StatelessWidget {
                 ),
               ],
             ),
-            
+
             // Action buttons
             if (onCall != null || onMessage != null)
               Padding(
@@ -170,7 +183,7 @@ class PassengerDetailsCard extends StatelessWidget {
                   ],
                 ),
               ),
-              
+
             // Fellow passengers list
             if (fellowPassengers.isNotEmpty) ...[
               const Divider(height: 24),

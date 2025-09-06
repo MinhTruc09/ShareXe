@@ -38,6 +38,18 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
   int? _rideId;
 
   final TextEditingController _priceController = TextEditingController();
+  final TextEditingController _startLatController = TextEditingController();
+  final TextEditingController _startLngController = TextEditingController();
+  final TextEditingController _startAddressController = TextEditingController();
+  final TextEditingController _startWardController = TextEditingController();
+  final TextEditingController _startDistrictController = TextEditingController();
+  final TextEditingController _startProvinceController = TextEditingController();
+  final TextEditingController _endLatController = TextEditingController();
+  final TextEditingController _endLngController = TextEditingController();
+  final TextEditingController _endAddressController = TextEditingController();
+  final TextEditingController _endWardController = TextEditingController();
+  final TextEditingController _endDistrictController = TextEditingController();
+  final TextEditingController _endProvinceController = TextEditingController();
 
   @override
   void initState() {
@@ -193,6 +205,18 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
   @override
   void dispose() {
     _priceController.dispose();
+    _startLatController.dispose();
+    _startLngController.dispose();
+    _startAddressController.dispose();
+    _startWardController.dispose();
+    _startDistrictController.dispose();
+    _startProvinceController.dispose();
+    _endLatController.dispose();
+    _endLngController.dispose();
+    _endAddressController.dispose();
+    _endWardController.dispose();
+    _endDistrictController.dispose();
+    _endProvinceController.dispose();
     super.dispose();
   }
 
@@ -353,6 +377,18 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
         'totalSeat': _totalSeats,
         'pricePerSeat': _pricePerSeat,
         'status': 'ACTIVE',
+        'startLat': double.tryParse(_startLatController.text) ?? 0.0,
+        'startLng': double.tryParse(_startLngController.text) ?? 0.0,
+        'startAddress': _startAddressController.text,
+        'startWard': _startWardController.text,
+        'startDistrict': _startDistrictController.text,
+        'startProvince': _startProvinceController.text,
+        'endLat': double.tryParse(_endLatController.text) ?? 0.0,
+        'endLng': double.tryParse(_endLngController.text) ?? 0.0,
+        'endAddress': _endAddressController.text,
+        'endWard': _endWardController.text,
+        'endDistrict': _endDistrictController.text,
+        'endProvince': _endProvinceController.text,
       };
 
       print('📝 Đang gửi dữ liệu chuyến đi: $rideData');
@@ -535,6 +571,60 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
                               _destination = location;
                             });
                           },
+                        ),
+                        const Divider(height: 16),
+                        TextFormField(
+                          controller: _startAddressController,
+                          decoration: const InputDecoration(labelText: 'Start Address'),
+                        ),
+                        TextFormField(
+                          controller: _startWardController,
+                          decoration: const InputDecoration(labelText: 'Start Ward'),
+                        ),
+                        TextFormField(
+                          controller: _startDistrictController,
+                          decoration: const InputDecoration(labelText: 'Start District'),
+                        ),
+                        TextFormField(
+                          controller: _startProvinceController,
+                          decoration: const InputDecoration(labelText: 'Start Province'),
+                        ),
+                        TextFormField(
+                          controller: _startLatController,
+                          decoration: const InputDecoration(labelText: 'Start Latitude'),
+                          keyboardType: TextInputType.number,
+                        ),
+                        TextFormField(
+                          controller: _startLngController,
+                          decoration: const InputDecoration(labelText: 'Start Longitude'),
+                          keyboardType: TextInputType.number,
+                        ),
+                        const Divider(height: 16),
+                        TextFormField(
+                          controller: _endAddressController,
+                          decoration: const InputDecoration(labelText: 'End Address'),
+                        ),
+                        TextFormField(
+                          controller: _endWardController,
+                          decoration: const InputDecoration(labelText: 'End Ward'),
+                        ),
+                        TextFormField(
+                          controller: _endDistrictController,
+                          decoration: const InputDecoration(labelText: 'End District'),
+                        ),
+                        TextFormField(
+                          controller: _endProvinceController,
+                          decoration: const InputDecoration(labelText: 'End Province'),
+                        ),
+                        TextFormField(
+                          controller: _endLatController,
+                          decoration: const InputDecoration(labelText: 'End Latitude'),
+                          keyboardType: TextInputType.number,
+                        ),
+                        TextFormField(
+                          controller: _endLngController,
+                          decoration: const InputDecoration(labelText: 'End Longitude'),
+                          keyboardType:  TextInputType.number,
                         ),
                         const Divider(height: 16),
                         DatePickerField(

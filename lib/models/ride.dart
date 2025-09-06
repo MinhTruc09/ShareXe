@@ -3,24 +3,66 @@ class Ride {
   final int availableSeats;
   final String driverName;
   final String driverEmail;
+  final String? driverPhone;
   final String departure;
   final String destination;
   final String startTime;
-  final double? pricePerSeat;
+  final double pricePerSeat;
   final int totalSeat;
   String status;
+  final double startLat;
+  final double startLng;
+  final String startAddress;
+  final String startWard;
+  final String startDistrict;
+  final String startProvince;
+  final double endLat;
+  final double endLng;
+  final String endAddress;
+  final String endWard;
+  final String endDistrict;
+  final String endProvince;
+  final String? licensePlate;
+  final String? vehicleType;
+  final String? vehicleColor;
+  final String? vehicleModel;
+  final String? vehicleBrand;
+  final double? driverRating;
+  final int? driverRatingCount;
+  final String? driverAvatar;
 
   Ride({
     required this.id,
     required this.availableSeats,
     required this.driverName,
     required this.driverEmail,
+    this.driverPhone,
     required this.departure,
     required this.destination,
     required this.startTime,
-    this.pricePerSeat,
+    required this.pricePerSeat,
     required this.totalSeat,
     required this.status,
+    required this.startLat,
+    required this.startLng,
+    required this.startAddress,
+    required this.startWard,
+    required this.startDistrict,
+    required this.startProvince,
+    required this.endLat,
+    required this.endLng,
+    required this.endAddress,
+    required this.endWard,
+    required this.endDistrict,
+    required this.endProvince,
+    this.licensePlate,
+    this.vehicleType,
+    this.vehicleColor,
+    this.vehicleModel,
+    this.vehicleBrand,
+    this.driverRating,
+    this.driverRatingCount,
+    this.driverAvatar,
   });
 
   factory Ride.fromJson(Map<String, dynamic> json) {
@@ -35,7 +77,7 @@ class Ride {
         }
         return null;
       }
-      
+
       // Handle integer values safely
       int parseIntSafely(dynamic value, int defaultValue) {
         if (value == null) return defaultValue;
@@ -46,18 +88,39 @@ class Ride {
         }
         return defaultValue;
       }
-      
+
       return Ride(
         id: parseIntSafely(json['id'], 0),
         availableSeats: parseIntSafely(json['availableSeats'], 0),
         driverName: json['driverName'] ?? 'Unknown Driver',
         driverEmail: json['driverEmail'] ?? 'no-email@example.com',
+        driverPhone: json['driverPhone'],
         departure: json['departure'] ?? 'Unknown',
         destination: json['destination'] ?? 'Unknown',
         startTime: json['startTime'] ?? DateTime.now().toIso8601String(),
-        pricePerSeat: parsePrice(json['pricePerSeat']),
+        pricePerSeat: parsePrice(json['pricePerSeat']) ?? 0.0,
         totalSeat: parseIntSafely(json['totalSeat'], 0),
         status: json['status'] ?? 'ACTIVE',
+        startLat: json['startLat']?.toDouble() ?? 0.0,
+        startLng: json['startLng']?.toDouble() ?? 0.0,
+        startAddress: json['startAddress'] ?? '',
+        startWard: json['startWard'] ?? '',
+        startDistrict: json['startDistrict'] ?? '',
+        startProvince: json['startProvince'] ?? '',
+        endLat: json['endLat']?.toDouble() ?? 0.0,
+        endLng: json['endLng']?.toDouble() ?? 0.0,
+        endAddress: json['endAddress'] ?? '',
+        endWard: json['endWard'] ?? '',
+        endDistrict: json['endDistrict'] ?? '',
+        endProvince: json['endProvince'] ?? '',
+        licensePlate: json['licensePlate'],
+        vehicleType: json['vehicleType'],
+        vehicleColor: json['vehicleColor'],
+        vehicleModel: json['vehicleModel'],
+        vehicleBrand: json['vehicleBrand'] ?? json['brand'],
+        driverRating: parsePrice(json['driverRating']),
+        driverRatingCount: parseIntSafely(json['driverRatingCount'], 0),
+        driverAvatar: json['driverAvatar'] ?? json['avatarImage'],
       );
     } catch (e) {
       print('❌ Error parsing Ride data: $e');
@@ -68,12 +131,33 @@ class Ride {
         availableSeats: 0,
         driverName: 'Error Parsing Data',
         driverEmail: 'error@example.com',
+        driverPhone: null,
         departure: 'Unknown',
         destination: 'Unknown',
         startTime: DateTime.now().toIso8601String(),
-        pricePerSeat: null,
+        pricePerSeat: 0.0,
         totalSeat: 0,
         status: 'ERROR',
+        startLat: 0.0,
+        startLng: 0.0,
+        startAddress: '',
+        startWard: '',
+        startDistrict: '',
+        startProvince: '',
+        endLat: 0.0,
+        endLng: 0.0,
+        endAddress: '',
+        endWard: '',
+        endDistrict: '',
+        endProvince: '',
+        licensePlate: null,
+        vehicleType: null,
+        vehicleColor: null,
+        vehicleModel: null,
+        vehicleBrand: null,
+        driverRating: null,
+        driverRatingCount: null,
+        driverAvatar: null,
       );
     }
   }
@@ -84,12 +168,33 @@ class Ride {
       'availableSeats': availableSeats,
       'driverName': driverName,
       'driverEmail': driverEmail,
+      'driverPhone': driverPhone,
       'departure': departure,
       'destination': destination,
       'startTime': startTime,
       'pricePerSeat': pricePerSeat,
       'totalSeat': totalSeat,
       'status': status,
+      'startLat': startLat,
+      'startLng': startLng,
+      'startAddress': startAddress,
+      'startWard': startWard,
+      'startDistrict': startDistrict,
+      'startProvince': startProvince,
+      'endLat': endLat,
+      'endLng': endLng,
+      'endAddress': endAddress,
+      'endWard': endWard,
+      'endDistrict': endDistrict,
+      'endProvince': endProvince,
+      'licensePlate': licensePlate,
+      'vehicleType': vehicleType,
+      'vehicleColor': vehicleColor,
+      'vehicleModel': vehicleModel,
+      'vehicleBrand': vehicleBrand,
+      'driverRating': driverRating,
+      'driverRatingCount': driverRatingCount,
+      'driverAvatar': driverAvatar,
     };
   }
-} 
+}

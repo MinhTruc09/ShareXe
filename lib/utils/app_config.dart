@@ -10,7 +10,7 @@ class AppConfig {
   AppConfig._internal();
 
   // API URLs with automatic backup URLs
-  String apiBaseUrl = 'https://2675-115-76-90-173.ngrok-free.app';
+  String apiBaseUrl = 'https://carpooling-j5xn.onrender.com';
   String fallbackApiUrl = 'https://sharexe-api.onrender.com';
 
   // Flag to indicate if using fallback URL

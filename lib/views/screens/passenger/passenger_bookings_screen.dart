@@ -24,7 +24,7 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen> with 
   final BookingService _bookingService = BookingService();
   final NotificationService _notificationService = NotificationService();
   final RideService _rideService = RideService();
-  
+
   late TabController _tabController;
   List<BookingDTO> _upcomingBookings = [];
   List<BookingDTO> _inProgressBookings = []; // Chuyến đi đang diễn ra
@@ -52,7 +52,7 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen> with 
   bool _isBookingExpired(BookingDTO booking) {
     final DateTime now = DateTime.now();
     final DateTime startTime = booking.startTime;
-    
+
     // Nếu startTime đã qua và booking vẫn PENDING, thì coi như đã hết hạn
     return now.isAfter(startTime) && booking.status == 'PENDING';
   }
@@ -70,7 +70,7 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen> with 
 
       // Gọi API để lấy danh sách bookings
       final bookings = await _bookingService.getPassengerBookingsDTO();
-      
+
       if (bookings.isEmpty) {
         print('ℹ️ Không có bookings nào được tìm thấy');
       } else {
@@ -88,7 +88,7 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen> with 
         final status = booking.status.toUpperCase();
         final now = DateTime.now();
         final startTime = booking.startTime;
-        
+
         // Phân loại theo trạng thái
         if (status == 'CANCELLED' || status == 'REJECTED' || _isBookingExpired(booking)) {
           // Chuyến đã hủy hoặc từ chối hoặc đã hết hạn
@@ -198,7 +198,7 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen> with 
 
         // Làm mới danh sách bookings
         await _loadBookings();
-        
+
         // Thông báo cho PassengerMainScreen để làm mới danh sách chuyến đi
         try {
           // Lấy TabNavigator instance từ context
@@ -261,92 +261,7 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen> with 
 
   // Xác nhận hoàn thành chuyến đi
   Future<void> _confirmRideCompletion(BookingDTO booking) async {
-    // Hiển thị dialog xác nhận
-    bool? confirmComplete = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Xác nhận hoàn thành'),
-        content: const Text(
-          'Bạn xác nhận đã hoàn thành chuyến đi này? Hành động này không thể hoàn tác.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Không'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Xác nhận hoàn thành'),
-            style: TextButton.styleFrom(foregroundColor: Colors.green),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmComplete != true) return;
-
-    // Hiển thị loading
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      // Gọi API để xác nhận hoàn thành chuyến đi
-      final success = await _rideService.passengerConfirmCompletion(booking.rideId);
-
-      if (success) {
-        // Gửi thông báo cho tài xế
-        await _notificationService.sendNotification(
-          'Hành khách đã xác nhận hoàn thành',
-          'Hành khách ${booking.passengerName} đã xác nhận hoàn thành chuyến đi.',
-          'PASSENGER_CONFIRMED',
-          {
-            'bookingId': booking.id,
-            'rideId': booking.rideId,
-          },
-          recipientEmail: booking.driverEmail,
-        );
-
-        // Làm mới danh sách bookings
-        await _loadBookings();
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Đã xác nhận hoàn thành chuyến đi'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
-      } else {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Không thể xác nhận hoàn thành. Vui lòng thử lại sau.'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      print('❌ Lỗi khi xác nhận hoàn thành: $e');
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Đã xảy ra lỗi: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
+    return _handleConfirmCompletion(booking);
   }
 
   // Xem chi tiết booking
@@ -363,12 +278,21 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen> with 
       availableSeats: booking.availableSeats,
       totalSeat: booking.totalSeats,
       status: booking.rideStatus,
+      startLat: 0.0,
+      startLng: 0.0,
+      startAddress: booking.departure,
+      startWard: '',
+      startDistrict: '',
+      startProvince: '',
+      endLat: 0.0,
+      endLng: 0.0,
+      endAddress: booking.destination,
+      endWard: '',
+      endDistrict: '',
+      endProvince: '',
     );
 
-    // Convert BookingDTO to Booking for compatibility
-    final bookingObj = booking.toBooking();
-
-    // Navigate to RideDetailsScreen with both ride and booking
+    // Navigate to RideDetailsScreen with the ride
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -411,13 +335,13 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen> with 
                   children: [
                     // Sắp tới - hiển thị booking đã được duyệt nhưng chưa đến giờ khởi hành
                     _buildBookingList(_upcomingBookings, 'Sắp tới'),
-                    
+
                     // Đang đi - hiển thị IN_PROGRESS và DRIVER_CONFIRMED
                     _buildBookingList(_inProgressBookings, 'Đang đi'),
-                    
+
                     // Hoàn thành - chỉ hiển thị COMPLETED
                     _buildBookingList(_completedBookings, 'Hoàn thành'),
-                    
+
                     // Đã hủy - forceDisableInteraction = true để vô hiệu hóa tương tác
                     _buildBookingList(_cancelledOrExpiredBookings, 'Đã hủy'),
                   ],
@@ -494,7 +418,7 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen> with 
     // Xác định xem booking có thể được xác nhận hoàn thành không
     final status = booking.status.toUpperCase();
     final now = DateTime.now();
-    
+
     // Chỉ cho phép xác nhận hoàn thành nếu:
     // - Trạng thái là DRIVER_CONFIRMED, hoặc
     // - Trạng thái là ACCEPTED/APPROVED/IN_PROGRESS và đã đến giờ khởi hành
@@ -508,7 +432,7 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen> with 
       setState(() {
         _isLoading = true;
       });
-      
+
       // Hiển thị dialog xác nhận
       final bool? confirmResult = await showDialog<bool>(
         context: context,
@@ -532,17 +456,17 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen> with 
           );
         },
       );
-      
+
       if (confirmResult != true) {
         setState(() {
           _isLoading = false;
         });
         return;
       }
-      
+
       // Gọi API để xác nhận hoàn thành 
       final result = await _rideService.passengerConfirmCompletion(booking.rideId);
-      
+
       if (result) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -550,7 +474,7 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen> with 
             backgroundColor: Colors.green,
           ),
         );
-        
+
         // Gửi thông báo cho tài xế (nếu cần)
         try {
           await _notificationService.sendNotification(
@@ -567,7 +491,7 @@ class _PassengerBookingsScreenState extends State<PassengerBookingsScreen> with 
           print('❌ Lỗi khi gửi thông báo: $e');
           // Không dừng quy trình vì đây không phải lỗi chính
         }
-        
+
         // Làm mới danh sách bookings
         await _loadBookings();
       } else {

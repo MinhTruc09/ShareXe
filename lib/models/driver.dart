@@ -19,6 +19,16 @@ class Driver {
   final bool? isActive;
   final String? status; // PENDING, APPROVED, REJECTED
   final String? token;
+  final String? brand;
+  final String? model;
+  final String? color;
+  final int? numberOfSeats;
+  final String? vehicleImageUrl;
+  final String? licenseImageUrl;
+  final String? address;
+  final String? city;
+  final String? district;
+  final String? ward;
 
   Driver({
     this.id,
@@ -39,9 +49,41 @@ class Driver {
     this.isActive,
     this.status,
     this.token,
+    this.brand,
+    this.model,
+    this.color,
+    this.numberOfSeats,
+    this.vehicleImageUrl,
+    this.licenseImageUrl,
+    this.address,
+    this.city,
+    this.district,
+    this.ward,
   });
 
   factory Driver.fromJson(Map<String, dynamic> json) {
+    // Helper function to safely parse double values
+    double? parseDouble(dynamic value) {
+      if (value == null) return null;
+      if (value is double) return value;
+      if (value is int) return value.toDouble();
+      if (value is String) {
+        return double.tryParse(value);
+      }
+      return null;
+    }
+
+    // Helper function to safely parse int values
+    int? parseInt(dynamic value) {
+      if (value == null) return null;
+      if (value is int) return value;
+      if (value is double) return value.toInt();
+      if (value is String) {
+        return int.tryParse(value);
+      }
+      return null;
+    }
+
     return Driver(
       id: json['id'],
       fullName: json['fullName'],
@@ -61,6 +103,16 @@ class Driver {
       isActive: json['isActive'],
       status: json['status'],
       token: json['token'],
+      brand: json['brand'],
+      model: json['model'],
+      color: json['color'],
+      numberOfSeats: parseInt(json['numberOfSeats']),
+      vehicleImageUrl: json['vehicleImageUrl'],
+      licenseImageUrl: json['licenseImageUrl'],
+      address: json['address'],
+      city: json['city'],
+      district: json['district'],
+      ward: json['ward'],
     );
   }
 
@@ -84,6 +136,16 @@ class Driver {
       'isActive': isActive,
       'status': status,
       'token': token,
+      'brand': brand,
+      'model': model,
+      'color': color,
+      'numberOfSeats': numberOfSeats,
+      'vehicleImageUrl': vehicleImageUrl,
+      'licenseImageUrl': licenseImageUrl,
+      'address': address,
+      'city': city,
+      'district': district,
+      'ward': ward,
     };
   }
 
@@ -99,6 +161,10 @@ class Driver {
       avatarImage: data.avatarImage,
       status: 'PENDING',
       isActive: false,
+      address: null,
+      city: null,
+      district: null,
+      ward: null,
     );
   }
-} 
+}

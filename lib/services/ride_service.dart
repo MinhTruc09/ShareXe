@@ -503,9 +503,6 @@ class RideService {
     try {
       print('📝 Tạo chuyến đi mới với dữ liệu: $rideData');
       
-      // Check if URL needs to be switched to a working one
-      await _appConfig.switchToWorkingUrl();
-      
       // Attempt to create ride with timeout
       final response = await _apiClient.post(
         '/ride',
@@ -524,9 +521,7 @@ class RideService {
         return true;
       } else {
         print('❌ Lỗi khi tạo chuyến đi: ${response.statusCode} - ${response.body}');
-        
-        // Try alternative endpoint
-        return await _tryAlternativeCreateRide(rideData);
+        return false;
       }
     } catch (e) {
       String errorMessage = e.toString();
@@ -540,9 +535,7 @@ class RideService {
       } else {
         print('❌ Exception khi tạo chuyến đi: $e');
       }
-      
-      // Try alternative endpoint as fallback
-      return await _tryAlternativeCreateRide(rideData);
+      return false;
     }
   }
   

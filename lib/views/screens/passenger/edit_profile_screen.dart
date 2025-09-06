@@ -59,23 +59,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (!_formKey.currentState!.validate()) {
       return;
     }
-    
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
-    
+
     try {
-      final response = await _profileService.updateProfile(
-        avatarImage: _avatarImage,
+      final response = await _profileService.updatePassengerProfile(
         fullName: _fullNameController.text,
-        phone: _phoneController.text,
+        phoneNumber: _phoneController.text,
+        avatarImage: _avatarImage,
       );
-      
+
       setState(() {
         _isLoading = false;
       });
-      
+
       if (response.success) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

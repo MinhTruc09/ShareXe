@@ -22,7 +22,7 @@ class AuthService {
       final response = await http.post(
         Uri.parse('$baseUrl/auth/login'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'email': email, 'password': password, 'role': role}),
+        body: jsonEncode({'email': email, 'password': password}),
       );
       
       print('📝 Login response: Status ${response.statusCode}');
@@ -167,58 +167,33 @@ class AuthService {
     String? role, // Thêm role để xác định passenger hoặc driver
   }) async {
     try {
-      if (kIsWeb) {
-        final response = await http.post(
-          Uri.parse(
-            '$baseUrl/auth/${role == 'DRIVER' ? 'driver' : 'passenger'}-register',
-          ),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'email': email,
-            'password': password,
-            'fullName': fullName,
-            'phone': phone,
-            'avatarImage': avatarImagePath ?? '',
-          }),
+      var uri = Uri.parse('$baseUrl/auth/passenger-register').replace(queryParameters: {
+        'email': email,
+        'password': password,
+        'fullName': fullName,
+        'phone': phone,
+      });
+
+      var request = http.MultipartRequest('POST', uri);
+
+      if (avatarImagePath != null) {
+        request.files.add(
+          await http.MultipartFile.fromPath('avatarImage', avatarImagePath),
         );
-        if (response.statusCode == 200) {
-          final jsonResponse = jsonDecode(response.body);
-          return Passenger.fromJson(jsonResponse);
-        } else {
-          return Passenger(
-            success: false,
-            message: 'Registration failed: ${response.statusCode}',
-            data: null,
-          );
-        }
+      }
+
+      final response = await request.send();
+      final responseBody = await response.stream.bytesToString();
+
+      if (response.statusCode == 201) {
+        final jsonResponse = jsonDecode(responseBody);
+        return Passenger.fromJson(jsonResponse);
       } else {
-        var request = http.MultipartRequest(
-          'POST',
-          Uri.parse(
-            '$baseUrl/auth/${role == 'DRIVER' ? 'driver' : 'passenger'}-register',
-          ),
+        return Passenger(
+          success: false,
+          message: 'Registration failed: ${response.statusCode}',
+          data: null,
         );
-        request.fields['email'] = email;
-        request.fields['password'] = password;
-        request.fields['fullName'] = fullName;
-        request.fields['phone'] = phone;
-        if (avatarImagePath != null) {
-          request.files.add(
-            await http.MultipartFile.fromPath('avatarImage', avatarImagePath),
-          );
-        }
-        final response = await request.send();
-        final responseBody = await response.stream.bytesToString();
-        if (response.statusCode == 200) {
-          final jsonResponse = jsonDecode(responseBody);
-          return Passenger.fromJson(jsonResponse);
-        } else {
-          return Passenger(
-            success: false,
-            message: 'Registration failed: ${response.statusCode}',
-            data: null,
-          );
-        }
       }
     } catch (e) {
       return Passenger(
@@ -234,92 +209,54 @@ class AuthService {
     required String password,
     required String fullName,
     required String phone,
+    required String licensePlate,
+    required String brand,
+    required String model,
+    required String color,
+    required int numberOfSeats,
     required String licenseImagePath,
     required String vehicleImagePath,
     String? avatarImagePath,
-    String? licensePlate,
-    String? licenseNumber,
-    String? licenseType,
-    String? licenseExpiry,
-    String? vehicleType,
-    String? vehicleColor,
-    String? vehicleModel,
-    String? vehicleYear,
   }) async {
     try {
-      if (kIsWeb) {
-        final response = await http.post(
-          Uri.parse('$baseUrl/auth/driver-register'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'email': email,
-            'password': password,
-            'fullName': fullName,
-            'phone': phone,
-            'avatarImage': avatarImagePath ?? '',
-            'licenseImage': 'fake_license.jpg', // Giả lập trên web
-            'vehicleImage': 'fake_vehicle.jpg', // Giả lập trên web
-            'licensePlate': licensePlate ?? '',
-            'licenseNumber': licenseNumber ?? '',
-            'licenseType': licenseType ?? '',
-            'licenseExpiry': licenseExpiry ?? '',
-            'vehicleType': vehicleType ?? '',
-            'vehicleColor': vehicleColor ?? '',
-            'vehicleModel': vehicleModel ?? '',
-            'vehicleYear': vehicleYear ?? '',
-          }),
-        );
-        if (response.statusCode == 200) {
-          final jsonResponse = jsonDecode(response.body);
-          return Passenger.fromJson(jsonResponse);
-        } else {
-          return Passenger(
-            success: false,
-            message: 'Registration failed: ${response.statusCode}',
-            data: null,
-          );
-        }
-      } else {
-        var request = http.MultipartRequest(
-          'POST',
-          Uri.parse('$baseUrl/auth/driver-register'),
-        );
-        request.fields['email'] = email;
-        request.fields['password'] = password;
-        request.fields['fullName'] = fullName;
-        request.fields['phone'] = phone;
-        request.fields['licensePlate'] = licensePlate ?? '';
-        request.fields['licenseNumber'] = licenseNumber ?? '';
-        request.fields['licenseType'] = licenseType ?? '';
-        request.fields['licenseExpiry'] = licenseExpiry ?? '';
-        request.fields['vehicleType'] = vehicleType ?? '';
-        request.fields['vehicleColor'] = vehicleColor ?? '';
-        request.fields['vehicleModel'] = vehicleModel ?? '';
-        request.fields['vehicleYear'] = vehicleYear ?? '';
+      var uri = Uri.parse('$baseUrl/auth/driver-register').replace(queryParameters: {
+        'email': email,
+        'password': password,
+        'fullName': fullName,
+        'phone': phone,
+        'licensePlate': licensePlate,
+        'brand': brand,
+        'model': model,
+        'color': color,
+        'numberOfSeats': numberOfSeats.toString(),
+      });
 
-        if (avatarImagePath != null) {
-          request.files.add(
-            await http.MultipartFile.fromPath('avatarImage', avatarImagePath),
-          );
-        }
+      var request = http.MultipartRequest('POST', uri);
+
+      if (avatarImagePath != null) {
         request.files.add(
-          await http.MultipartFile.fromPath('licenseImage', licenseImagePath),
+          await http.MultipartFile.fromPath('avatarImage', avatarImagePath),
         );
-        request.files.add(
-          await http.MultipartFile.fromPath('vehicleImage', vehicleImagePath),
+      }
+      request.files.add(
+        await http.MultipartFile.fromPath('licenseImage', licenseImagePath),
+      );
+      request.files.add(
+        await http.MultipartFile.fromPath('vehicleImage', vehicleImagePath),
+      );
+
+      final response = await request.send();
+      final responseBody = await response.stream.bytesToString();
+
+      if (response.statusCode == 201) {
+        final jsonResponse = jsonDecode(responseBody);
+        return Passenger.fromJson(jsonResponse);
+      } else {
+        return Passenger(
+          success: false,
+          message: 'Registration failed: ${response.statusCode}',
+          data: null,
         );
-        final response = await request.send();
-        final responseBody = await response.stream.bytesToString();
-        if (response.statusCode == 200) {
-          final jsonResponse = jsonDecode(responseBody);
-          return Passenger.fromJson(jsonResponse);
-        } else {
-          return Passenger(
-            success: false,
-            message: 'Registration failed: ${response.statusCode}',
-            data: null,
-          );
-        }
       }
     } catch (e) {
       return Passenger(
