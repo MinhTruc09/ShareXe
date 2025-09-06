@@ -1613,8 +1613,9 @@ class _HomeDscreenState extends State<HomeDscreen> {
                 child: ElevatedButton.icon(
                   onPressed:
                       ride.driverEmail == _userProfile?.email
-                          ? (ride.status.toUpperCase() == 'CANCELLED'
-                              ? null // Disable button if ride is cancelled
+                          ? (ride.status.toUpperCase() == 'CANCELLED' ||
+                                  ride.availableSeats < ride.totalSeat // Có người đặt
+                              ? null // Disable button if ride is cancelled or has bookings
                               : () {
                                 // Nếu đây là chuyến đi của tài xế hiện tại
                                 Navigator.pushNamed(

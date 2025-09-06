@@ -172,17 +172,67 @@ class LocationService {
     }
   }
 
-  /// Search places (simple implementation)
+  /// Search places with better suggestions
   Future<List<String>> searchPlaces(String query) async {
-    // This is a simple implementation - in production you might want to use
-    // a more sophisticated geocoding service
+    if (query.length < 2) return [];
+    
     try {
       final locations = await locationFromAddress(query);
-      return locations
-          .map((location) => '${location.latitude}, ${location.longitude}')
-          .toList();
+      final suggestions = <String>[];
+      
+      for (final location in locations.take(5)) {
+        final address = await getFormattedAddress(
+          location.latitude,
+          location.longitude,
+        );
+        if (!suggestions.contains(address) && address.isNotEmpty) {
+          suggestions.add(address);
+        }
+      }
+      
+      return suggestions;
     } catch (e) {
       print('Error searching places: $e');
+      return [];
+    }
+  }
+
+  /// Search places with detailed information
+  Future<List<Map<String, dynamic>>> searchPlacesDetailed(String query) async {
+    if (query.length < 2) return [];
+    
+    try {
+      final locations = await locationFromAddress(query);
+      final suggestions = <Map<String, dynamic>>[];
+      
+      for (final location in locations.take(5)) {
+        final placemarks = await getAddressFromCoordinates(
+          location.latitude,
+          location.longitude,
+        );
+        
+        if (placemarks.isNotEmpty) {
+          final place = placemarks.first;
+          final address = getFormattedAddress(
+            location.latitude,
+            location.longitude,
+          );
+          
+          suggestions.add({
+            'address': address,
+            'latitude': location.latitude,
+            'longitude': location.longitude,
+            'street': place.street,
+            'locality': place.locality,
+            'administrativeArea': place.administrativeArea,
+            'country': place.country,
+          });
+        }
+      }
+      
+      return suggestions;
+    } catch (e) {
+      print('Error searching places detailed: $e');
       return [];
     }
   }

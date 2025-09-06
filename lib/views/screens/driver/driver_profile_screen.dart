@@ -287,13 +287,15 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildProfileHeader(),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
                       _buildVerificationStatus(),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
                       _buildVehicleInfo(),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
                       _buildMenuOptions(),
+                      const SizedBox(height: 20),
                       if (_isDebugMode) _buildDebugInfo(),
+                      const SizedBox(height: 20), // Thêm padding cuối để tránh overflow
                     ],
                   ),
                 ),
@@ -302,51 +304,137 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
   }
 
   Widget _buildProfileHeader() {
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 4,
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF002D72),
+            Color(0xFF004A9F),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF002D72).withOpacity(0.3),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(24.0),
         child: Column(
           children: [
-            CircleAvatar(
-              radius: 50,
-              backgroundColor: Colors.grey.shade200,
-              backgroundImage:
-                  _userProfile?.avatarUrl != null
-                      ? NetworkImage(_userProfile!.avatarUrl!)
-                      : null,
-              child:
-                  _userProfile?.avatarUrl == null
-                      ? const Icon(Icons.person, size: 50, color: Colors.grey)
-                      : null,
+            // Avatar với border gradient
+            Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  colors: [Colors.white, Colors.grey.shade200],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.all(4),
+              child: CircleAvatar(
+                radius: 50,
+                backgroundColor: Colors.grey.shade200,
+                backgroundImage:
+                    _userProfile?.avatarUrl != null
+                        ? NetworkImage(_userProfile!.avatarUrl!)
+                        : null,
+                child:
+                    _userProfile?.avatarUrl == null
+                        ? const Icon(Icons.person, size: 50, color: Colors.grey)
+                        : null,
+              ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
+            // Tên với hiệu ứng
             Text(
               _userProfile?.fullName ?? 'Tài xế',
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+                letterSpacing: 0.5,
+              ),
             ),
             const SizedBox(height: 8),
-            Text(
-              _userProfile?.email ?? 'Email chưa cung cấp',
-              style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
+            // Email với icon
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.email, size: 16, color: Colors.white70),
+                const SizedBox(width: 8),
+                Text(
+                  _userProfile?.email ?? 'Email chưa cung cấp',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    color: Colors.white70,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              _userProfile?.phoneNumber ?? 'Chưa có số điện thoại',
-              style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
+            const SizedBox(height: 8),
+            // Số điện thoại với icon
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.phone, size: 16, color: Colors.white70),
+                const SizedBox(width: 8),
+                Text(
+                  _userProfile?.phoneNumber ?? 'Chưa có số điện thoại',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    color: Colors.white70,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: _editProfile,
-              icon: const Icon(Icons.edit),
-              label: const Text('Chỉnh sửa hồ sơ'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF002D72),
-                side: const BorderSide(color: Color(0xFF002D72)),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
+            const SizedBox(height: 20),
+            // Nút chỉnh sửa với gradient
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.white, Colors.grey.shade100],
+                ),
+                borderRadius: BorderRadius.circular(25),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: ElevatedButton.icon(
+                onPressed: _editProfile,
+                icon: const Icon(Icons.edit, color: Color(0xFF002D72)),
+                label: const Text(
+                  'Chỉnh sửa hồ sơ',
+                  style: TextStyle(
+                    color: Color(0xFF002D72),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 32,
+                    vertical: 16,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(25),
+                  ),
                 ),
               ),
             ),
@@ -357,53 +445,168 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
   }
 
   Widget _buildVerificationStatus() {
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 4,
+    final status = _userProfile?.status?.toUpperCase();
+    final statusColor = _getVerificationStatusColor(_userProfile?.status);
+    final statusText = _getVerificationStatusText(_userProfile?.status);
+    
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            statusColor.withOpacity(0.1),
+            statusColor.withOpacity(0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: statusColor.withOpacity(0.3),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: statusColor.withOpacity(0.2),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Trạng thái xác minh',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF002D72),
-              ),
-            ),
-            const SizedBox(height: 16),
             Row(
               children: [
-                Icon(
-                  _userProfile?.status?.toUpperCase() == 'APPROVED'
-                      ? Icons.verified_user
-                      : Icons.pending,
-                  color: _getVerificationStatusColor(_userProfile?.status),
-                  size: 24,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  _getVerificationStatusText(_userProfile?.status),
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: _getVerificationStatusColor(_userProfile?.status),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: statusColor.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    status == 'APPROVED'
+                        ? Icons.verified_user
+                        : status == 'PENDING'
+                            ? Icons.hourglass_empty
+                            : Icons.cancel,
+                    color: statusColor,
+                    size: 24,
                   ),
                 ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Trạng thái xác minh',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        statusText,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: statusColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (status == 'APPROVED')
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.green,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Text(
+                      '✓',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
               ],
             ),
-            const SizedBox(height: 8),
-            if (_userProfile?.status?.toUpperCase() == 'PENDING')
-              const Text(
-                'Hồ sơ của bạn đang được xem xét. Bạn sẽ nhận được thông báo khi được phê duyệt.',
-                style: TextStyle(fontSize: 14, color: Colors.grey),
+            const SizedBox(height: 16),
+            if (status == 'PENDING')
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.orange.withOpacity(0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline, color: Colors.orange, size: 20),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Hồ sơ của bạn đang được xem xét. Bạn sẽ nhận được thông báo khi được phê duyệt.',
+                        style: TextStyle(fontSize: 14, color: Colors.orange),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            if (_userProfile?.status?.toUpperCase() == 'REJECTED')
-              const Text(
-                'Hồ sơ của bạn đã bị từ chối. Vui lòng liên hệ hỗ trợ để biết thêm chi tiết.',
-                style: TextStyle(fontSize: 14, color: Colors.grey),
+            if (status == 'REJECTED')
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.red.withOpacity(0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.error_outline, color: Colors.red, size: 20),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Hồ sơ của bạn đã bị từ chối. Vui lòng liên hệ hỗ trợ để biết thêm chi tiết.',
+                        style: TextStyle(fontSize: 14, color: Colors.red),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            if (status == 'APPROVED')
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.green.withOpacity(0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle_outline, color: Colors.green, size: 20),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Tài xế của bạn đã được xác minh và có thể bắt đầu nhận chuyến đi.',
+                        style: TextStyle(fontSize: 14, color: Colors.green),
+                      ),
+                    ),
+                  ],
+                ),
               ),
           ],
         ),
@@ -417,25 +620,68 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
         _userProfile?.vehicleImageUrl != null ||
         _userProfile?.licenseImageUrl != null;
 
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 4,
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          Container(
+            padding: const EdgeInsets.all(20.0),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF002D72),
+                  Color(0xFF004A9F),
+                ],
+              ),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(20),
+                topRight: Radius.circular(20),
+              ),
+            ),
+            child: Row(
               children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.directions_car,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 12),
                 const Text(
                   'Thông tin phương tiện',
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF002D72),
+                    color: Colors.white,
                   ),
                 ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 const SizedBox(height: 16),
                 if (_userProfile?.vehicleImageUrl != null)
                   Container(
@@ -506,61 +752,128 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
                     ],
                   ),
 
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(12),
+                if (hasVehicleInfo) ...[
+                  // Grid layout cho thông tin xe
+                  GridView.count(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 2.2, // Giảm tỷ lệ để tránh overflow
+                    children: [
+                      _buildInfoCard(
+                        icon: Icons.confirmation_number,
+                        label: 'Biển số xe',
+                        value: _userProfile?.licensePlate ?? 'Chưa cập nhật',
+                        color: const Color(0xFF002D72),
+                      ),
+                      _buildInfoCard(
+                        icon: Icons.branding_watermark,
+                        label: 'Hãng xe',
+                        value: _userProfile?.brand ?? 'Chưa cập nhật',
+                        color: const Color(0xFF004A9F),
+                      ),
+                      _buildInfoCard(
+                        icon: Icons.directions_car,
+                        label: 'Mẫu xe',
+                        value: _userProfile?.model ?? 'Chưa cập nhật',
+                        color: const Color(0xFF0066CC),
+                      ),
+                      _buildInfoCard(
+                        icon: Icons.palette,
+                        label: 'Màu xe',
+                        value: _userProfile?.color ?? 'Chưa cập nhật',
+                        color: const Color(0xFF0080FF),
+                      ),
+                      _buildInfoCard(
+                        icon: Icons.people,
+                        label: 'Số chỗ ngồi',
+                        value: '${_userProfile?.numberOfSeats ?? 0} chỗ',
+                        color: const Color(0xFF00A0FF),
+                      ),
+                      _buildInfoCard(
+                        icon: Icons.verified_user,
+                        label: 'Trạng thái',
+                        value: _getVerificationStatusText(_userProfile?.status),
+                        color: _getVerificationStatusColor(_userProfile?.status),
+                      ),
+                    ],
                   ),
-                  child:
-                      hasVehicleInfo
-                          ? Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildInfoRow(
-                                icon: Icons.directions_car,
-                                label: 'Loại xe',
-                                value:
-                                    _userProfile?.role == 'DRIVER'
-                                        ? 'Ô tô'
-                                        : 'Không xác định',
-                              ),
-                              const SizedBox(height: 8),
-                              _buildInfoRow(
-                                icon: Icons.description,
-                                label: 'Mô tả',
-                                value: 'Xe 4-7 chỗ',
-                              ),
-                              const SizedBox(height: 8),
-                              _buildInfoRow(
-                                icon: Icons.verified_user,
-                                label: 'Trạng thái',
-                                value: _getVerificationStatusText(
-                                  _userProfile?.status,
-                                ),
-                              ),
-                              if (_userProfile?.status?.toUpperCase() ==
-                                  'APPROVED') ...[
-                                const SizedBox(height: 16),
-                                const Text(
-                                  'Tài xế của bạn đã được xác minh và có thể bắt đầu nhận chuyến đi.',
-                                  style: TextStyle(
-                                    color: Colors.green,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          )
-                          : const Center(
+                  if (_userProfile?.status?.toUpperCase() == 'APPROVED') ...[
+                    const SizedBox(height: 20),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF4CAF50), Color(0xFF45A049)],
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.green.withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.check_circle, color: Colors.white, size: 24),
+                          const SizedBox(width: 12),
+                          const Expanded(
                             child: Text(
-                              'Bạn chưa cung cấp thông tin phương tiện. Vui lòng cập nhật thông tin để có thể tham gia làm tài xế.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(color: Colors.grey),
+                              'Tài xế của bạn đã được xác minh và có thể bắt đầu nhận chuyến đi.',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
                             ),
                           ),
-                ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ] else
+                  Container(
+                    padding: const EdgeInsets.all(32),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Colors.grey.shade200,
+                        style: BorderStyle.solid,
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.directions_car_outlined,
+                          size: 64,
+                          color: Colors.grey.shade400,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Chưa có thông tin phương tiện',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Vui lòng cập nhật thông tin để có thể tham gia làm tài xế.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.grey.shade500,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),
@@ -591,85 +904,204 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
     );
   }
 
-  Widget _buildMenuOptions() {
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 4,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Cài đặt tài khoản',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF002D72),
-              ),
-            ),
-            const SizedBox(height: 16),
-            _buildMenuItem(
-              icon: Icons.directions_car,
-              title: 'Quản lý phương tiện',
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Chức năng đang phát triển')),
-                );
-              },
-            ),
-            const Divider(),
-            _buildMenuItem(
-              icon: Icons.verified_user,
-              title: 'Tài liệu xác minh',
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Chức năng đang phát triển')),
-                );
-              },
-            ),
-            const Divider(),
-            _buildMenuItem(
-              icon: Icons.lock,
-              title: 'Đổi mật khẩu',
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const ChangePasswordScreen(),
-                  ),
-                );
-              },
-            ),
-            const Divider(),
-            _buildMenuItem(
-              icon: Icons.settings,
-              title: 'Cài đặt',
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Chức năng đang phát triển')),
-                );
-              },
-            ),
-            const Divider(),
-            _buildMenuItem(
-              icon: Icons.help,
-              title: 'Trợ giúp & Hỗ trợ',
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Chức năng đang phát triển')),
-                );
-              },
-            ),
-            const Divider(),
-            _buildMenuItem(
-              icon: Icons.logout,
-              title: 'Đăng xuất',
-              onTap: _logout,
-              color: Colors.red,
-            ),
+  Widget _buildInfoCard({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12), // Giảm padding từ 16 xuống 12
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            color.withOpacity(0.1),
+            color.withOpacity(0.05),
           ],
         ),
+        borderRadius: BorderRadius.circular(12), // Giảm border radius
+        border: Border.all(
+          color: color.withOpacity(0.2),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.1),
+            blurRadius: 6, // Giảm blur radius
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min, // Thêm để tránh overflow
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(4), // Giảm padding
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(6), // Giảm border radius
+                ),
+                child: Icon(
+                  icon,
+                  size: 14, // Giảm kích thước icon
+                  color: color,
+                ),
+              ),
+              const SizedBox(width: 6), // Giảm spacing
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11, // Giảm font size
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6), // Giảm spacing
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 12, // Giảm font size
+              fontWeight: FontWeight.bold,
+              color: Colors.grey.shade800,
+            ),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1, // Giảm maxLines từ 2 xuống 1
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMenuOptions() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(20.0),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF002D72),
+                  Color(0xFF004A9F),
+                ],
+              ),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(20),
+                topRight: Radius.circular(20),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.settings,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Text(
+                  'Cài đặt tài khoản',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              children: [
+                _buildMenuItem(
+                  icon: Icons.directions_car,
+                  title: 'Quản lý phương tiện',
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Chức năng đang phát triển')),
+                    );
+                  },
+                ),
+                _buildMenuItem(
+                  icon: Icons.verified_user,
+                  title: 'Tài liệu xác minh',
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Chức năng đang phát triển')),
+                    );
+                  },
+                ),
+                _buildMenuItem(
+                  icon: Icons.lock,
+                  title: 'Đổi mật khẩu',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ChangePasswordScreen(),
+                      ),
+                    );
+                  },
+                ),
+                _buildMenuItem(
+                  icon: Icons.settings,
+                  title: 'Cài đặt',
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Chức năng đang phát triển')),
+                    );
+                  },
+                ),
+                _buildMenuItem(
+                  icon: Icons.help,
+                  title: 'Trợ giúp & Hỗ trợ',
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Chức năng đang phát triển')),
+                    );
+                  },
+                ),
+                _buildMenuItem(
+                  icon: Icons.logout,
+                  title: 'Đăng xuất',
+                  onTap: _logout,
+                  color: Colors.red,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -680,25 +1112,56 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
     required VoidCallback onTap,
     Color? color,
   }) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12.0),
-        child: Row(
-          children: [
-            Icon(icon, size: 24, color: color ?? const Color(0xFF002D72)),
-            const SizedBox(width: 16),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 16,
-                color: color ?? Colors.black87,
-                fontWeight: FontWeight.w500,
-              ),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.grey.shade200,
+          width: 1,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: (color ?? const Color(0xFF002D72)).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    icon, 
+                    size: 20, 
+                    color: color ?? const Color(0xFF002D72),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: color ?? Colors.black87,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right, 
+                  color: Colors.grey.shade400,
+                  size: 20,
+                ),
+              ],
             ),
-            const Spacer(),
-            Icon(Icons.chevron_right, color: Colors.grey.shade400),
-          ],
+          ),
         ),
       ),
     );
@@ -745,6 +1208,34 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
             ),
             Text(
               'Status: ${_userProfile?.status}',
+              style: const TextStyle(color: Colors.white),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Vehicle Info:',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Text(
+              'License Plate: ${_userProfile?.licensePlate}',
+              style: const TextStyle(color: Colors.white),
+            ),
+            Text(
+              'Brand: ${_userProfile?.brand}',
+              style: const TextStyle(color: Colors.white),
+            ),
+            Text(
+              'Model: ${_userProfile?.model}',
+              style: const TextStyle(color: Colors.white),
+            ),
+            Text(
+              'Color: ${_userProfile?.color}',
+              style: const TextStyle(color: Colors.white),
+            ),
+            Text(
+              'Seats: ${_userProfile?.numberOfSeats}',
               style: const TextStyle(color: Colors.white),
             ),
             const SizedBox(height: 8),

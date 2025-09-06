@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:sharexe/app_route.dart';
 import 'new_home_pscreen.dart';
 import '../chat/user_list_screen.dart';
@@ -53,22 +54,26 @@ class _PassengerMainScreenState extends State<PassengerMainScreen> {
   // Danh sách các màn hình chính
   late final List<Widget> _screens;
 
-  // Các tùy chọn menu
+  // Các tùy chọn menu cho Passenger
   final List<NavBarItem> _navItems = [
     const NavBarItem(
-      icon: Icons.home_outlined,
+      icon: CupertinoIcons.home,
+      activeIcon: CupertinoIcons.house_fill,
       label: 'Trang chủ',
     ),
     const NavBarItem(
-      icon: Icons.history_outlined,
+      icon: CupertinoIcons.clock,
+      activeIcon: CupertinoIcons.clock_fill,
       label: 'Đặt chỗ',
     ),
     const NavBarItem(
-      icon: Icons.chat_bubble_outline,
+      icon: CupertinoIcons.chat_bubble,
+      activeIcon: CupertinoIcons.chat_bubble_fill,
       label: 'Liên hệ',
     ),
     const NavBarItem(
-      icon: Icons.person_outline,
+      icon: CupertinoIcons.person,
+      activeIcon: CupertinoIcons.person_fill,
       label: 'Cá nhân',
     ),
   ];
@@ -99,12 +104,8 @@ class _PassengerMainScreenState extends State<PassengerMainScreen> {
       _currentIndex = index;
     });
 
-    // Sử dụng PageController để có hiệu ứng chuyển tab mượt hơn
-    _pageController.animateToPage(
-      index,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
+    // Sử dụng PageController để chuyển tab ngay lập tức
+    _pageController.jumpToPage(index);
   }
 
   void _onPageChanged(int index) {
@@ -156,22 +157,11 @@ class _PassengerMainScreenState extends State<PassengerMainScreen> {
         ),
         bottomNavigationBar: CustomBottomNavBar(
           currentIndex: _currentIndex,
-          onTap: _onTabTapped,
-          items: _navItems,
-          backgroundColor: Colors.white,
+          onTabTapped: _onTabTapped,
+          navItems: _navItems,
           selectedColor: const Color(0xFF00AEEF),
           unselectedColor: Colors.grey.shade600,
-          fabIcon: Icons.search,
-          onFabPressed: () {
-            // Có thể thêm chức năng tìm kiếm chuyến đi
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Tính năng tìm kiếm đang phát triển'),
-                duration: Duration(seconds: 2),
-              ),
-            );
-          },
-          showFab: true,
+          backgroundColor: Colors.white,
         ),
       ),
     );

@@ -2,16 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../services/ride_service.dart';
 import '../../../services/profile_service.dart';
+import '../../../services/route_service.dart';
 import '../../../models/user_profile.dart';
 import '../../widgets/location_picker.dart';
-import '../../widgets/route_map_picker.dart';
 import '../../widgets/date_picker.dart';
 import '../../widgets/passenger_counter.dart';
 import '../../widgets/sharexe_background2.dart';
 import '../../../utils/app_config.dart';
 import 'package:latlong2/latlong.dart';
-import 'dart:math' as math;
-import 'dart:ui' as ui;
+import 'package:flutter_map/flutter_map.dart';
 
 class CreateRideScreen extends StatefulWidget {
   final Map<String, dynamic>?
@@ -37,6 +36,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
   bool _isEditMode = false;
   bool _isLoading = true;
   bool _isDriverApproved = false;
+  bool _isCalculatingRoute = false;
   String? _driverStatus;
   int? _rideId;
 
@@ -58,6 +58,8 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
 
   // Route polyline data
   List<LatLng> _polylinePoints = [];
+  double _routeDistance = 0.0;
+  int _routeDuration = 0;
 
   // Driver information (removed as not needed for API)
 
@@ -282,56 +284,62 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
     });
   }
 
-  // Hàm tự động tạo polyline giữa điểm đi và điểm đến
-  void _generatePolyline() {
+  // Hàm tự động tạo polyline giữa điểm đi và điểm đến sử dụng RouteService
+  Future<void> _generatePolyline() async {
+    print('_generatePolyline called - departure: $_departureLat, $_departureLng, destination: $_destinationLat, $_destinationLng');
+    
     if (_departureLat != null && _departureLng != null && 
         _destinationLat != null && _destinationLng != null) {
-      // Tạo polyline đơn giản với 2 điểm (có thể mở rộng để sử dụng API routing)
-      _polylinePoints = [
-        LatLng(_departureLat!, _departureLng!),
-        LatLng(_destinationLat!, _destinationLng!),
-      ];
+      
+      print('Starting route calculation...');
+      setState(() {
+        _isCalculatingRoute = true;
+      });
+
+      try {
+        final routeService = RouteService();
+        final routeData = await routeService.calculateRoute(
+          LatLng(_departureLat!, _departureLng!),
+          LatLng(_destinationLat!, _destinationLng!),
+        );
+
+        if (routeData != null) {
+          print('Route calculated successfully: ${routeData.points.length} points, ${routeData.distance}km, ${routeData.duration}min');
+          setState(() {
+            _polylinePoints = routeData.points;
+            _routeDistance = routeData.distance;
+            _routeDuration = routeData.duration.round();
+          });
+        } else {
+          print('Route calculation failed, using fallback');
+          // Fallback: tạo polyline đơn giản nếu không tính được route
+          setState(() {
+            _polylinePoints = [
+              LatLng(_departureLat!, _departureLng!),
+              LatLng(_destinationLat!, _destinationLng!),
+            ];
+          });
+        }
+      } catch (e) {
+        print('Error calculating route: $e');
+        // Fallback: tạo polyline đơn giản
+        setState(() {
+          _polylinePoints = [
+            LatLng(_departureLat!, _departureLng!),
+            LatLng(_destinationLat!, _destinationLng!),
+          ];
+        });
+      } finally {
+        setState(() {
+          _isCalculatingRoute = false;
+        });
+        print('Route calculation completed. Polyline points: ${_polylinePoints.length}');
+      }
+    } else {
+      print('Missing coordinates - cannot generate polyline');
     }
   }
 
-  Future<void> _openRouteMapPicker() async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder:
-            (context) => RouteMapPicker(
-              title: 'Chọn tuyến đường',
-              initialDeparture: _departure?.latLng,
-              initialDestination: _destination?.latLng,
-              onRouteSelected: (
-                departureAddress,
-                departureLatLng,
-                destinationAddress,
-                destinationLatLng,
-                polylinePoints,
-              ) {
-                setState(() {
-                  _departure = LocationData(
-                    address: departureAddress,
-                    latLng: departureLatLng,
-                  );
-                  _destination = LocationData(
-                    address: destinationAddress,
-                    latLng: destinationLatLng,
-                  );
-                  _polylinePoints = polylinePoints;
-
-                  // Update detailed location fields
-                  _departureLat = departureLatLng.latitude;
-                  _departureLng = departureLatLng.longitude;
-                  _destinationLat = destinationLatLng.latitude;
-                  _destinationLng = destinationLatLng.longitude;
-                });
-              },
-            ),
-      ),
-    );
-  }
 
   Future<void> _submitRide() async {
     // Chỉ cho phép chỉnh sửa nếu trạng thái chuyến đi là ACTIVE
@@ -660,7 +668,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
                                   icon: Icons.circle_outlined,
                                   hintText: 'Xuất phát từ',
                                   initialValue: _departure?.address ?? '',
-                                  onLocationSelected: (location) {
+                                  onLocationSelected: (location) async {
                                     setState(() {
                                       _departure = location;
                                       _departureWard = location.ward;
@@ -668,13 +676,13 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
                                       _departureProvince = location.province;
                                       _departureLat = location.latLng?.latitude;
                                       _departureLng = location.latLng?.longitude;
-                                      
-                                      // Tự động tạo polyline nếu có cả điểm đi và điểm đến
-                                      if (_departureLat != null && _departureLng != null && 
-                                          _destinationLat != null && _destinationLng != null) {
-                                        _generatePolyline();
-                                      }
                                     });
+                                    
+                                    // Tự động tạo polyline nếu có cả điểm đi và điểm đến
+                                    if (_departureLat != null && _departureLng != null && 
+                                        _destinationLat != null && _destinationLng != null) {
+                                      await _generatePolyline();
+                                    }
                                   },
                                 ),
                                 // Hiển thị địa chỉ chi tiết điểm đi
@@ -730,7 +738,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
                                   icon: Icons.location_on_outlined,
                                   hintText: 'Điểm đến',
                                   initialValue: _destination?.address ?? '',
-                                  onLocationSelected: (location) {
+                                  onLocationSelected: (location) async {
                                     setState(() {
                                       _destination = location;
                                       _destinationWard = location.ward;
@@ -738,13 +746,13 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
                                       _destinationProvince = location.province;
                                       _destinationLat = location.latLng?.latitude;
                                       _destinationLng = location.latLng?.longitude;
-                                      
-                                      // Tự động tạo polyline nếu có cả điểm đi và điểm đến
-                                      if (_departureLat != null && _departureLng != null && 
-                                          _destinationLat != null && _destinationLng != null) {
-                                        _generatePolyline();
-                                      }
                                     });
+                                    
+                                    // Tự động tạo polyline nếu có cả điểm đi và điểm đến
+                                    if (_departureLat != null && _departureLng != null && 
+                                        _destinationLat != null && _destinationLng != null) {
+                                      await _generatePolyline();
+                                    }
                                   },
                                 ),
                                 // Hiển thị địa chỉ chi tiết điểm đến
@@ -795,27 +803,6 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
                                   ),
                                 ],
                                 const Divider(height: 16),
-                                // Map picker button
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: ElevatedButton.icon(
-                                    onPressed: _openRouteMapPicker,
-                                    icon: const Icon(Icons.map),
-                                    label: const Text(
-                                      'Chọn tuyến đường trên bản đồ (Bắt buộc)',
-                                    ),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF00AEEF),
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 12,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                    ),
-                                  ),
-                                ),
                                 const SizedBox(height: 8),
                                 Container(
                                   padding: const EdgeInsets.all(12),
@@ -841,7 +828,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
                                   ),
                                 ),
                                 // Hiển thị bản đồ với polyline tự động
-                                if (_polylinePoints.isNotEmpty) ...[
+                                if (_departureLat != null && _departureLng != null) ...[
                                   const SizedBox(height: 16),
                                   Container(
                                     height: 200,
@@ -854,30 +841,211 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
                                       child: Stack(
                                         children: [
                                           // Bản đồ với polyline
-                                          if (_departureLat != null && _departureLng != null && 
-                                              _destinationLat != null && _destinationLng != null)
-                                            Container(
-                                              width: double.infinity,
-                                              height: double.infinity,
-                                              child: CustomPaint(
-                                                painter: MapPolylinePainter(
-                                                  departure: LatLng(_departureLat!, _departureLng!),
-                                                  destination: LatLng(_destinationLat!, _destinationLng!),
-                                                  polylinePoints: _polylinePoints,
-                                                ),
-                                                child: Container(
-                                                  decoration: BoxDecoration(
-                                                    gradient: LinearGradient(
-                                                      begin: Alignment.topCenter,
-                                                      end: Alignment.bottomCenter,
-                                                      colors: [
-                                                        Colors.blue.shade50,
-                                                        Colors.green.shade50,
+                                          if (_departureLat != null && _departureLng != null)
+                                            Stack(
+                                              children: [
+                                                FlutterMap(
+                                                  options: MapOptions(
+                                                    initialCenter: _destinationLat != null && _destinationLng != null
+                                                        ? LatLng(
+                                                            (_departureLat! + _destinationLat!) / 2,
+                                                            (_departureLng! + _destinationLng!) / 2,
+                                                          )
+                                                        : LatLng(_departureLat!, _departureLng!),
+                                                    initialZoom: _destinationLat != null && _destinationLng != null ? 12.0 : 13.0,
+                                                    minZoom: 5.0,
+                                                    maxZoom: 18.0,
+                                                  ),
+                                                  children: [
+                                                    TileLayer(
+                                                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                                      userAgentPackageName: 'com.sharexe.app',
+                                                    ),
+                                                    // Polyline layer cho route
+                                                    if (_polylinePoints.isNotEmpty)
+                                                      PolylineLayer(
+                                                        polylines: [
+                                                          Polyline(
+                                                            points: _polylinePoints,
+                                                            strokeWidth: 4.0,
+                                                            color: const Color(0xFF00AEEF),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    // Marker layer
+                                                    MarkerLayer(
+                                                      markers: [
+                                                        // Marker điểm đi
+                                                        Marker(
+                                                          point: LatLng(_departureLat!, _departureLng!),
+                                                          width: 40,
+                                                          height: 40,
+                                                          child: Container(
+                                                            decoration: BoxDecoration(
+                                                              color: const Color(0xFF00AEEF),
+                                                              shape: BoxShape.circle,
+                                                              border: Border.all(color: Colors.white, width: 3),
+                                                              boxShadow: [
+                                                                BoxShadow(
+                                                                  color: Colors.black.withOpacity(0.3),
+                                                                  blurRadius: 4,
+                                                                  offset: const Offset(0, 2),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                            child: const Center(
+                                                              child: Text(
+                                                                'A',
+                                                                style: TextStyle(
+                                                                  color: Colors.white,
+                                                                  fontWeight: FontWeight.bold,
+                                                                  fontSize: 16,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        // Marker điểm đến nếu có
+                                                        if (_destinationLat != null && _destinationLng != null)
+                                                          Marker(
+                                                            point: LatLng(_destinationLat!, _destinationLng!),
+                                                            width: 40,
+                                                            height: 40,
+                                                            child: Container(
+                                                              decoration: BoxDecoration(
+                                                                color: const Color(0xFF4CAF50),
+                                                                shape: BoxShape.circle,
+                                                                border: Border.all(color: Colors.white, width: 3),
+                                                                boxShadow: [
+                                                                  BoxShadow(
+                                                                    color: Colors.black.withOpacity(0.3),
+                                                                    blurRadius: 4,
+                                                                    offset: const Offset(0, 2),
+                                                                  ),
+                                                                ],
+                                                              ),
+                                                              child: const Center(
+                                                                child: Text(
+                                                                  'B',
+                                                                  style: TextStyle(
+                                                                    color: Colors.white,
+                                                                    fontWeight: FontWeight.bold,
+                                                                    fontSize: 16,
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ),
                                                       ],
                                                     ),
-                                                  ),
+                                                  ],
                                                 ),
-                                              ),
+                                                // Placeholder khi chưa có polyline
+                                                if (_polylinePoints.isEmpty && !_isCalculatingRoute)
+                                                  Container(
+                                                    width: double.infinity,
+                                                    height: double.infinity,
+                                                    color: Colors.grey.shade100,
+                                                    child: const Center(
+                                                      child: Column(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          Icon(
+                                                            Icons.map_outlined,
+                                                            size: 48,
+                                                            color: Colors.grey,
+                                                          ),
+                                                          SizedBox(height: 16),
+                                                          Text(
+                                                            'Đang tải bản đồ...',
+                                                            style: TextStyle(
+                                                              color: Colors.grey,
+                                                              fontSize: 16,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                // Loading indicator khi đang tính route
+                                                if (_isCalculatingRoute)
+                                                  Container(
+                                                    width: double.infinity,
+                                                    height: double.infinity,
+                                                    color: Colors.black.withOpacity(0.3),
+                                                    child: const Center(
+                                                      child: Column(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          CircularProgressIndicator(
+                                                            color: Colors.white,
+                                                          ),
+                                                          SizedBox(height: 16),
+                                                          Text(
+                                                            'Đang tính toán đường đi...',
+                                                            style: TextStyle(
+                                                              color: Colors.white,
+                                                              fontSize: 16,
+                                                              fontWeight: FontWeight.w500,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                // Thông tin route
+                                                if (_polylinePoints.isNotEmpty && !_isCalculatingRoute && _routeDistance > 0)
+                                                  Positioned(
+                                                    top: 16,
+                                                    left: 16,
+                                                    right: 16,
+                                                    child: Container(
+                                                      padding: const EdgeInsets.all(12),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.white,
+                                                        borderRadius: BorderRadius.circular(8),
+                                                        boxShadow: [
+                                                          BoxShadow(
+                                                            color: Colors.black.withOpacity(0.1),
+                                                            blurRadius: 4,
+                                                            offset: const Offset(0, 2),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      child: Row(
+                                                        children: [
+                                                          const Icon(
+                                                            Icons.route,
+                                                            color: Color(0xFF00AEEF),
+                                                            size: 20,
+                                                          ),
+                                                          const SizedBox(width: 8),
+                                                          Expanded(
+                                                            child: Column(
+                                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                                              children: [
+                                                                Text(
+                                                                  'Khoảng cách: ${_routeDistance.toStringAsFixed(1)} km',
+                                                                  style: const TextStyle(
+                                                                    fontSize: 14,
+                                                                    fontWeight: FontWeight.w500,
+                                                                  ),
+                                                                ),
+                                                                Text(
+                                                                  'Thời gian: ${_routeDuration} phút',
+                                                                  style: const TextStyle(
+                                                                    fontSize: 12,
+                                                                    color: Colors.grey,
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+                                              ],
                                             ),
                                           // Overlay thông tin
                                           Positioned(
@@ -1071,96 +1239,3 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
   }
 }
 
-// Custom painter để vẽ polyline trên bản đồ
-class MapPolylinePainter extends CustomPainter {
-  final LatLng departure;
-  final LatLng destination;
-  final List<LatLng> polylinePoints;
-
-  MapPolylinePainter({
-    required this.departure,
-    required this.destination,
-    required this.polylinePoints,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.blue
-      ..strokeWidth = 3.0
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final departurePaint = Paint()
-      ..color = Colors.blue
-      ..style = PaintingStyle.fill;
-
-    final destinationPaint = Paint()
-      ..color = Colors.green
-      ..style = PaintingStyle.fill;
-
-    // Tính toán tọa độ trên canvas
-    final departurePoint = _latLngToPoint(departure, size);
-    final destinationPoint = _latLngToPoint(destination, size);
-
-    // Vẽ polyline
-    if (polylinePoints.length >= 2) {
-      final path = ui.Path();
-      final startPoint = _latLngToPoint(polylinePoints.first, size);
-      path.moveTo(startPoint.dx, startPoint.dy);
-
-      for (int i = 1; i < polylinePoints.length; i++) {
-        final point = _latLngToPoint(polylinePoints[i], size);
-        path.lineTo(point.dx, point.dy);
-      }
-
-      canvas.drawPath(path, paint);
-    } else {
-      // Vẽ đường thẳng đơn giản nếu không có polyline
-      final path = ui.Path();
-      path.moveTo(departurePoint.dx, departurePoint.dy);
-      path.lineTo(destinationPoint.dx, destinationPoint.dy);
-      canvas.drawPath(path, paint);
-    }
-
-    // Vẽ điểm đi (màu xanh)
-    canvas.drawCircle(departurePoint, 8, departurePaint);
-    canvas.drawCircle(departurePoint, 5, Paint()..color = Colors.white);
-
-    // Vẽ điểm đến (màu xanh lá)
-    canvas.drawCircle(destinationPoint, 8, destinationPaint);
-    canvas.drawCircle(destinationPoint, 5, Paint()..color = Colors.white);
-  }
-
-  // Chuyển đổi tọa độ LatLng thành Point trên canvas
-  Offset _latLngToPoint(LatLng latLng, Size size) {
-    // Tính toán bounds để fit cả 2 điểm
-    final minLat = math.min(departure.latitude, destination.latitude);
-    final maxLat = math.max(departure.latitude, destination.latitude);
-    final minLng = math.min(departure.longitude, destination.longitude);
-    final maxLng = math.max(departure.longitude, destination.longitude);
-
-    // Thêm padding
-    final latPadding = (maxLat - minLat) * 0.1;
-    final lngPadding = (maxLng - minLng) * 0.1;
-
-    final adjustedMinLat = minLat - latPadding;
-    final adjustedMaxLat = maxLat + latPadding;
-    final adjustedMinLng = minLng - lngPadding;
-    final adjustedMaxLng = maxLng + lngPadding;
-
-    // Chuyển đổi tọa độ
-    final x = ((latLng.longitude - adjustedMinLng) / (adjustedMaxLng - adjustedMinLng)) * size.width;
-    final y = ((adjustedMaxLat - latLng.latitude) / (adjustedMaxLat - adjustedMinLat)) * size.height;
-
-    return Offset(x, y);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    return oldDelegate is MapPolylinePainter &&
-        (oldDelegate.departure != departure ||
-            oldDelegate.destination != destination ||
-            oldDelegate.polylinePoints != polylinePoints);
-  }
-}

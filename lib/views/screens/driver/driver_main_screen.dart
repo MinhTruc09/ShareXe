@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:sharexe/app_route.dart';
 import 'home_dscreen.dart';
 import '../chat/user_list_screen.dart';
@@ -55,12 +56,28 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
     const DriverProfileScreen(),
   ];
 
-  // Các tùy chọn menu
+  // Các tùy chọn menu cho Driver
   final List<NavBarItem> _navItems = [
-    const NavBarItem(icon: Icons.home_outlined, label: 'Trang chủ'),
-    const NavBarItem(icon: Icons.history_outlined, label: 'Chuyến đi'),
-    const NavBarItem(icon: Icons.chat_bubble_outline, label: 'Liên hệ'),
-    const NavBarItem(icon: Icons.person_outline, label: 'Cá nhân'),
+    const NavBarItem(
+      icon: CupertinoIcons.home,
+      activeIcon: CupertinoIcons.house_fill,
+      label: 'Trang chủ',
+    ),
+    const NavBarItem(
+      icon: CupertinoIcons.car,
+      activeIcon: CupertinoIcons.car_fill,
+      label: 'Chuyến đi',
+    ),
+    const NavBarItem(
+      icon: CupertinoIcons.chat_bubble,
+      activeIcon: CupertinoIcons.chat_bubble_fill,
+      label: 'Liên hệ',
+    ),
+    const NavBarItem(
+      icon: CupertinoIcons.person,
+      activeIcon: CupertinoIcons.person_fill,
+      label: 'Cá nhân',
+    ),
   ];
 
   @override
@@ -113,16 +130,15 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
         ),
         bottomNavigationBar: CustomBottomNavBar(
           currentIndex: _currentIndex,
-          onTap: _onTabTapped,
-          items: _navItems,
-          backgroundColor: Colors.white,
+          onTabTapped: _onTabTapped,
+          navItems: _navItems,
+          fabIcon: CupertinoIcons.add,
           selectedColor: const Color(0xFF002D72),
           unselectedColor: Colors.grey.shade600,
-          fabIcon: Icons.add_road,
+          backgroundColor: Colors.white,
           onFabPressed: () {
             NavigationHelper.navigateToCreateRide(context);
           },
-          showFab: true,
         ),
       ),
     );

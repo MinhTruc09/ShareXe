@@ -1348,10 +1348,12 @@ class _MyRidesScreenState extends State<MyRidesScreen>
         // 1. Đang ở tab ACTIVE (isActiveTab = true)
         // 2. Chuyến đi có trạng thái ACTIVE
         // 3. Chuyến đi chưa bắt đầu hoặc sắp bắt đầu
+        // 4. Chuyến đi chưa có người đặt (availableSeats == totalSeat)
         final bool canReallyEdit =
             isActiveTab &&
             ride.status.toUpperCase() == 'ACTIVE' &&
-            !isStartingSoon;
+            !isStartingSoon &&
+            ride.availableSeats == ride.totalSeat; // Chưa có người đặt
 
         final bool canConfirm =
             status == 'IN_PROGRESS'; // Chỉ IN_PROGRESS mới có thể xác nhận
